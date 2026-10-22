@@ -1,0 +1,40 @@
+{
+ "0": {
+  "closed": true
+ },
+ "1": {
+  "open": "09:00",
+  "close": "21:00",
+  "closed": false,
+  "appt": true
+ },
+ "2": {
+  "open": "09:00",
+  "close": "21:00",
+  "closed": false,
+  "appt": true
+ },
+ "3": {
+  "open": "09:00",
+  "close": "21:00",
+  "closed": false,
+  "appt": true
+ },
+ "4": {
+  "open": "09:00",
+  "close": "21:00",
+  "closed": false,
+  "appt": true
+ },
+ "5": {
+  "open": "09:00",
+  "close": "21:00",
+  "closed": false,
+  "appt": true
+ },
+ "6": {
+  "open": "10:00",
+  "close": "15:00",
+  "closed": false
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "cat": "lice",
+ "name": "Lash & Brow Lift",
+ "duration": 90,
+ "price": 6000,
+ "desc": "Savršeni duo: trepavice podignute i uvijene bez maskare, obrve savršeno oblikovane i postojane. Maksimalno naglašen pogled i prirodna lepota koja traje nedeljama.",
+ "active": true,
+ "emps": [
+  "jelena"
+ ]
+}

@@ -1,0 +1,8 @@
+{
+ "cat": "lice",
+ "name": "Higijenski tretman lica",
+ "duration": 90,
+ "price": 5000,
+ "desc": "Osnova nege svakog klijenta: uklanjanje i ceđenje mitisera, uklanjanje bubuljica, čišćenje pora i masaža lica za aktivaciju cirkulacije. U tretmanu koristimo oxigen, jelly maske i LED terapiju. Pre tretmana predlažemo konsultacije.",
+ "active": true
+}

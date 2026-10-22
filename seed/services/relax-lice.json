@@ -1,0 +1,12 @@
+{
+ "cat": "masaze",
+ "name": "Relax masaža lica, vrata i dekoltea — 30 min",
+ "duration": 30,
+ "price": 2000,
+ "desc": "Opuštajuća masaža koja pokreće cirkulaciju i osvežava ten.",
+ "active": true,
+ "emps": [
+  "milica",
+  "maja"
+ ]
+}

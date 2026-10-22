@@ -1,0 +1,11 @@
+{
+ "cat": "telo",
+ "name": "Lipoliza stomaka (dr Ivana)",
+ "duration": 10,
+ "price": 12000,
+ "desc": "Najtraženiji tretman ubrizgavanja lipolitičkih koktela: nežno ali efikasno topi lokalizovane masne naslage. Izvodi dr Ivana, uz preciznu tehniku i individualno prilagođenu dozu.",
+ "active": true,
+ "emps": [
+  "ivana"
+ ]
+}

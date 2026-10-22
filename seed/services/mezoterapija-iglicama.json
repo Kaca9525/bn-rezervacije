@@ -1,0 +1,12 @@
+{
+ "cat": "lice",
+ "name": "Mezoterapija iglicama",
+ "duration": 45,
+ "price": 8500,
+ "desc": "Intenzivan tretman koji u našem salonu izvodi doktor: pažljivo odabrani aktivni sastojci apliciraju se direktno u kožu. Smanjuje tamne podočnjake, dubinski hidrira, popravlja tonus i elastičnost, stimuliše regeneraciju i ublažava fine linije.",
+ "active": true,
+ "note": "Paket od 4 tretmana: 19.000 RSD",
+ "emps": [
+  "ivana"
+ ]
+}

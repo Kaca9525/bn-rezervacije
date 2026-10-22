@@ -1,0 +1,12 @@
+{
+ "cat": "masaze",
+ "name": "Antistres masaža sa vulkanskim kamenjem — 60 min",
+ "duration": 60,
+ "price": 5000,
+ "desc": "Toplina vulkanskog kamenja prodire duboko, oslobađa napetost iz mišića i balansira energiju celog tela — potpuno iskustvo opuštanja.",
+ "active": true,
+ "emps": [
+  "milica",
+  "maja"
+ ]
+}

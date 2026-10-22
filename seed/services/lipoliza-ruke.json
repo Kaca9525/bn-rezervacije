@@ -1,0 +1,11 @@
+{
+ "cat": "telo",
+ "name": "Lipoliza — ruke (dr Ivana)",
+ "duration": 10,
+ "price": 8000,
+ "desc": "Lipolitički kokteli ciljano tope masne naslage na rukama; tretman izvodi dr Ivana.",
+ "active": true,
+ "emps": [
+  "ivana"
+ ]
+}

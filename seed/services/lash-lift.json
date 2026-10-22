@@ -1,0 +1,11 @@
+{
+ "cat": "lice",
+ "name": "Lash Lift",
+ "duration": 60,
+ "price": 3500,
+ "desc": "Podizanje i uvijanje prirodnih trepavica, bez nadogradnje i maskare: otvara pogled i daje efekat dužih i gušćih trepavica. Postojanost 6–8 nedelja.",
+ "active": true,
+ "emps": [
+  "jelena"
+ ]
+}
