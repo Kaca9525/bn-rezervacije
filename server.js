@@ -20,7 +20,9 @@ const REMINDER_HOUR = parseInt(process.env.REMINDER_HOUR || "18", 10); // sat sl
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 
 /* ---------------- baza ---------------- */
+try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 const db = new Database(path.join(DATA_DIR, "salon.db"));
+console.log("Baza: " + path.join(DATA_DIR, "salon.db"));
 db.pragma("journal_mode = WAL");
 db.exec(`
 CREATE TABLE IF NOT EXISTS users(
