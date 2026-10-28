@@ -1,0 +1,13 @@
+{
+ "cat": "akcije",
+ "name": "Premium tretman lica — akcija",
+ "duration": 90,
+ "price": 8500,
+ "oldPrice": 10000,
+ "active": true,
+ "emps": [
+  "andrijana",
+  "jelena"
+ ],
+ "desc": "Najpopularniji tretman po akcijskoj ceni: higijenski tretman lica, voćne kiseline ili mezoporacija (prema tipu kože) i oxigen terapija — za dubinsko čišćenje, hidrataciju i blistav ten."
+}

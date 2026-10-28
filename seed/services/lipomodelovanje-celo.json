@@ -4,5 +4,9 @@
  "duration": 70,
  "price": 21200,
  "desc": "Inovativna metoda koja ciljano smanjuje masne naslage: obnavlja ćelije kože, tonira mišiće, sprečava zadržavanje vode, bori se protiv celulita i smanjuje ga — konfekcijski broj manje za jedan tretman je moguć.",
- "active": true
+ "active": true,
+ "emps": [
+  "andrijana",
+  "milica"
+ ]
 }

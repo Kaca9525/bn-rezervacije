@@ -1,0 +1,14 @@
+{
+ "cat": "akcije",
+ "name": "Hydrafacial 14u1 Premium — akcija",
+ "duration": 120,
+ "price": 130,
+ "oldPrice": 180,
+ "active": true,
+ "emps": [
+  "andrijana",
+  "jelena"
+ ],
+ "desc": "Dubinsko čišćenje i eksfolijacija (hydro & mikrodermoabrazija), uklanjanje nečistoća i viška sebuma (ultrazvučna špatula i Bubble Pen), dermapen sa moćnim serumima za duboku hidrataciju, ultrazvuk lica i očne regije sa serumima po tipu kože, radio talasi i myo lift tretman za potpuni anti age, PDT svetla, Bubble Oxy & Oxigen.",
+ "cur": "EUR"
+}

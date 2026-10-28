@@ -1,0 +1,14 @@
+{
+ "cat": "akcije",
+ "name": "Divine face — paket 5 tretmana",
+ "duration": 50,
+ "price": 15000,
+ "oldPrice": 30000,
+ "active": true,
+ "emps": [
+  "andrijana",
+  "milica",
+  "jelena"
+ ],
+ "desc": "Masaža lica, vrata i dekoltea — paket od 5 dolazaka (pojedinačno 6.000 RSD). Online zakazujete prvi termin, ostale dogovarate u salonu."
+}

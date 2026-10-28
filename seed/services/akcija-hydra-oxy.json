@@ -1,0 +1,14 @@
+{
+ "cat": "akcije",
+ "name": "Hydrafacial Oxy — akcija",
+ "duration": 90,
+ "price": 100,
+ "oldPrice": 130,
+ "active": true,
+ "emps": [
+  "andrijana",
+  "jelena"
+ ],
+ "desc": "Hidratacija kože, eksfolijacija (uklanjanje mrtvih ćelija), pročišćavanje i zaglađivanje kože, dubinsko čišćenje, otpušavanje pora i uklanjanje nečistoća, poliranje i ujednačavanje teksture — za vraćanje prirodnog sjaja kože.",
+ "cur": "EUR"
+}

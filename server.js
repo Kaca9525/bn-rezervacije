@@ -51,11 +51,12 @@ function seedIfEmpty() {
   const tx = db.transaction(() => {
     for (const f of fs.readdirSync(path.join(seedDir, "services"))) {
       const s = read(path.join(seedDir, "services", f));
-      db.prepare(`INSERT OR REPLACE INTO services(id,cat,name,desc,price,duration,active,note,emps)
-        VALUES(?,?,?,?,?,?,?,?,?)`).run(
+      db.prepare(`INSERT OR REPLACE INTO services(id,cat,name,desc,price,duration,active,note,emps,oldPrice,cur)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?)`).run(
         f.replace(/\.json$/, ""), s.cat, s.name, s.desc || "",
         s.price == null ? null : s.price, s.duration == null ? null : s.duration,
-        s.active === false ? 0 : 1, s.note || null, s.emps ? JSON.stringify(s.emps) : null);
+        s.active === false ? 0 : 1, s.note || null, s.emps ? JSON.stringify(s.emps) : null,
+        s.oldPrice == null ? null : s.oldPrice, s.cur || null);
     }
     for (const f of fs.readdirSync(path.join(seedDir, "employees"))) {
       const e = read(path.join(seedDir, "employees", f));
@@ -73,6 +74,14 @@ function seedIfEmpty() {
 try { db.exec("ALTER TABLE users ADD COLUMN consent TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE employees ADD COLUMN active INTEGER DEFAULT 1"); } catch (e) {}
 try { db.exec("ALTER TABLE services ADD COLUMN oldPrice INTEGER"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN resetHash TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN resetExp TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE services ADD COLUMN cur TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE bookings ADD COLUMN totalPriceEur INTEGER DEFAULT 0"); } catch (e) {}
+db.exec(`CREATE TABLE IF NOT EXISTS vouchers(
+  id TEXT PRIMARY KEY, buyerEmail TEXT, buyerName TEXT, buyerTel TEXT,
+  recipient TEXT, serviceId TEXT, serviceName TEXT,
+  amount INTEGER, message TEXT, status TEXT, created TEXT)`);
 seedIfEmpty();
 
 const getSetting = k => { const r = db.prepare("SELECT json FROM settings WHERE key=?").get(k); return r ? JSON.parse(r.json) : null; };
@@ -113,6 +122,7 @@ const parseD = s => { const [a, b, c] = s.split("-").map(Number); return new Dat
 const fmtD = s => { const d = parseD(s); return DOWS[d.getDay()] + ", " + d.getDate() + ". " + MONTHS[d.getMonth()] + " " + d.getFullYear() + "."; };
 const durTxt = m => m >= 60 ? (Math.floor(m / 60) + "h" + (m % 60 ? " " + (m % 60) + "min" : "")) : (m + " min");
 const RSD = n => new Intl.NumberFormat("sr-RS").format(n) + " RSD";
+const money = (r, e) => [e ? new Intl.NumberFormat("sr-RS").format(e) + " €" : null, r ? RSD(r) : null].filter(Boolean).join(" + ") || RSD(0);
 const validDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
 const validTime = s => /^\d{2}:\d{2}$/.test(s);
 
@@ -132,7 +142,7 @@ function verify(token) {
   return Buffer.from(body, "base64url").toString();
 }
 
-const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice });
+const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice, cur: r.cur || undefined });
 const empRow = r => r && ({ id: r.id, name: r.name, cats: JSON.parse(r.cats || "[]"), title: r.title || "", active: r.active === 0 ? false : true });
 const bkRow = r => r && ({ ...r, services: JSON.parse(r.services), reminderSent: !!r.reminderSent });
 const performs = (e, s) => Array.isArray(s.emps) ? s.emps.includes(e.id) : (e.cats || []).includes(s.cat);
@@ -162,9 +172,9 @@ app.use(express.static(path.join(__dirname, "public")));
 function me(req) {
   const email = verify(req.cookies.bn);
   if (!email) return null;
-  const u = db.prepare("SELECT email,ime,prezime,telefon FROM users WHERE email=?").get(email);
+  const u = db.prepare("SELECT email,ime,prezime,telefon,consent FROM users WHERE email=?").get(email);
   if (!u) return null;
-  return { ...u, admin: ADMIN_EMAILS.includes(email), staff: STAFF_EMAILS.includes(email) };
+  return { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: ADMIN_EMAILS.includes(email), staff: STAFF_EMAILS.includes(email), needConsent: !u.consent };
 }
 const auth = (req, res, next) => { const u = me(req); if (!u) return res.status(401).json({ error: "Prijavite se." }); req.user = u; next(); };
 const staff = (req, res, next) => { if (!req.user.admin && !req.user.staff) return res.status(403).json({ error: "Samo osoblje salona." }); next(); };
@@ -214,10 +224,55 @@ app.post("/api/login", (req, res) => {
   if (!u) return res.status(404).json({ error: "Nalog nije pronađen. Proverite unos ili se registrujte." });
   if (scrypt(pw, u.salt) !== u.hash) return res.status(401).json({ error: "Pogrešna lozinka." });
   res.cookie("bn", sign(u.email), { httpOnly: true, sameSite: "lax", maxAge: 180 * 864e5 });
-  res.json({ me: { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: ADMIN_EMAILS.includes(u.email), staff: STAFF_EMAILS.includes(u.email) } });
+  res.json({ me: { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: ADMIN_EMAILS.includes(u.email), staff: STAFF_EMAILS.includes(u.email), needConsent: !u.consent } });
 });
 app.post("/api/logout", (req, res) => { res.clearCookie("bn"); res.json({ ok: true }); });
+
+app.post("/api/forgot", (req, res) => {
+  const email = String((req.body || {}).email || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Unesite ispravnu e-mail adresu." });
+  if (!mailer) return res.status(503).json({ error: "Slanje mejlova još nije podešeno — javite se salonu na " + rezEmail() + " radi nove lozinke." });
+  const u = db.prepare("SELECT * FROM users WHERE email=?").get(email);
+  if (u) {
+    const token = crypto.randomBytes(24).toString("hex");
+    const hash = crypto.createHash("sha256").update(token).digest("hex");
+    const exp = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    db.prepare("UPDATE users SET resetHash=?, resetExp=? WHERE email=?").run(hash, exp, email);
+    const proto = req.get("x-forwarded-proto") || "https";
+    const link = proto + "://" + req.get("host") + "/?reset=" + token;
+    sendMail(email, "Resetovanje lozinke — Beauty & Nutrition",
+`Poštovana/i ${u.ime},
+
+primili smo zahtev za novu lozinku za vaš nalog. Kliknite na link (važi 1 sat):
+
+${link}
+
+Ako niste vi tražili promenu, slobodno ignorišite ovu poruku — lozinka ostaje nepromenjena.
+
+Beauty & Nutrition`);
+  }
+  res.json({ ok: true });
+});
+app.post("/api/reset", (req, res) => {
+  const token = String((req.body || {}).token || "");
+  const pw = String((req.body || {}).pw || "");
+  if (pw.length < 6) return res.status(400).json({ error: "Lozinka mora imati najmanje 6 karaktera." });
+  if (!/^[0-9a-f]{48}$/.test(token)) return res.status(400).json({ error: "Link za resetovanje nije ispravan." });
+  const hash = crypto.createHash("sha256").update(token).digest("hex");
+  const u = db.prepare("SELECT * FROM users WHERE resetHash=?").get(hash);
+  if (!u || !u.resetExp || u.resetExp < new Date().toISOString())
+    return res.status(400).json({ error: "Link za resetovanje je istekao — zatražite novi." });
+  const salt = crypto.randomBytes(12).toString("hex");
+  db.prepare("UPDATE users SET salt=?, hash=?, resetHash=NULL, resetExp=NULL WHERE email=?")
+    .run(salt, scrypt(pw, salt), u.email);
+  res.cookie("bn", sign(u.email), { httpOnly: true, sameSite: "lax", maxAge: 180 * 864e5 });
+  res.json({ me: { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: ADMIN_EMAILS.includes(u.email), staff: STAFF_EMAILS.includes(u.email) } });
+});
 app.get("/api/me", (req, res) => res.json({ me: me(req) }));
+app.post("/api/consent", auth, (req, res) => {
+  db.prepare("UPDATE users SET consent=? WHERE email=?").run(new Date().toISOString(), req.user.email);
+  res.json({ ok: true });
+});
 
 /* ---- rezervacije ---- */
 app.get("/api/my", auth, (req, res) => {
@@ -232,7 +287,8 @@ app.post("/api/bookings", auth, (req, res) => {
   if (services.some(s => !s || !s.active || s.cat === "edu" || !s.duration || s.price == null))
     return res.status(400).json({ error: "Izabrana usluga nije dostupna za online zakazivanje." });
   const dur = services.reduce((a, s) => a + s.duration, 0);
-  const price = services.reduce((a, s) => a + s.price, 0);
+  const priceR = services.reduce((a, s) => a + (s.cur === "EUR" ? 0 : s.price), 0);
+  const priceE = services.reduce((a, s) => a + (s.cur === "EUR" ? s.price : 0), 0);
   const h = dayHours(date);
   const t = toMin(start);
   if (!h || t < h.open || t + dur > h.close)
@@ -259,14 +315,14 @@ app.post("/api/bookings", auth, (req, res) => {
   const b = {
     id: crypto.randomUUID(),
     userEmail: req.user.email, userName: req.user.ime + " " + req.user.prezime, userTel: req.user.telefon || "",
-    services: services.map(s => ({ id: s.id, name: s.name, price: s.price, duration: s.duration, cat: s.cat })),
+    services: services.map(s => ({ id: s.id, name: s.name, price: s.price, duration: s.duration, cat: s.cat, cur: s.cur || null })),
     employee: chosen.id, employeeName: chosen.name,
     date, start: toHM(t), end: toHM(t + dur),
-    totalPrice: price, totalDuration: dur, status: "zakazano", reminderSent: 0,
+    totalPrice: priceR, totalPriceEur: priceE, totalDuration: dur, status: "zakazano", reminderSent: 0,
     created: new Date().toISOString(),
   };
-  db.prepare(`INSERT INTO bookings(id,userEmail,userName,userTel,services,employee,employeeName,date,start,end,totalPrice,totalDuration,status,reminderSent,created)
-    VALUES(@id,@userEmail,@userName,@userTel,@servicesJson,@employee,@employeeName,@date,@start,@end,@totalPrice,@totalDuration,@status,@reminderSent,@created)`)
+  db.prepare(`INSERT INTO bookings(id,userEmail,userName,userTel,services,employee,employeeName,date,start,end,totalPrice,totalPriceEur,totalDuration,status,reminderSent,created)
+    VALUES(@id,@userEmail,@userName,@userTel,@servicesJson,@employee,@employeeName,@date,@start,@end,@totalPrice,@totalPriceEur,@totalDuration,@status,@reminderSent,@created)`)
     .run({ ...b, servicesJson: JSON.stringify(b.services) });
 
   const list = b.services.map(s => "• " + s.name).join("\n");
@@ -278,7 +334,7 @@ vaša rezervacija je primljena:
 📅 ${fmtD(b.date)} u ${b.start}
 ${list}
 👩 Kozmetičarka: ${b.employeeName}
-⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${RSD(b.totalPrice)}
+⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
 📍 Živojina Žujovića 25, Beograd (Zvezdara)
 
 Podsetnik vam stiže dan pre termina. Za izmene nam pišite na ${rezEmail()} ili pozovite +381 64 93 55 003.
@@ -293,7 +349,7 @@ Termin: ${fmtD(b.date)} u ${b.start}–${b.end}
 Kozmetičarka: ${b.employeeName}
 Usluge:
 ${list}
-Ukupno: ${RSD(b.totalPrice)} · ${durTxt(b.totalDuration)}`);
+Ukupno: ${money(b.totalPrice, b.totalPriceEur || 0)} · ${durTxt(b.totalDuration)}`);
 
   res.json({ booking: { ...b, reminderSent: false } });
 });
@@ -371,6 +427,57 @@ app.post("/api/admin/service-del/:id", auth, admin, (req, res) => {
   db.prepare("DELETE FROM services WHERE id=?").run(s.id);
   res.json({ ok: true });
 });
+app.post("/api/vouchers", auth, (req, res) => {
+  const { recipient, serviceId, amount, message } = req.body || {};
+  const rec = String(recipient || "").trim();
+  let amt = Math.round(Number(amount));
+  if (!rec) return res.status(400).json({ error: "Unesite ime osobe kojoj poklanjate vau\u010der." });
+  let sName = null, sId = null;
+  if (serviceId) {
+    const s = svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(String(serviceId)));
+    if (!s || s.active === false || s.cat === "edu" || s.cur === "EUR") return res.status(400).json({ error: "Izabrana usluga nije dostupna." });
+    sName = s.name; sId = s.id;
+    if (!(amt > 0)) amt = s.price;
+  }
+  if (!(amt >= 1000)) return res.status(400).json({ error: "Najmanji iznos vau\u010dera je 1.000 RSD." });
+  if (amt > 500000) return res.status(400).json({ error: "Proverite iznos vau\u010dera." });
+  const v = { id: crypto.randomUUID(), buyerEmail: req.user.email, buyerName: req.user.ime + " " + req.user.prezime,
+    buyerTel: req.user.telefon || "", recipient: rec, serviceId: sId, serviceName: sName,
+    amount: amt, message: String(message || "").trim(), status: "novo", created: new Date().toISOString() };
+  db.prepare(`INSERT INTO vouchers(id,buyerEmail,buyerName,buyerTel,recipient,serviceId,serviceName,amount,message,status,created)
+    VALUES(@id,@buyerEmail,@buyerName,@buyerTel,@recipient,@serviceId,@serviceName,@amount,@message,@status,@created)`).run(v);
+  sendMail(rezEmail(), "Porud\u017ebina poklon vau\u010dera \u2014 " + rec + " (" + RSD(amt) + ")",
+`Nova porud\u017ebina poklon vau\u010dera:
+
+Za: ${rec}
+Iznos: ${RSD(amt)}${sName ? "\nUsluga: " + sName : "\n(iznos po \u017eelji \u2014 primalac bira tretmane)"}
+${v.message ? "Posveta: " + v.message + "\n" : ""}Kupac: ${v.buyerName} (${v.buyerEmail}${v.buyerTel ? ", " + v.buyerTel : ""})
+
+Kontaktirajte kupca radi uplate i preuzimanja.`);
+  sendMail(v.buyerEmail, "Porud\u017ebina vau\u010dera je primljena \u2014 Beauty & Nutrition",
+`Po\u0161tovana/i ${v.buyerName},
+
+primili smo va\u0161u porud\u017ebinu poklon vau\u010dera:
+
+Za: ${rec}
+Iznos: ${RSD(amt)}${sName ? "\nUsluga: " + sName : ""}
+
+Javi\u0107emo vam se u najkra\u0107em roku radi uplate i preuzimanja vau\u010dera.
+Kontakt: ${rezEmail()} \u00b7 +381 64 93 55 003
+
+Beauty & Nutrition`);
+  res.json({ voucher: v });
+});
+app.get("/api/admin/vouchers", auth, staff, (req, res) => {
+  res.json(db.prepare("SELECT * FROM vouchers ORDER BY created DESC").all());
+});
+app.post("/api/admin/vouchers/:id", auth, staff, (req, res) => {
+  const v = db.prepare("SELECT * FROM vouchers WHERE id=?").get(req.params.id);
+  if (!v) return res.status(404).json({ error: "Vau\u010der nije prona\u0111en." });
+  const st = (req.body || {}).status === "obra\u0111en" ? "obra\u0111en" : "novo";
+  db.prepare("UPDATE vouchers SET status=? WHERE id=?").run(st, v.id);
+  res.json({ ok: true, status: st });
+});
 app.get("/api/admin/backup", auth, admin, (req, res) => {
   const data = {
     exportedAt: new Date().toISOString(),
@@ -419,11 +526,11 @@ app.post("/api/admin/manual", auth, staff, (req, res) => {
     id: crypto.randomUUID(), userEmail: mail, userName: nm, userTel: String(tel || "").trim(),
     services: [{ id: sid, name: svcName, price: pr, duration: d, cat }],
     employee: emp.id, employeeName: emp.name, date, start: toHM(t), end: toHM(t + d),
-    totalPrice: pr, totalDuration: d, status: "zakazano", reminderSent: mail ? 0 : 1,
+    totalPrice: pr, totalPriceEur: 0, totalDuration: d, status: "zakazano", reminderSent: mail ? 0 : 1,
     created: new Date().toISOString(),
   };
-  db.prepare(`INSERT INTO bookings(id,userEmail,userName,userTel,services,employee,employeeName,date,start,end,totalPrice,totalDuration,status,reminderSent,created)
-    VALUES(@id,@userEmail,@userName,@userTel,@servicesJson,@employee,@employeeName,@date,@start,@end,@totalPrice,@totalDuration,@status,@reminderSent,@created)`)
+  db.prepare(`INSERT INTO bookings(id,userEmail,userName,userTel,services,employee,employeeName,date,start,end,totalPrice,totalPriceEur,totalDuration,status,reminderSent,created)
+    VALUES(@id,@userEmail,@userName,@userTel,@servicesJson,@employee,@employeeName,@date,@start,@end,@totalPrice,@totalPriceEur,@totalDuration,@status,@reminderSent,@created)`)
     .run({ ...b, servicesJson: JSON.stringify(b.services) });
   if (mail) sendMail(mail, "Potvrda termina — Beauty & Nutrition",
 `Poštovana/i ${nm},
@@ -450,7 +557,7 @@ podsećamo Vas na zakazani termin u salonu Beauty & Nutrition:
 📅 ${fmtD(b.date)} u ${b.start}
 💆 ${b.services.map(s => s.name).join(", ")}
 👩 Kozmetičarka: ${b.employeeName}
-⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${RSD(b.totalPrice)}
+⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
 📍 Živojina Žujovića 25, Beograd (Zvezdara)
 
 Ako ste sprečeni, javite nam na ${rezEmail()} ili +381 64 93 55 003.
