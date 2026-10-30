@@ -1,4 +1,4 @@
-/* Beauty & Nutrition — produkcijski server za online zakazivanje
+/* Beauty & Nutrition - produkcijski server za online zakazivanje
    Node.js + Express + SQLite. Pokretanje: npm install && npm start            */
 "use strict";
 process.env.TZ = process.env.TZ || "Europe/Belgrade";
@@ -85,6 +85,16 @@ db.exec(`CREATE TABLE IF NOT EXISTS vouchers(
   recipient TEXT, serviceId TEXT, serviceName TEXT,
   amount INTEGER, message TEXT, status TEXT, created TEXT)`);
 seedIfEmpty();
+/* jednokratno: tajlandska i kombinovana masaža više nisu u ponudi */
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_bez_tajlandske'").get()) {
+  db.prepare("DELETE FROM services WHERE cat IN ('telo','masaze') AND (lower(name) LIKE '%tajland%' OR lower(name) LIKE '%kombinovan%')").run();
+  db.prepare("INSERT INTO settings(key,json) VALUES('mig_bez_tajlandske','true')").run();
+}
+/* jednokratno: duge crte u nazivima i opisima usluga zamenjene običnom crticom */
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_bez_dugih_crta'").get()) {
+  db.prepare("UPDATE services SET name=replace(replace(name,' \u2014 ',' - '),'\u2014','-'), desc=replace(replace(desc,' \u2014 ',' - '),'\u2014','-')").run();
+  db.prepare("INSERT INTO settings(key,json) VALUES('mig_bez_dugih_crta','true')").run();
+}
 
 const getSetting = k => { const r = db.prepare("SELECT json FROM settings WHERE key=?").get(k); return r ? JSON.parse(r.json) : null; };
 const setSetting = (k, v) => db.prepare("INSERT OR REPLACE INTO settings(key,json) VALUES(?,?)").run(k, JSON.stringify(v));
@@ -102,7 +112,7 @@ if (process.env.SMTP_USER && process.env.SMTP_PASS) {
   });
   console.log("E-mail slanje je UKLJUČENO (" + process.env.SMTP_USER + ").");
 } else {
-  console.log("E-mail slanje je ISKLJUČENO — postavite SMTP_USER i SMTP_PASS (Gmail App Password).");
+  console.log("E-mail slanje je ISKLJUČENO - postavite SMTP_USER i SMTP_PASS (Gmail App Password).");
 }
 function sendMail(to, subject, text) {
   if (!mailer || !to) return Promise.resolve(false);
@@ -209,7 +219,7 @@ app.post("/api/register", async (req, res) => {
   if ((req.body || {}).consent !== true)
     return res.status(400).json({ error: "Potrebno je da potvrdite da ste upoznati sa Politikom Privatnosti." });
   if (db.prepare("SELECT 1 FROM users WHERE email=?").get(email))
-    return res.status(409).json({ error: "Nalog sa ovom e-mail adresom već postoji — prijavite se." });
+    return res.status(409).json({ error: "Nalog sa ovom e-mail adresom već postoji - prijavite se." });
   const salt = crypto.randomBytes(12).toString("hex");
   db.prepare("INSERT INTO users(email,ime,prezime,telefon,salt,hash,created,consent) VALUES(?,?,?,?,?,?,?,?)")
     .run(email, ime, prezime, telefon, salt, scrypt(String(pw), salt), new Date().toISOString(), new Date().toISOString());
@@ -233,7 +243,7 @@ app.post("/api/logout", (req, res) => { res.clearCookie("bn"); res.json({ ok: tr
 app.post("/api/forgot", (req, res) => {
   const email = String((req.body || {}).email || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Unesite ispravnu e-mail adresu." });
-  if (!mailer) return res.status(503).json({ error: "Slanje mejlova još nije podešeno — javite se salonu na " + rezEmail() + " radi nove lozinke." });
+  if (!mailer) return res.status(503).json({ error: "Slanje mejlova još nije podešeno - javite se salonu na " + rezEmail() + " radi nove lozinke." });
   const u = db.prepare("SELECT * FROM users WHERE email=?").get(email);
   if (u) {
     const token = crypto.randomBytes(24).toString("hex");
@@ -242,14 +252,14 @@ app.post("/api/forgot", (req, res) => {
     db.prepare("UPDATE users SET resetHash=?, resetExp=? WHERE email=?").run(hash, exp, email);
     const proto = req.get("x-forwarded-proto") || "https";
     const link = proto + "://" + req.get("host") + "/?reset=" + token;
-    sendMail(email, "Resetovanje lozinke — Beauty & Nutrition",
+    sendMail(email, "Resetovanje lozinke - Beauty & Nutrition",
 `Poštovana/i ${u.ime},
 
 primili smo zahtev za novu lozinku za vaš nalog. Kliknite na link (važi 1 sat):
 
 ${link}
 
-Ako niste vi tražili promenu, slobodno ignorišite ovu poruku — lozinka ostaje nepromenjena.
+Ako niste vi tražili promenu, slobodno ignorišite ovu poruku - lozinka ostaje nepromenjena.
 
 Beauty & Nutrition`);
   }
@@ -263,7 +273,7 @@ app.post("/api/reset", (req, res) => {
   const hash = crypto.createHash("sha256").update(token).digest("hex");
   const u = db.prepare("SELECT * FROM users WHERE resetHash=?").get(hash);
   if (!u || !u.resetExp || u.resetExp < new Date().toISOString())
-    return res.status(400).json({ error: "Link za resetovanje je istekao — zatražite novi." });
+    return res.status(400).json({ error: "Link za resetovanje je istekao - zatražite novi." });
   const salt = crypto.randomBytes(12).toString("hex");
   db.prepare("UPDATE users SET salt=?, hash=?, resetHash=NULL, resetExp=NULL WHERE email=?")
     .run(salt, scrypt(pw, salt), u.email);
@@ -312,7 +322,7 @@ app.post("/api/bookings", auth, (req, res) => {
   } else {
     chosen = emps.find(e => freeAt(busyFor(date, e.id), t, dur)) || null;
   }
-  if (!chosen) return res.status(409).json({ error: "Ovaj termin je upravo zauzet — izaberite drugi." });
+  if (!chosen) return res.status(409).json({ error: "Ovaj termin je upravo zauzet - izaberite drugi." });
 
   const b = {
     id: crypto.randomUUID(),
@@ -328,7 +338,7 @@ app.post("/api/bookings", auth, (req, res) => {
     .run({ ...b, servicesJson: JSON.stringify(b.services) });
 
   const list = b.services.map(s => "• " + s.name).join("\n");
-  sendMail(b.userEmail, "Potvrda rezervacije — Beauty & Nutrition",
+  sendMail(b.userEmail, "Potvrda rezervacije - Beauty & Nutrition",
 `Poštovana/i ${b.userName},
 
 vaša rezervacija je primljena:
@@ -343,7 +353,7 @@ Podsetnik vam stiže dan pre termina. Za izmene nam pišite na ${rezEmail()} ili
 
 Srdačno,
 Beauty & Nutrition`);
-  sendMail(rezEmail(), `Nova rezervacija: ${b.date} u ${b.start} — ${b.userName}`,
+  sendMail(rezEmail(), `Nova rezervacija: ${b.date} u ${b.start} - ${b.userName}`,
 `Nova rezervacija u aplikaciji:
 
 Klijent: ${b.userName} (${b.userEmail}${b.userTel ? ", " + b.userTel : ""})
@@ -363,11 +373,11 @@ app.post("/api/bookings/:id/cancel", auth, (req, res) => {
   if (b.userEmail !== req.user.email && !isStaffUser) return res.status(403).json({ error: "Nije dozvoljeno." });
   db.prepare("UPDATE bookings SET status='otkazano' WHERE id=?").run(b.id);
   if (b.status === "zakazano") {
-    sendMail(rezEmail(), `Otkazana rezervacija: ${b.date} u ${b.start} — ${b.userName}`,
+    sendMail(rezEmail(), `Otkazana rezervacija: ${b.date} u ${b.start} - ${b.userName}`,
       `Rezervacija je otkazana (${isStaffUser && b.userEmail !== req.user.email ? "od strane salona" : "od strane klijenta"}):\n\n` +
       `${b.userName} · ${fmtD(b.date)} u ${b.start} · ${b.services.map(s => s.name).join(", ")}`);
     if (isStaffUser && b.userEmail !== req.user.email)
-      sendMail(b.userEmail, "Otkazan termin — Beauty & Nutrition",
+      sendMail(b.userEmail, "Otkazan termin - Beauty & Nutrition",
         `Poštovana/i ${b.userName},\n\nnažalost, termin ${fmtD(b.date)} u ${b.start} je otkazan. Molimo vas da zakažete novi termin u aplikaciji ili nas pozovete na +381 64 93 55 003.\n\nBeauty & Nutrition`);
   }
   res.json({ ok: true });
@@ -407,25 +417,33 @@ app.post("/api/admin/employee/:id", auth, admin, (req, res) => {
   db.prepare("UPDATE employees SET active=? WHERE id=?").run(req.body && req.body.active ? 1 : 0, e.id);
   res.json({ employee: empRow(db.prepare("SELECT * FROM employees WHERE id=?").get(e.id)) });
 });
+const SVC_CATS = ["lice", "telo", "masaze", "akcije", "edu"];
 app.post("/api/admin/service-new", auth, admin, (req, res) => {
   const { name, desc, price, oldPrice, duration, emps } = req.body || {};
+  const cat = SVC_CATS.includes((req.body || {}).cat) ? req.body.cat : "akcije";
   const nm = String(name || "").trim();
-  const pr = Math.round(Number(price)); const d = Math.round(Number(duration));
-  if (!nm || !(pr >= 0) || !(d > 0)) return res.status(400).json({ error: "Unesite naziv, cenu i trajanje." });
+  if (!nm) return res.status(400).json({ error: "Unesite naziv usluge." });
   const ids = (Array.isArray(emps) ? emps : []).map(String)
     .filter(id => db.prepare("SELECT 1 FROM employees WHERE id=?").get(id));
-  if (!ids.length) return res.status(400).json({ error: "Označite bar jednu zaposlenu." });
+  const id = cat + "-" + Date.now();
+  if (cat === "edu") {
+    db.prepare(`INSERT INTO services(id,cat,name,desc,price,duration,active,note,emps,oldPrice)
+      VALUES(?,?,?,?,NULL,NULL,1,?,NULL,NULL)`)
+      .run(id, cat, nm, String(desc || "").trim(), "Cena i termini: na upit");
+    return res.json({ service: svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(id)) });
+  }
+  const pr = Math.round(Number(price)); const d = Math.round(Number(duration));
+  if (!(pr >= 0) || !(d > 0)) return res.status(400).json({ error: "Unesite naziv, cenu i trajanje." });
+  if (cat === "akcije" && !ids.length) return res.status(400).json({ error: "Označite bar jednu zaposlenu." });
   let op = Math.round(Number(oldPrice) || 0); if (!(op > pr)) op = null;
-  const id = "akcija-" + Date.now();
   db.prepare(`INSERT INTO services(id,cat,name,desc,price,duration,active,note,emps,oldPrice)
     VALUES(?,?,?,?,?,?,1,NULL,?,?)`)
-    .run(id, "akcije", nm, String(desc || "").trim(), pr, d, JSON.stringify(ids), op);
+    .run(id, cat, nm, String(desc || "").trim(), pr, d, ids.length ? JSON.stringify(ids) : null, op);
   res.json({ service: svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(id)) });
 });
 app.post("/api/admin/service-del/:id", auth, admin, (req, res) => {
   const s = db.prepare("SELECT * FROM services WHERE id=?").get(req.params.id);
-  if (!s) return res.status(404).json({ error: "Akcija nije pronađena." });
-  if (s.cat !== "akcije") return res.status(400).json({ error: "Brisati se mogu samo akcije; usluge iz cenovnika se isključuju u kartici Usluge." });
+  if (!s) return res.status(404).json({ error: "Usluga nije pronađena." });
   db.prepare("DELETE FROM services WHERE id=?").run(s.id);
   res.json({ ok: true });
 });
@@ -448,15 +466,15 @@ app.post("/api/vouchers", auth, (req, res) => {
     amount: amt, message: String(message || "").trim(), status: "novo", created: new Date().toISOString() };
   db.prepare(`INSERT INTO vouchers(id,buyerEmail,buyerName,buyerTel,recipient,serviceId,serviceName,amount,message,status,created)
     VALUES(@id,@buyerEmail,@buyerName,@buyerTel,@recipient,@serviceId,@serviceName,@amount,@message,@status,@created)`).run(v);
-  sendMail(rezEmail(), "Porud\u017ebina poklon vau\u010dera \u2014 " + rec + " (" + RSD(amt) + ")",
+  sendMail(rezEmail(), "Porud\u017ebina poklon vau\u010dera - " + rec + " (" + RSD(amt) + ")",
 `Nova porud\u017ebina poklon vau\u010dera:
 
 Za: ${rec}
-Iznos: ${RSD(amt)}${sName ? "\nUsluga: " + sName : "\n(iznos po \u017eelji \u2014 primalac bira tretmane)"}
+Iznos: ${RSD(amt)}${sName ? "\nUsluga: " + sName : "\n(iznos po \u017eelji - primalac bira tretmane)"}
 ${v.message ? "Posveta: " + v.message + "\n" : ""}Kupac: ${v.buyerName} (${v.buyerEmail}${v.buyerTel ? ", " + v.buyerTel : ""})
 
 Kontaktirajte kupca radi uplate i preuzimanja.`);
-  sendMail(v.buyerEmail, "Porud\u017ebina vau\u010dera je primljena \u2014 Beauty & Nutrition",
+  sendMail(v.buyerEmail, "Porud\u017ebina vau\u010dera je primljena - Beauty & Nutrition",
 `Po\u0161tovana/i ${v.buyerName},
 
 primili smo va\u0161u porud\u017ebinu poklon vau\u010dera:
@@ -497,7 +515,7 @@ app.post("/api/admin/remind/:id", auth, staff, async (req, res) => {
   const b = bkRow(db.prepare("SELECT * FROM bookings WHERE id=?").get(req.params.id));
   if (!b) return res.status(404).json({ error: "Rezervacija nije pronađena." });
   let sent = false;
-  if (req.body && req.body.send) sent = await sendMail(b.userEmail, "Podsetnik za sutrašnji termin — Beauty & Nutrition", reminderText(b));
+  if (req.body && req.body.send) sent = await sendMail(b.userEmail, "Podsetnik za sutrašnji termin - Beauty & Nutrition", reminderText(b));
   db.prepare("UPDATE bookings SET reminderSent=1 WHERE id=?").run(b.id);
   res.json({ ok: true, sent });
 });
@@ -522,7 +540,7 @@ app.post("/api/admin/manual", auth, staff, (req, res) => {
     if (s) { svcName = s.name; cat = s.cat; sid = s.id; }
   }
   if (!svcName) svcName = "Tretman (ručni unos)";
-  if (String(note || "").trim()) svcName += " — " + String(note).trim();
+  if (String(note || "").trim()) svcName += " - " + String(note).trim();
   const mail = String(email || "").trim().toLowerCase();
   const b = {
     id: crypto.randomUUID(), userEmail: mail, userName: nm, userTel: String(tel || "").trim(),
@@ -534,7 +552,7 @@ app.post("/api/admin/manual", auth, staff, (req, res) => {
   db.prepare(`INSERT INTO bookings(id,userEmail,userName,userTel,services,employee,employeeName,date,start,end,totalPrice,totalPriceEur,totalDuration,status,reminderSent,created)
     VALUES(@id,@userEmail,@userName,@userTel,@servicesJson,@employee,@employeeName,@date,@start,@end,@totalPrice,@totalPriceEur,@totalDuration,@status,@reminderSent,@created)`)
     .run({ ...b, servicesJson: JSON.stringify(b.services) });
-  if (mail) sendMail(mail, "Potvrda termina — Beauty & Nutrition",
+  if (mail) sendMail(mail, "Potvrda termina - Beauty & Nutrition",
 `Poštovana/i ${nm},
 
 vaš termin u salonu Beauty & Nutrition je zakazan:
@@ -578,7 +596,7 @@ async function runReminders() {
   if (!list.length) return;
   console.log(`Podsetnici za ${tmr}: ${list.length} rezervacija.`);
   for (const b of list) {
-    const ok = await sendMail(b.userEmail, "Podsetnik za sutrašnji termin — Beauty & Nutrition", reminderText(b));
+    const ok = await sendMail(b.userEmail, "Podsetnik za sutrašnji termin - Beauty & Nutrition", reminderText(b));
     if (ok || !mailer) db.prepare("UPDATE bookings SET reminderSent=1 WHERE id=?").run(b.id);
   }
 }
@@ -586,4 +604,4 @@ setInterval(() => runReminders().catch(e => console.error(e)), 10 * 60 * 1000);
 runReminders().catch(e => console.error(e));
 
 app.get("/zdravlje", (req, res) => res.json({ ok: true }));
-app.listen(PORT, () => console.log("Beauty & Nutrition rezervacije — http://localhost:" + PORT));
+app.listen(PORT, () => console.log("Beauty & Nutrition rezervacije - http://localhost:" + PORT));
