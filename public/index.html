@@ -34,7 +34,7 @@
 }
 *{box-sizing:border-box}
 html,body{height:auto}
-body{margin:0;color:var(--ink);font-family:var(--ff-body);font-size:15px;line-height:1.6;
+body{margin:0;color:var(--ink);font-family:var(--ff-body);font-size:15px;line-height:1.6;font-variant-numeric:lining-nums;
   background:var(--bg);
   background-image:radial-gradient(900px 420px at 50% -120px,var(--bg-glow),transparent 70%);
   background-repeat:no-repeat}
@@ -78,7 +78,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .hero-h{margin-top:14px;font-size:clamp(34px,5.6vw,54px)}
 .hero-hours{margin-top:6px;padding:10px 14px;border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:10px;background:var(--surface);display:inline-block}
 .hero-hours-t{display:block;font-size:12px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:var(--ink);margin-bottom:3px}
-.hero-meta{font-size:12.5px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;font-weight:700}
+.hero-meta{font-size:14.5px;color:var(--ink);font-weight:600;line-height:1.75}
 .hero-orn{display:block;width:120px;height:20px;color:var(--gold);margin-top:22px;opacity:.8}
 .rule{display:flex;align-items:center;gap:16px;margin:34px 0 16px}
 .rule h2{font-family:var(--ff-disp);font-weight:600;font-size:26px;margin:0;white-space:nowrap}
@@ -242,7 +242,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .copybtn{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-strong)}
 .statline{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 20px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 22px;box-shadow:var(--shadow)}
-.stat b{font-size:26px;font-family:var(--ff-disp);font-weight:600;display:block;font-variant-numeric:tabular-nums;color:var(--gold-strong)}
+.stat b{font-size:26px;font-family:var(--ff-disp);font-weight:600;display:block;font-variant-numeric:tabular-nums lining-nums;color:var(--gold-strong)}
 .stat span{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 
 /* ---------- modal & toast ---------- */
@@ -275,6 +275,17 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .pw-eye .e2{display:none}
 .pw-eye.on .e1{display:none}
 .pw-eye.on .e2{display:block}
+/* ---------- kolačići ---------- */
+.cookie{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:45;
+  width:min(380px,calc(100vw - 32px));background:var(--band);color:var(--band-ink);border:1px solid rgba(227,199,132,.4);border-radius:16px;
+  padding:14px 16px;box-shadow:var(--shadow-lg);display:flex;gap:12px;align-items:flex-start;font-size:13px;line-height:1.5;transition:bottom .2s ease}
+.cookie.lift{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+.cookie>svg{flex:none;width:28px;height:28px;color:var(--band-gold);margin-top:1px}
+.cookie p{margin:0 0 10px;color:var(--band-mut)}
+.cookie p b{color:var(--band-ink)}
+.cookie .more{color:var(--band-gold);text-decoration:underline;font-weight:700;padding:0;font-size:inherit;text-transform:none;letter-spacing:0}
+.cookie .ok{padding:8px 18px;border-radius:999px;background:linear-gradient(135deg,var(--gold2),var(--gold));color:var(--on-gold);font-weight:800;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+@media (max-width:760px){.cookie.lift{bottom:calc(128px + env(safe-area-inset-bottom,0px))}}
 /* ---------- kalendar ---------- */
 .cal-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
 .cal-months{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
@@ -335,6 +346,13 @@ input,select,textarea{font:inherit;color:var(--ink)}
   </div>
 </div>
 
+<div id="cookie" class="cookie hidden" role="region" aria-label="Obaveštenje o kolačićima">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01M16 15.5v.01M12 12v.01M11 17v.01M7 14v.01"/></svg>
+  <div>
+    <p><b>Kolačići.</b> Koristimo samo neophodne kolačiće, za prijavu i rad rezervacija. Bez praćenja i reklama. <button class="more" id="cookie-policy">Politika privatnosti</button></p>
+    <button class="ok" id="cookie-ok">U redu</button>
+  </div>
+</div>
 <div id="modal-root"></div>
 <div id="toast-root"></div>
 <script>
@@ -394,12 +412,23 @@ const tabCats=t=>t==="telo"?["telo","masaze"]:[t];
     if(S.me)loadMy();
   }catch(e){S.loadErr=true}
   render();
+  initCookie();
   if(S.me&&S.me.needConsent)consentGate(async()=>{try{await apiPost("/api/consent");S.me.needConsent=false}catch(e){}},()=>logout());
   try{
     const rt=new URLSearchParams(location.search).get("reset");
     if(rt){history.replaceState(null,"",location.pathname);resetModal(rt)}
   }catch(e){}
 })();
+/* ================= kolačići ================= */
+const COOKIE_KEY="bn_cookies_ok";
+function initCookie(){
+  const el=$("#cookie");if(!el)return;
+  let ok=false;try{ok=localStorage.getItem(COOKIE_KEY)==="1"}catch(e){}
+  if(ok)return;
+  el.classList.remove("hidden");
+  $("#cookie-ok").onclick=()=>{try{localStorage.setItem(COOKIE_KEY,"1")}catch(e){}el.classList.add("hidden")};
+  $("#cookie-policy").onclick=policyModal;
+}
 async function refreshPublic(){try{const p=await apiGet("/api/public");Object.assign(S,{services:p.services,employees:p.employees,hours:p.hours,salon:p.salon})}catch(e){}}
 async function loadMy(){try{S.myBookings=await apiGet("/api/my")}catch(e){S.myBookings=[]}render()}
 async function loadAdm(){try{S.admBookings=await apiGet("/api/admin/bookings")}catch(e){S.admBookings=[]}if(S.view==="admin")render()}
@@ -445,12 +474,13 @@ function svcEmps(s){return S.employees.filter(e=>e.active!==false&&performs(e,s)
 function eligibleEmployees(){return S.cart.length?S.employees.filter(e=>e.active!==false&&S.cart.every(s=>performs(e,s))):[]}
 function hoursSummary(){
   if(!S.hours)return[];
-  const key=k=>{const h=S.hours[k];return !h||h.closed?"x":h.appt?"na zakazivanje":(h.open+"–"+h.close)};
+  const hm=t=>String(t).replace(/:00$/,"");
+  const key=k=>{const h=S.hours[k];return !h||h.closed?"x":h.appt?"na zakazivanje":(hm(h.open)+"-"+hm(h.close))};
   const order=["1","2","3","4","5","6","0"];const parts=[];let i=0;
   while(i<order.length){
     let j=i;while(j+1<order.length&&key(order[j+1])===key(order[i]))j++;
-    const lab=(i===j?DOWS_S[+order[i]]:DOWS_S[+order[i]]+"–"+DOWS_S[+order[j]]).toLowerCase();
-    const v=key(order[i]);parts.push(lab+" "+(v==="x"?"neradno":v));i=j+1;
+    const lab=(i===j?DOWS_S[+order[i]]:DOWS_S[+order[i]]+"-"+DOWS_S[+order[j]]).toLowerCase();
+    const v=key(order[i]);parts.push(lab+": "+(v==="x"?"neradno":v));i=j+1;
   }
   return parts;
 }
@@ -505,9 +535,9 @@ function calMonthHTML(off,sel,attr){
   }
   return `<div class="mcal">
     <div class="mcal-head">
-      <button class="mcal-nav" data-${attr}-off="${off-1}" ${off<=0?"disabled":""} aria-label="Prethodni mesec">‹</button>
+      <button class="mcal-nav" data-${attr}-off="${off-1}" ${off<=0?"disabled":""} aria-label="Prethodni mesec"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       <b>${MONTHS_L[m0.getMonth()]} ${m0.getFullYear()}.</b>
-      <button class="mcal-nav" data-${attr}-off="${off+1}" ${off>=CAL_SPAN?"disabled":""} aria-label="Sledeći mesec">›</button>
+      <button class="mcal-nav" data-${attr}-off="${off+1}" ${off>=CAL_SPAN?"disabled":""} aria-label="Sledeći mesec"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
     <div class="mcal-grid">${["PON","UTO","SRE","ČET","PET","SUB","NED"].map(x=>`<span class="mcal-dow">${x}</span>`).join("")}${cells.join("")}</div>
     <div class="mcal-foot">Radno vreme: ${hoursSummary().map(esc).join(" · ")}</div>
@@ -548,7 +578,7 @@ function calModal(svcId){
       if(noEmp){area.innerHTML=`<p class="note" style="color:var(--danger)">Nijedna zaposlena ne izvodi sve izabrane tretmane u jednoj poseti.</p>`;return}
       if(!h){area.innerHTML=`<p class="note">Salon ne radi izabranog dana.</p>`;return}
       if(!slots.some(x=>x.free)){area.innerHTML=`<p class="note">Nema slobodnih termina tog dana - izaberite drugi dan.</p>`;return}
-      area.innerHTML=`<p class="note" style="margin:0 0 8px">${esc(fmtD(want))} · radno vreme ${toHM(h.open)}–${toHM(h.close)}</p>
+      area.innerHTML=`<p class="note" style="margin:0 0 8px">${esc(fmtD(want))} · radno vreme ${toHM(h.open)}-${toHM(h.close)}</p>
         <div class="slots">${slots.map(x=>`<button class="slot ${st.slot===x.t?"on":""}" data-cmslot="${x.t}" ${x.free?"":"disabled"}>${toHM(x.t)}</button>`).join("")}</div>`;
       area.querySelectorAll("[data-cmslot]").forEach(b=>b.onclick=()=>{st.slot=+b.dataset.cmslot;draw()});
     }).catch(()=>{if(area.isConnected)area.innerHTML=`<p class="note">Termine trenutno nije moguće učitati. Pokušajte ponovo.</p>`});
@@ -617,6 +647,7 @@ function renderCartbar(){
   const bar=$("#cartbar");
   const show=S.cart.length>0&&(S.view==="catalog"||S.view==="my");
   bar.classList.toggle("hidden",!show);
+  const ck=$("#cookie");if(ck)ck.classList.toggle("lift",show);
   if(!show)return;
   const t=cartTotals(),dur=t.dur;
   $("#cb-count").textContent=S.cart.length+(S.cart.length===1?" usluga":S.cart.length<5?" usluge":" usluga");
@@ -879,7 +910,7 @@ async function renderSlots(){
     const {slots,h}=await computeSlots(S.bDate);
     if(!h){area.innerHTML=`<p class="note">Salon ne radi izabranog dana.</p>`;return}
     if(!slots.length){area.innerHTML=`<p class="note">Nema termina u koje staju svi izabrani tretmani tog dana.</p>`;return}
-    area.innerHTML=`<p class="note" style="margin:0 0 10px">Radno vreme: ${toHM(h.open)}–${toHM(h.close)}</p>
+    area.innerHTML=`<p class="note" style="margin:0 0 10px">Radno vreme: ${toHM(h.open)}-${toHM(h.close)}</p>
       <div class="slots">${slots.map(s=>`<button class="slot ${S.bSlot===s.t?"on":""}" data-slot="${s.t}" ${s.free?"":"disabled"}>${toHM(s.t)}</button>`).join("")}</div>`;
     area.querySelectorAll("[data-slot]").forEach(b=>b.onclick=()=>{S.bSlot=+b.dataset.slot;
       area.querySelectorAll(".slot").forEach(x=>x.classList.toggle("on",x===b));
@@ -907,7 +938,7 @@ function bkCard(b,adminView){
   const d=parseD(b.date);const past=b.date<dstr(new Date());
   const cancellable=b.status==="zakazano"&&!past;
   return `<div class="card bk">
-    <div class="when"><div class="d">${d.getDate()}.</div><div class="m">${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}</div><div class="t">${esc(b.start)}–${esc(b.end)}</div></div>
+    <div class="when"><div class="d">${d.getDate()}.</div><div class="m">${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}</div><div class="t">${esc(b.start)}-${esc(b.end)}</div></div>
     <div class="mid">
       <div class="who">${adminView?esc(b.userName):esc(b.employeeName)}</div>
       ${adminView?`<div class="note">${esc(b.userEmail)}${b.userTel?" · "+esc(b.userTel):""} · kod: ${esc(b.employeeName)}</div>`:""}

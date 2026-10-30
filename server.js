@@ -95,6 +95,10 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_bez_dugih_crta'").get()) 
   db.prepare("UPDATE services SET name=replace(replace(name,' \u2014 ',' - '),'\u2014','-'), desc=replace(replace(desc,' \u2014 ',' - '),'\u2014','-')").run();
   db.prepare("INSERT INTO settings(key,json) VALUES('mig_bez_dugih_crta','true')").run();
 }
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_crte_zaposlene'").get()) {
+  db.prepare("UPDATE employees SET title=replace(replace(title,' \u2014 ',' - '),'\u2014','-')").run();
+  db.prepare("INSERT INTO settings(key,json) VALUES('mig_crte_zaposlene','true')").run();
+}
 
 const getSetting = k => { const r = db.prepare("SELECT json FROM settings WHERE key=?").get(k); return r ? JSON.parse(r.json) : null; };
 const setSetting = (k, v) => db.prepare("INSERT OR REPLACE INTO settings(key,json) VALUES(?,?)").run(k, JSON.stringify(v));
