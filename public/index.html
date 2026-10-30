@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Beauty & Nutrition — online zakazivanje tretmana lica i tela. Živojina Žujovića 25, Beograd.">
-<title>Beauty & Nutrition — Rezervacije</title>
+<meta name="description" content="Beauty & Nutrition - online zakazivanje tretmana lica i tela. Živojina Žujovića 25, Beograd.">
+<title>Beauty & Nutrition - Rezervacije</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#17120E">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -276,13 +276,15 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .pw-eye.on .e1{display:none}
 .pw-eye.on .e2{display:block}
 /* ---------- kalendar ---------- */
-.cal-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+.cal-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.cal-months{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.cal-months .chip{padding:7px 14px;font-size:12px;text-transform:capitalize}
 .cal-title{font-family:var(--ff-disp);font-size:20px;font-weight:600;margin-right:auto}
 .cal-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
 .cal-legend span{display:inline-flex;align-items:center;gap:5px}
 .cal-dot{width:10px;height:10px;border-radius:3px;display:inline-block}
 .cal-wrap{overflow-x:auto;padding-bottom:8px}
-.cal-grid{display:grid;grid-template-columns:46px repeat(7,minmax(132px,1fr));gap:4px;min-width:980px}
+.cal-grid{display:grid;grid-template-columns:40px repeat(7,minmax(88px,1fr));gap:3px;min-width:680px;max-width:860px}
 .cal-dayh{text-align:center;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 2px;border-bottom:2px solid var(--line)}
 .cal-dayh.today{color:var(--gold-strong);border-color:var(--gold)}
 .cal-col{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -290,7 +292,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .cal-gut{position:relative}
 .cal-hr{position:absolute;left:0;right:0;border-top:1px dashed var(--line-soft)}
 .cal-hlabel{position:absolute;right:6px;transform:translateY(-50%);font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
-.cal-bk{position:absolute;left:3px;right:3px;border-radius:7px;color:#FFFDF6;padding:3px 6px;font-size:10.5px;line-height:1.25;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.cal-bk{position:absolute;left:2px;right:2px;border-radius:6px;color:#FFFDF6;padding:2px 5px;font-size:10px;line-height:1.25;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 @media (max-width:760px){
   .auth-grid,.book-grid{grid-template-columns:1fr}
   .adm-svc{grid-template-columns:1fr auto auto;row-gap:6px}
@@ -545,7 +547,7 @@ function calModal(svcId){
       if(st.date!==want||!area.isConnected)return;
       if(noEmp){area.innerHTML=`<p class="note" style="color:var(--danger)">Nijedna zaposlena ne izvodi sve izabrane tretmane u jednoj poseti.</p>`;return}
       if(!h){area.innerHTML=`<p class="note">Salon ne radi izabranog dana.</p>`;return}
-      if(!slots.some(x=>x.free)){area.innerHTML=`<p class="note">Nema slobodnih termina tog dana — izaberite drugi dan.</p>`;return}
+      if(!slots.some(x=>x.free)){area.innerHTML=`<p class="note">Nema slobodnih termina tog dana - izaberite drugi dan.</p>`;return}
       area.innerHTML=`<p class="note" style="margin:0 0 8px">${esc(fmtD(want))} · radno vreme ${toHM(h.open)}–${toHM(h.close)}</p>
         <div class="slots">${slots.map(x=>`<button class="slot ${st.slot===x.t?"on":""}" data-cmslot="${x.t}" ${x.free?"":"disabled"}>${toHM(x.t)}</button>`).join("")}</div>`;
       area.querySelectorAll("[data-cmslot]").forEach(b=>b.onclick=()=>{st.slot=+b.dataset.cmslot;draw()});
@@ -630,7 +632,7 @@ function tplAuth(){
   <div class="auth-grid">
     <div class="auth-hero">
       <span class="eyebrow">Živojina Žujovića 25, Zvezdara</span>
-      <div class="big">Luksuz u nezi <em>lica</em> i <em>tela</em> — na jedan klik.</div>
+      <div class="big">Luksuz u nezi <em>lica</em> i <em>tela</em> - na jedan klik.</div>
       <p>Napravite nalog, izaberite tretmane i rezervišite termin. Potvrda stiže odmah, a podsetnik dan pre termina.</p>
       <div class="auth-points">
         <div><span>Kompletna ponuda tretmana lica i tela sa cenama i trajanjem</span></div>
@@ -675,7 +677,7 @@ function reminderBanner(){
   const tmr=dstr(new Date(Date.now()+864e5));
   const b=S.myBookings.filter(x=>x.status==="zakazano"&&x.date===tmr).sort((a,b)=>a.start<b.start?-1:1)[0];
   if(!b)return"";
-  return `<div class="remind">⏰ Podsetnik: sutra u ${esc(b.start)} imate zakazano — ${esc(b.services.map(s=>s.name).join(", "))} (${esc(b.employeeName)}).</div>`;
+  return `<div class="remind">⏰ Podsetnik: sutra u ${esc(b.start)} imate zakazano - ${esc(b.services.map(s=>s.name).join(", "))} (${esc(b.employeeName)}).</div>`;
 }
 function svcCard(s){
   if(s.cat==="edu"){
@@ -713,7 +715,7 @@ function tplCatalog(){
   else if(loading)body=`<div class="loading">Učitavanje cenovnika…</div>`;
   else{
     const total=cats.reduce((n,c)=>n+byCat(c).length,0);
-    if(!total&&S.cat==="akcije")body=`<div class="empty"><p style="font-weight:800">Trenutno nema aktuelnih akcija.</p><p class="note">Zavirite uskoro — paketi i popusti se objavljuju ovde.</p></div>`;
+    if(!total&&S.cat==="akcije")body=`<div class="empty"><p style="font-weight:800">Trenutno nema aktuelnih akcija.</p><p class="note">Zavirite uskoro - paketi i popusti se objavljuju ovde.</p></div>`;
     else if(!total)body=`<div class="empty"><p style="font-weight:800">Cenovnik se upravo priprema.</p><p class="note">Usluge za „${esc(TABS[S.cat])}" biće vidljive čim ih salon objavi.</p></div>`;
     else if(S.cat==="telo"){
       const t=byCat("telo"),m=byCat("masaze");
@@ -722,8 +724,8 @@ function tplCatalog(){
     }
     else body=`<div class="svc-grid">${byCat(cats[0]).map(svcCard).join("")}</div>`;
   }
-  const sub=S.cat==="vauceri"?`Poklon vaučer na iznos po želji ili za izabrani tretman — poručite online, a uplatu i preuzimanje dogovarate sa salonom.`:S.cat==="edu"
-    ?`Profesionalne, sertifikovane obuke za rad u estetici. Program i cena se dogovaraju individualno — pošaljite upit i javljamo se u najkraćem roku.`
+  const sub=S.cat==="vauceri"?`Poklon vaučer na iznos po želji ili za izabrani tretman - poručite online, a uplatu i preuzimanje dogovarate sa salonom.`:S.cat==="edu"
+    ?`Profesionalne, sertifikovane obuke za rad u estetici. Program i cena se dogovaraju individualno - pošaljite upit i javljamo se u najkraćem roku.`
     :`Dodajte jedan ili više tretmana, zatim izaberite kozmetičarku, dan i slobodan termin. ${S.me?"":`<button class="more" id="go-auth" style="padding:0">Prijavite se</button> da biste zakazali.`}`;
   return `
   ${reminderBanner()}
@@ -741,7 +743,7 @@ function tplCatalog(){
 function inquiryModal(s){
   const txt=`Poštovani,\n\nzainteresovana/zainteresovan sam za: ${s.name}.\n\nMolim vas za informacije o programu, terminima i ceni obuke.\n\n${S.me?S.me.ime+" "+S.me.prezime+"\n"+S.me.email+(S.me.telefon?"\n"+S.me.telefon:""):"(ime i kontakt)"}`;
   showModal(`
-    <h3>${esc(s.name)} — upit</h3>
+    <h3>${esc(s.name)} - upit</h3>
     <p class="note" style="margin:0 0 12px">Edukacije se dogovaraju individualno. Pošaljite upit na adresu salona ili pozovite:</p>
     <div class="field"><label>E-mail za upite</label>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="user-select:all">${esc(rezEmail())}</b><button class="copybtn" data-copymail="${esc(rezEmail())}">Kopiraj</button></div></div>
@@ -784,7 +786,7 @@ function policyModal(){
 }
 function forgotModal(){
   showModal(`<h3>Zaboravljena lozinka</h3>
-  <p class="note" style="margin:0 0 12px">Unesite e-mail adresu naloga — šaljemo vam link za postavljanje nove lozinke (važi 1 sat).</p>
+  <p class="note" style="margin:0 0 12px">Unesite e-mail adresu naloga - šaljemo vam link za postavljanje nove lozinke (važi 1 sat).</p>
   <div id="fg-err" class="err hidden"></div>
   <div class="field"><label for="fg-mail">E-mail</label><input id="fg-mail" type="email"></div>
   <div style="display:flex;gap:10px"><button class="btn btn-gold btn-sm" id="fg-send">Pošalji link</button><button class="btn btn-ghost btn-sm" id="m-close">Odustani</button></div>`);
@@ -813,7 +815,7 @@ function resetModal(token){
     const btn=$("#rs-save");btn.disabled=true;
     try{
       const r=await apiPost("/api/reset",{token,pw:p1});
-      S.me=r.me;loadMy();closeModal();toast("Lozinka je promenjena — prijavljeni ste.");S.view="catalog";render();
+      S.me=r.me;loadMy();closeModal();toast("Lozinka je promenjena - prijavljeni ste.");S.view="catalog";render();
     }catch(e){err(e.message);btn.disabled=false}
   };
 }
@@ -845,7 +847,7 @@ function tplBooking(){
             return `<button class="chip ${S.bEmp===e.id?"on":""}" data-emp="${esc(e.id)}" ${ok?"":"disabled"} title="${esc(ok?(e.title||""):"Ne izvodi sve izabrane tretmane")}">${esc(e.name)}</button>`;
           }).join("")}
         </div>
-        ${emps.length===0?`<p class="note" style="margin-top:10px;color:var(--danger)">Nijedna zaposlena ne pokriva sve izabrane tretmane — razdvojite rezervaciju.</p>`:""}
+        ${emps.length===0?`<p class="note" style="margin-top:10px;color:var(--danger)">Nijedna zaposlena ne pokriva sve izabrane tretmane - razdvojite rezervaciju.</p>`:""}
       </div>
       <div class="card">
         <div class="step-h"><span class="n">2</span><h3>Datum</h3></div>
@@ -972,12 +974,12 @@ function admRem(){
   return `
   <p class="sub">Termini za <b>sutra, ${esc(fmtD(tmr))}</b>. ${S.mailEnabled
     ?"Podsetnici se šalju automatski u toku dana; ovde možete poslati odmah ili ručno označiti."
-    :"Automatsko slanje e-maila je isključeno (podesite SMTP) — kopirajte tekst i pošaljite sa adrese "+esc(rezEmail())+"."}</p>
+    :"Automatsko slanje e-maila je isključeno (podesite SMTP) - kopirajte tekst i pošaljite sa adrese "+esc(rezEmail())+"."}</p>
   ${list.length?list.map(b=>{
     const txt=`Poštovana/i ${b.userName},\n\npodsećamo Vas na zakazani termin u salonu Beauty & Nutrition:\n\n📅 ${fmtD(b.date)} u ${b.start}\n💆 ${b.services.map(s=>s.name).join(", ")}\n👩 Kozmetičarka: ${b.employeeName}\n⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice||0,b.totalPriceEur||0)}\n📍 Živojina Žujovića 25, Beograd (Zvezdara)\n\nAko ste sprečeni, javite nam na ${rezEmail()} ili +381 64 93 55 003.\n\nSrdačno,\nBeauty & Nutrition`;
     return `<div class="card rem-card" style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
-        <div><b>${esc(b.start)} — ${esc(b.userName)}</b><div class="note">${esc(b.userEmail)}${b.userTel?" · "+esc(b.userTel):""}</div></div>
+        <div><b>${esc(b.start)} - ${esc(b.userName)}</b><div class="note">${esc(b.userEmail)}${b.userTel?" · "+esc(b.userTel):""}</div></div>
         <span class="pill ${b.reminderSent?"pill-ok":"pill-cat"}">${b.reminderSent?"Podsetnik poslat":"Nije poslato"}</span>
       </div>
       <div class="mailtxt">${esc(txt)}</div>
@@ -1031,9 +1033,9 @@ function admSvc(){
 function svcAddModal(cat){
   const titles={lice:"Tretmani lica",telo:"Tretmani tela",masaze:"Masaže",edu:"Edukacije i obuke"};
   const edu=cat==="edu";
-  showModal(`<h3>Nova usluga — ${esc(titles[cat]||cat)}</h3>
+  showModal(`<h3>Nova usluga - ${esc(titles[cat]||cat)}</h3>
     <div id="sa-err" class="err hidden"></div>
-    <div class="field"><label for="sa-name">Naziv</label><input id="sa-name" placeholder="npr. Masaža lica — 30 min"></div>
+    <div class="field"><label for="sa-name">Naziv</label><input id="sa-name" placeholder="npr. Masaža lica - 30 min"></div>
     <div class="field"><label for="sa-desc">Opis</label><textarea id="sa-desc" placeholder="Kratak opis tretmana za klijente"></textarea></div>
     ${edu?`<p class="note" style="margin:0 0 14px">Edukacije se prikazuju sa cenom „na upit" i dugmetom za slanje upita.</p>`:`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
@@ -1070,7 +1072,7 @@ function admCal(){
   const have=S.calBk&&S.calBk.ws===ws;
   const list=have?S.calBk.list.filter(b=>b.status==="zakazano"):[];
   const d0=parseD(ws);const days=[];for(let i=0;i<7;i++)days.push(new Date(d0.getFullYear(),d0.getMonth(),d0.getDate()+i));
-  const O=480,CL=1260,PXH=52;const H=(CL-O)/60*PXH;
+  const O=480,CL=1260,PXH=44;const H=(CL-O)/60*PXH;
   const today=dstr(new Date());
   const hrs=[];for(let h=8;h<=21;h++)hrs.push(h);
   const gut=`<div class="cal-gut" style="height:${H}px">${hrs.map(h=>`<span class="cal-hlabel" style="top:${(h*60-O)/60*PXH}px">${pad(h)}h</span>`).join("")}</div>`;
@@ -1085,6 +1087,9 @@ function admCal(){
   const headRow=`<div></div>${days.map(d=>{const ds=dstr(d);return `<div class="cal-dayh ${ds===today?"today":""}">${DOWS_S[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}.</div>`}).join("")}`;
   const lab=days[0].getDate()+". "+MONTHS[days[0].getMonth()]+" \u2013 "+days[6].getDate()+". "+MONTHS[days[6].getMonth()]+" "+days[6].getFullYear()+".";
   return `
+  <div class="cal-months">${[0,1,2].map(off=>{const n=new Date();const m=new Date(n.getFullYear(),n.getMonth()+off,1);
+    const on=days.some(d=>d.getMonth()===m.getMonth()&&d.getFullYear()===m.getFullYear());
+    return `<button class="chip ${on?"on":""}" data-calmonth="${off}">${MONTHS_L[m.getMonth()]} ${m.getFullYear()}.</button>`}).join("")}</div>
   <div class="cal-head">
     <button class="btn btn-ghost btn-sm" data-calnav="-7">\u2039 Prethodna</button>
     <button class="btn btn-ghost btn-sm" data-calnav="0">Danas</button>
@@ -1094,7 +1099,7 @@ function admCal(){
   </div>
   ${have?"":`<div class="loading">Učitavanje kalendara…</div>`}
   <div class="cal-wrap"><div class="cal-grid">${headRow}${gut}${cols}</div></div>
-  <p class="note" style="margin-top:10px">„+ Ručni unos" upisuje termin direktno u kalendar — za pakete (4, 5, 6, 20 tretmana) i telefonska zakazivanja.</p>`;
+  <p class="note" style="margin-top:10px">„+ Ručni unos" upisuje termin direktno u kalendar - za pakete (4, 5, 6, 20 tretmana) i telefonska zakazivanja.</p>`;
 }
 function manualModal(){
   const svcs=S.services.filter(s=>s.cat!=="edu"&&s.active!==false).sort((a,b)=>a.name.localeCompare(b.name,"sr"));
@@ -1105,7 +1110,7 @@ function manualModal(){
     <div class="field"><label for="m-name">Ime i prezime klijenta</label><input id="m-name"></div>
     <div class="field"><label for="m-tel">Telefon (opciono)</label><input id="m-tel" type="tel"></div>
   </div>
-  <div class="field"><label for="m-mail">E-mail (opciono — za podsetnik)</label><input id="m-mail" type="email"></div>
+  <div class="field"><label for="m-mail">E-mail (opciono - za podsetnik)</label><input id="m-mail" type="email"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
     <div class="field"><label for="m-emp">Zaposlena</label><select id="m-emp">${S.employees.filter(e=>e.active!==false).map(e=>`<option value="${esc(e.id)}">${esc(e.name)}</option>`).join("")}</select></div>
     <div class="field"><label for="m-svc">Usluga</label><select id="m-svc"><option value="__custom">Paket / ručni opis…</option>${svcs.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}</select></div>
@@ -1162,7 +1167,7 @@ function admEmp(){
 function admAkc(){
   const list=S.services.filter(s=>s.cat==="akcije").sort((a,b)=>a.name.localeCompare(b.name,"sr"));
   return `
-  <p class="sub">Napravite paket ili akciju — klijenti je vide u sekciji „Akcije" u cenovniku i zakazuju kao svaku uslugu. Stara cena (opciono) prikazuje popust.</p>
+  <p class="sub">Napravite paket ili akciju - klijenti je vide u sekciji „Akcije" u cenovniku i zakazuju kao svaku uslugu. Stara cena (opciono) prikazuje popust.</p>
   <div class="card" style="margin-bottom:18px">
     <div class="step-h"><span class="n">+</span><h3>Nova akcija / paket</h3></div>
     <div id="ak-err" class="err hidden"></div>
@@ -1215,9 +1220,9 @@ function tplVoucher(){
     <div class="card" style="min-width:0">
       <div class="step-h"><span class="n">\u2726</span><h3>Poručite poklon vaučer</h3></div>
       <div id="v-err" class="err hidden"></div>
-      <div class="field"><label for="v-rec">Ime i prezime osobe kojoj poklanjate</label><input id="v-rec" placeholder="npr. Katarina Vukadinović"></div>
+      <div class="field"><label for="v-rec">Ime i prezime osobe kojoj poklanjate</label><input id="v-rec" placeholder="npr. Petar Petrović"></div>
       <div class="field"><label for="v-svc">Vaučer glasi na</label>
-        <select id="v-svc"><option value="">Iznos po želji — primalac bira tretmane</option>${svcs.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} — ${RSD(+s.price)}</option>`).join("")}</select></div>
+        <select id="v-svc"><option value="">Iznos po želji - primalac bira tretmane</option>${svcs.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} - ${RSD(+s.price)}</option>`).join("")}</select></div>
       <div class="field"><label for="v-amt">Iznos vaučera (RSD)</label><input id="v-amt" type="number" min="1000" step="500" placeholder="npr. 15000"></div>
       <div class="field"><label for="v-msg">Posveta (opciono)</label><textarea id="v-msg" placeholder="npr. Srećan rođendan!"></textarea></div>
       ${S.me?`<button class="btn btn-gold" id="v-order" style="width:100%">Poruči vaučer</button>`
@@ -1226,8 +1231,8 @@ function tplVoucher(){
     <div class="card bk-sum" style="min-width:0">
       <div class="eyebrow" style="margin-bottom:10px">Kako funkcioniše</div>
       <div class="auth-points" style="margin-top:4px">
-        <div><b>1.</b><span>Izaberete iznos po želji ili konkretan tretman — iznos se sam upiše, a možete ga izmeniti.</span></div>
-        <div><b>2.</b><span>Pošaljete porudžbinu — salon vas kontaktira radi uplate i preuzimanja vaučera.</span></div>
+        <div><b>1.</b><span>Izaberete iznos po želji ili konkretan tretman - iznos se sam upiše, a možete ga izmeniti.</span></div>
+        <div><b>2.</b><span>Pošaljete porudžbinu - salon vas kontaktira radi uplate i preuzimanja vaučera.</span></div>
         <div><b>3.</b><span>Primalac zakazuje termin i bira tretmane lica ili tela u vrednosti vaučera.</span></div>
       </div>
       <p class="note" style="margin-top:14px">Pitanja? ${esc(rezEmail())} · +381 64 93 55 003</p>
@@ -1243,7 +1248,7 @@ function admVcr(){
   <div class="bk-list">${list.map(v=>`
     <div class="card bk">
       <div class="mid" style="min-width:240px">
-        <div class="who">\u2726 ${esc(v.recipient)} — <span style="color:var(--gold-strong)">${RSD(+v.amount)}</span></div>
+        <div class="who">\u2726 ${esc(v.recipient)} - <span style="color:var(--gold-strong)">${RSD(+v.amount)}</span></div>
         <div class="note">${v.serviceName?("Usluga: "+esc(v.serviceName)):"Iznos po želji"} · Kupac: ${esc(v.buyerName)} (${esc(v.buyerEmail)}${v.buyerTel?", "+esc(v.buyerTel):""})</div>
         ${v.message?`<div class="list" style="font-style:italic">„${esc(v.message)}“</div>`:""}
         <div class="tags"><span class="pill ${v.status==="obrađen"?"pill-ok":"pill-cat"}">${esc(v.status)}</span><span class="note">${esc(String(v.created||v.createdAt||"").slice(0,10))}</span></div>
@@ -1273,7 +1278,7 @@ function footer(){
     <div><b>Beauty &amp; Nutrition</b> · Živojina Žujovića 25, Zvezdara, Beograd</div>
     <div>Rezervacije: <b>${esc(rezEmail())}</b> · +381 64 93 55 003</div>
     <div style="display:flex;gap:16px;flex-wrap:wrap"><button type="button" class="more" data-policy style="padding:0">Politika Privatnosti</button><button type="button" class="more" data-terms style="padding:0">Uslovi korišćenja</button></div>
-    <div style="width:100%;text-align:center;font-size:12px;color:var(--muted);border-top:1px dashed var(--line);margin-top:6px;padding-top:12px">© 2026 — designed by <b style="color:var(--gold-strong)">Catis Team</b></div>
+    <div style="width:100%;text-align:center;font-size:12px;color:var(--muted);border-top:1px dashed var(--line);margin-top:6px;padding-top:12px">© 2026 - designed by <b style="color:var(--gold-strong)">Catis Team</b></div>
   </div>`;
 }
 
@@ -1347,6 +1352,8 @@ function wire(root){
     }catch(er){toast(er.message);b.disabled=false}
   });
   root.querySelectorAll("[data-calnav]").forEach(b=>b.onclick=()=>{const n=+b.dataset.calnav;if(n===0){S.calWS=dstr(weekStart(new Date()))}else{const d=parseD(S.calWS);S.calWS=dstr(new Date(d.getFullYear(),d.getMonth(),d.getDate()+n))}render()});
+  root.querySelectorAll("[data-calmonth]").forEach(b=>b.onclick=()=>{const off=+b.dataset.calmonth;const n=new Date();
+    const d=off===0?n:new Date(n.getFullYear(),n.getMonth()+off,1);S.calWS=dstr(weekStart(d));render()});
   const mb=root.querySelector("[data-manual]");if(mb)mb.onclick=manualModal;
   const vs=root.querySelector("#v-svc");
   if(vs)vs.onchange=()=>{const s=S.services.find(x=>x.id===vs.value);if(s){const a=root.querySelector("#v-amt");if(a)a.value=s.price}};
@@ -1361,7 +1368,7 @@ function wire(root){
   root.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>{const t=root.querySelector(`template[data-txt="${CSS.escape(b.dataset.copy)}"]`);if(t)copyText(t.innerHTML.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'"))});
   root.querySelectorAll("[data-copymail]").forEach(b=>b.onclick=()=>copyText(b.dataset.copymail));
   root.querySelectorAll("[data-sent]").forEach(b=>b.onclick=async()=>{try{await apiPost("/api/admin/remind/"+encodeURIComponent(b.dataset.sent),{send:false});toast("Označeno kao poslato.");loadAdm()}catch(e){toast(e.message)}});
-  root.querySelectorAll("[data-sendnow]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{const r=await apiPost("/api/admin/remind/"+encodeURIComponent(b.dataset.sendnow),{send:true});toast(r.sent?"Podsetnik je poslat ✓":"Slanje nije uspelo — proverite SMTP.");loadAdm()}catch(e){toast(e.message);b.disabled=false}});
+  root.querySelectorAll("[data-sendnow]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{const r=await apiPost("/api/admin/remind/"+encodeURIComponent(b.dataset.sendnow),{send:true});toast(r.sent?"Podsetnik je poslat ✓":"Slanje nije uspelo - proverite SMTP.");loadAdm()}catch(e){toast(e.message);b.disabled=false}});
   const hs=root.querySelector("#hrs-save");
   if(hs)hs.onclick=async()=>{
     const H={};["0","1","2","3","4","5","6"].forEach(k=>{
