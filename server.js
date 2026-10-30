@@ -95,10 +95,9 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_bez_dugih_crta'").get()) 
   db.prepare("UPDATE services SET name=replace(replace(name,' \u2014 ',' - '),'\u2014','-'), desc=replace(replace(desc,' \u2014 ',' - '),'\u2014','-')").run();
   db.prepare("INSERT INTO settings(key,json) VALUES('mig_bez_dugih_crta','true')").run();
 }
-if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_bez_znakova'").get()) {
-  db.prepare("UPDATE services SET desc=replace(desc,'\u00d7','x')").run();
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_crte_zaposlene'").get()) {
   db.prepare("UPDATE employees SET title=replace(replace(title,' \u2014 ',' - '),'\u2014','-')").run();
-  db.prepare("INSERT INTO settings(key,json) VALUES('mig_bez_znakova','true')").run();
+  db.prepare("INSERT INTO settings(key,json) VALUES('mig_crte_zaposlene','true')").run();
 }
 
 const getSetting = k => { const r = db.prepare("SELECT json FROM settings WHERE key=?").get(k); return r ? JSON.parse(r.json) : null; };
@@ -342,18 +341,17 @@ app.post("/api/bookings", auth, (req, res) => {
     VALUES(@id,@userEmail,@userName,@userTel,@servicesJson,@employee,@employeeName,@date,@start,@end,@totalPrice,@totalPriceEur,@totalDuration,@status,@reminderSent,@created)`)
     .run({ ...b, servicesJson: JSON.stringify(b.services) });
 
-  const list = b.services.map(s => "- " + s.name).join("\n");
+  const list = b.services.map(s => "• " + s.name).join("\n");
   sendMail(b.userEmail, "Potvrda rezervacije - Beauty & Nutrition",
 `Poštovana/i ${b.userName},
 
 vaša rezervacija je primljena:
 
-Termin: ${fmtD(b.date)} u ${b.start}
-Usluge:
+📅 ${fmtD(b.date)} u ${b.start}
 ${list}
-Kozmetičarka: ${b.employeeName}
-Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
-Adresa: Živojina Žujovića 25, Beograd (Zvezdara)
+👩 Kozmetičarka: ${b.employeeName}
+⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
+📍 Živojina Žujovića 25, Beograd (Zvezdara)
 
 Podsetnik vam stiže dan pre termina. Za izmene nam pišite na ${rezEmail()} ili pozovite +381 64 93 55 003.
 
@@ -563,10 +561,10 @@ app.post("/api/admin/manual", auth, staff, (req, res) => {
 
 vaš termin u salonu Beauty & Nutrition je zakazan:
 
-Termin: ${fmtD(date)} u ${b.start}
-Usluga: ${svcName}
-Kozmetičarka: ${emp.name}
-Adresa: Živojina Žujovića 25, Beograd (Zvezdara)
+📅 ${fmtD(date)} u ${b.start}
+💆 ${svcName}
+👩 ${emp.name}
+📍 Živojina Žujovića 25, Beograd (Zvezdara)
 
 Podsetnik vam stiže dan pre termina. Za izmene: ${rezEmail()} ili +381 64 93 55 003.
 
@@ -580,11 +578,11 @@ function reminderText(b) {
 
 podsećamo Vas na zakazani termin u salonu Beauty & Nutrition:
 
-Termin: ${fmtD(b.date)} u ${b.start}
-Usluge: ${b.services.map(s => s.name).join(", ")}
-Kozmetičarka: ${b.employeeName}
-Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
-Adresa: Živojina Žujovića 25, Beograd (Zvezdara)
+📅 ${fmtD(b.date)} u ${b.start}
+💆 ${b.services.map(s => s.name).join(", ")}
+👩 Kozmetičarka: ${b.employeeName}
+⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
+📍 Živojina Žujovića 25, Beograd (Zvezdara)
 
 Ako ste sprečeni, javite nam na ${rezEmail()} ili +381 64 93 55 003.
 
