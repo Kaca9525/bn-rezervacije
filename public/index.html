@@ -174,15 +174,29 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .chip:hover{border-color:var(--gold)}
 .chip.on{background:linear-gradient(135deg,var(--gold2),var(--gold));border-color:transparent;color:var(--on-gold);box-shadow:0 5px 14px -3px rgba(174,135,60,.5)}
 .chip[disabled]{opacity:.35;cursor:not-allowed;text-decoration:line-through}
-.dates{display:flex;gap:9px;overflow-x:auto;padding:2px 2px 8px}
-.datebtn{flex:none;width:80px;padding:10px 6px;border:1px solid var(--line);border-radius:14px;background:var(--surface);text-align:center;transition:all .15s ease}
-.datebtn:hover{border-color:var(--gold)}
-.datebtn .dow{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.datebtn .dd{font-family:var(--ff-disp);font-size:24px;font-weight:600;line-height:1.15}
-.datebtn .mm{font-size:11px;color:var(--muted)}
-.datebtn.on{background:var(--band);border-color:var(--band);box-shadow:var(--shadow-lg)}
-.datebtn.on *{color:var(--band-gold)}
-.datebtn[disabled]{opacity:.35;cursor:not-allowed}
+/* kompaktni mesečni kalendar (izbor datuma) */
+.mcal{width:100%;max-width:330px}
+.mcal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.mcal-head b{font-family:var(--ff-disp);font-size:19px;font-weight:600;text-transform:capitalize}
+.mcal-nav{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:16px;line-height:1;color:var(--gold-strong);transition:border-color .15s ease}
+.mcal-nav:hover{border-color:var(--gold)}
+.mcal-nav[disabled]{opacity:.3;cursor:not-allowed}
+.mcal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.mcal-dow{text-align:center;font-size:9.5px;font-weight:800;letter-spacing:.1em;color:var(--muted);padding:2px 0 4px}
+.mcal-day{aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums;border:1px solid transparent;transition:all .13s ease}
+.mcal-day:not([disabled]):hover{border-color:var(--gold);color:var(--gold-strong)}
+.mcal-day[disabled]{color:var(--muted);opacity:.38;cursor:not-allowed}
+.mcal-day.today{border-color:var(--line)}
+.mcal-day.on{background:var(--band);border-color:var(--band);color:var(--band-gold);box-shadow:var(--shadow)}
+.mcal-foot{font-size:11.5px;color:var(--muted);margin-top:8px}
+.modal.cal-modal{max-width:420px}
+.svc-cal{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:8px;border-top:1px dashed var(--line-soft)}
+.svc-cal .lbl{font-size:10.5px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:var(--gold-strong)}
+.svc-cal .btn svg{flex:none}
+.icon-btn{width:36px;height:36px;border-radius:50%;display:inline-grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--danger);transition:all .15s ease}
+.icon-btn:hover{border-color:var(--danger);background:var(--danger-bg)}
+.icon-btn.arm{background:var(--danger);border-color:var(--danger);color:#fff}
+.rule .btn{flex:none;order:2}
 .slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:9px;margin-top:4px}
 .slot{padding:10px 4px;border:1px solid var(--line);border-radius:11px;background:var(--surface);font-weight:800;font-size:13.5px;font-variant-numeric:tabular-nums;text-align:center;transition:all .13s ease}
 .slot:hover{border-color:var(--gold);color:var(--gold-strong)}
@@ -223,6 +237,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .adm-svc .nm{font-weight:700;min-width:0}
 .adm-svc .nm small{display:block;color:var(--muted);font-weight:400}
 .adm-svc input{width:90px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-variant-numeric:tabular-nums}
+.adm-svc input[type=checkbox]{width:auto}
 .rem-card .mailtxt,.mailtxt{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:13px;font-size:12.5px;white-space:pre-wrap;margin:10px 0}
 .copybtn{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-strong)}
 .statline{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 20px}
@@ -457,6 +472,89 @@ async function computeSlots(dateStr){
   }
   return{slots,h};
 }
+/* slobodni termini za proizvoljnu listu usluga (popup kalendar na karticama) */
+async function slotsForServices(dateStr,list){
+  const h=dayHours(dateStr);if(!h)return{slots:[],h:null};
+  const dur=list.reduce((a,s)=>a+(+s.duration||0),0);
+  const emps=S.employees.filter(e=>e.active!==false&&list.every(s=>performs(e,s))).map(e=>e.id);
+  if(!emps.length)return{slots:[],h,noEmp:true};
+  const bks=await bookingsFor(dateStr);
+  const today=dstr(new Date());const now=new Date();const nowMin=now.getHours()*60+now.getMinutes();
+  const slots=[];
+  for(let t=h.open;t+dur<=h.close;t+=30){
+    if(dateStr===today&&t<nowMin+60)continue;
+    slots.push({t,free:emps.some(e=>freeAt(bks,e,t,dur))});
+  }
+  return{slots,h};
+}
+/* kompaktni mesečni kalendar: tekući mesec + naredna 2, samo radni dani salona */
+const MONTHS_L=["januar","februar","mart","april","maj","jun","jul","avgust","septembar","oktobar","novembar","decembar"];
+const CAL_SPAN=2;
+function calMonthHTML(off,sel,attr){
+  const now=new Date();const today=dstr(now);
+  const m0=new Date(now.getFullYear(),now.getMonth()+off,1);
+  const days=new Date(m0.getFullYear(),m0.getMonth()+1,0).getDate();
+  const lead=(m0.getDay()+6)%7;
+  const cells=[];for(let i=0;i<lead;i++)cells.push(`<span></span>`);
+  for(let d=1;d<=days;d++){
+    const ds=dstr(new Date(m0.getFullYear(),m0.getMonth(),d));
+    const ok=ds>=today&&!!dayHours(ds);
+    cells.push(`<button class="mcal-day ${ds===today?"today":""} ${sel===ds?"on":""}" data-${attr}="${ds}" ${ok?"":"disabled"} aria-label="${esc(fmtD(ds))}">${d}</button>`);
+  }
+  return `<div class="mcal">
+    <div class="mcal-head">
+      <button class="mcal-nav" data-${attr}-off="${off-1}" ${off<=0?"disabled":""} aria-label="Prethodni mesec">‹</button>
+      <b>${MONTHS_L[m0.getMonth()]} ${m0.getFullYear()}.</b>
+      <button class="mcal-nav" data-${attr}-off="${off+1}" ${off>=CAL_SPAN?"disabled":""} aria-label="Sledeći mesec">›</button>
+    </div>
+    <div class="mcal-grid">${["PON","UTO","SRE","ČET","PET","SUB","NED"].map(x=>`<span class="mcal-dow">${x}</span>`).join("")}${cells.join("")}</div>
+    <div class="mcal-foot">Radno vreme: ${hoursSummary().map(esc).join(" · ")}</div>
+  </div>`;
+}
+const calOffFor=ds=>{if(!ds)return 0;const d=parseD(ds),n=new Date();return Math.max(0,Math.min(CAL_SPAN,(d.getFullYear()-n.getFullYear())*12+d.getMonth()-n.getMonth()))};
+const ICON_CAL=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`;
+const ICON_TRASH=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>`;
+function calModal(svcId){
+  const s=S.services.find(x=>x.id===svcId);if(!s)return;
+  const list=S.cart.some(c=>c.id===s.id)?S.cart.slice():S.cart.concat([s]);
+  const st={off:0,date:null,slot:null};
+  const dur=list.reduce((a,x)=>a+(+x.duration||0),0);
+  const draw=()=>{
+    const m=$("#modal-root .modal");if(!m)return;
+    m.innerHTML=`<h3>${esc(s.name)}</h3>
+      <p class="note" style="margin:-4px 0 14px">${list.length>1?"Zajedno sa uslugama iz korpe · ":""}trajanje ${durTxt(dur)}. Izaberite dan, pa slobodan termin.</p>
+      ${calMonthHTML(st.off,st.date,"cmday")}
+      <div id="cm-slots" style="margin-top:14px"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+        <button class="btn btn-gold btn-sm" id="cm-go" ${st.date&&st.slot!=null?"":"disabled"}>${st.date&&st.slot!=null?"Nastavi · "+esc(st.date.split("-").reverse().slice(0,2).join(".")+". u "+toHM(st.slot)):"Nastavi"}</button>
+        <button class="btn btn-ghost btn-sm" id="m-close">Zatvori</button>
+      </div>`;
+    m.querySelector("#m-close").onclick=closeModal;
+    m.querySelectorAll("[data-cmday-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;st.off=+b.dataset.cmdayOff;draw()});
+    m.querySelectorAll("[data-cmday]").forEach(b=>b.onclick=()=>{if(b.disabled)return;st.date=b.dataset.cmday;st.slot=null;draw()});
+    m.querySelector("#cm-go").onclick=()=>{
+      if(!st.date||st.slot==null)return;
+      if(!S.cart.some(c=>c.id===s.id))S.cart.push(s);
+      S.bEmp="__any";S.bDate=st.date;S.bSlot=st.slot;S.bOff=null;closeModal();S.view="booking";render();
+    };
+    const area=m.querySelector("#cm-slots");
+    if(!st.date){area.innerHTML=`<p class="note">Izaberite datum da biste videli slobodne termine.</p>`;return}
+    area.innerHTML=`<div class="loading" style="padding:10px 0">Proveravam slobodne termine…</div>`;
+    const want=st.date;
+    slotsForServices(want,list).then(({slots,h,noEmp})=>{
+      if(st.date!==want||!area.isConnected)return;
+      if(noEmp){area.innerHTML=`<p class="note" style="color:var(--danger)">Nijedna zaposlena ne izvodi sve izabrane tretmane u jednoj poseti.</p>`;return}
+      if(!h){area.innerHTML=`<p class="note">Salon ne radi izabranog dana.</p>`;return}
+      if(!slots.some(x=>x.free)){area.innerHTML=`<p class="note">Nema slobodnih termina tog dana — izaberite drugi dan.</p>`;return}
+      area.innerHTML=`<p class="note" style="margin:0 0 8px">${esc(fmtD(want))} · radno vreme ${toHM(h.open)}–${toHM(h.close)}</p>
+        <div class="slots">${slots.map(x=>`<button class="slot ${st.slot===x.t?"on":""}" data-cmslot="${x.t}" ${x.free?"":"disabled"}>${toHM(x.t)}</button>`).join("")}</div>`;
+      area.querySelectorAll("[data-cmslot]").forEach(b=>b.onclick=()=>{st.slot=+b.dataset.cmslot;draw()});
+    }).catch(()=>{if(area.isConnected)area.innerHTML=`<p class="note">Termine trenutno nije moguće učitati. Pokušajte ponovo.</p>`});
+  };
+  showModal("");
+  const m=$("#modal-root .modal");if(m)m.classList.add("cal-modal");
+  draw();
+}
 
 /* ================= booking ================= */
 async function confirmBooking(){
@@ -466,7 +564,7 @@ async function confirmBooking(){
   const btn=$("#bk-confirm");if(btn)btn.disabled=true;
   try{
     const r=await apiPost("/api/bookings",{services:S.cart.map(s=>s.id),employee:S.bEmp,date:S.bDate,start:toHM(S.bSlot)});
-    S.cart=[];S.bSlot=null;S.bDate=null;S.bEmp="__any";
+    S.cart=[];S.bSlot=null;S.bDate=null;S.bOff=null;S.bEmp="__any";
     S.lastBooking=r.booking;S.view="done";render();loadMy();
   }catch(e){
     toast(e.message);
@@ -523,7 +621,7 @@ function renderCartbar(){
   $("#cb-time").textContent="ukupno "+durTxt(dur);
   $("#cb-price").textContent=money(t.rsd,t.eur);
   $("#cb-clear").onclick=()=>{S.cart=[];render()};
-  $("#cb-go").onclick=()=>{S.view="booking";S.bDate=null;S.bSlot=null;render()};
+  $("#cb-go").onclick=()=>{S.view="booking";S.bDate=null;S.bSlot=null;S.bOff=null;render()};
 }
 
 /* ---------- templates ---------- */
@@ -603,6 +701,7 @@ function svcCard(s){
       <span class="note">${svcEmps(s).map(e=>e.name).join(" · ")}</span>
       <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
     </div>
+    ${+s.duration>0?`<div class="svc-cal"><span class="lbl">Slobodni termini</span><button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}">${ICON_CAL}Kalendar</button></div>`:""}
   </div>`;
 }
 function tplCatalog(){
@@ -730,8 +829,7 @@ function closeModal(){$("#modal-root").innerHTML=""}
 function tplBooking(){
   const t=cartTotals(),dur=t.dur;
   const emps=eligibleEmployees();
-  const days=[];const now=new Date();
-  for(let i=0;i<21;i++){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+i);days.push(d)}
+  if(S.bOff==null)S.bOff=calOffFor(S.bDate);
   return `
   <span class="eyebrow">Korak 2 od 2</span>
   <h1 class="h-page">Izbor termina</h1>
@@ -751,11 +849,7 @@ function tplBooking(){
       </div>
       <div class="card">
         <div class="step-h"><span class="n">2</span><h3>Datum</h3></div>
-        <div class="dates">${days.map(d=>{
-          const ds=dstr(d);const open=!!dayHours(ds);
-          return `<button class="datebtn ${S.bDate===ds?"on":""}" data-date="${ds}" ${open?"":"disabled"}>
-            <div class="dow">${DOWS_S[d.getDay()]}</div><div class="dd">${d.getDate()}</div><div class="mm">${MONTHS[d.getMonth()]}</div></button>`;
-        }).join("")}</div>
+        ${calMonthHTML(S.bOff,S.bDate,"date")}
       </div>
       <div class="card">
         <div class="step-h"><span class="n">3</span><h3>Vreme</h3></div>
@@ -919,20 +1013,53 @@ function admSvc(){
   const groups=["lice","telo","masaze","edu"];
   const titles={lice:"Tretmani lica",telo:"Tretmani tela",masaze:"Masaže (u sklopu tretmana tela)",edu:"Edukacije i obuke (cena na upit)"};
   return `
-  <p class="sub">Izmenite cenu (RSD) ili trajanje (min) direktno u listi, pa „Sačuvaj". Isključena usluga se ne prikazuje korisnicima.</p>
+  <p class="sub">Izmenite cenu (RSD) ili trajanje (min) direktno u listi, pa „Sačuvaj". Isključena usluga se ne prikazuje korisnicima. „+ Dodaj uslugu" dodaje novu uslugu u kategoriju, a kanta je trajno briše.</p>
   ${groups.map(g=>{
     const list=S.services.filter(s=>s.cat===g).sort((a,b)=>a.name.localeCompare(b.name,"sr"));
-    return `<div class="rule"><h2>${titles[g]}</h2></div><div class="card">
+    return `<div class="rule"><h2>${titles[g]}</h2><button class="btn btn-gold btn-sm" data-svcadd="${g}">+ Dodaj uslugu</button></div><div class="card">
       ${list.map(s=>`<div class="adm-svc">
         <div class="nm">${esc(s.name)}<small>${esc((s.desc||"").slice(0,90))}${(s.desc||"").length>90?"…":""}</small></div>
         ${g==="edu"?`<span class="note">na upit</span><span></span>`:`
         <label class="note">RSD <input type="number" min="0" step="100" id="sp-${esc(s.id)}" value="${esc(s.price)}"></label>
         <label class="note">min <input type="number" min="10" step="5" id="sd-${esc(s.id)}" value="${esc(s.duration)}"></label>`}
         <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="sa-${esc(s.id)}" ${s.active!==false?"checked":""}> aktivna</label>
-        <button class="btn btn-ghost btn-sm" data-svcsave="${esc(s.id)}">Sačuvaj</button>
+        <span style="display:flex;gap:8px;align-items:center"><button class="btn btn-ghost btn-sm" data-svcsave="${esc(s.id)}">Sačuvaj</button><button class="icon-btn" data-svcdel="${esc(s.id)}" title="Obriši uslugu" aria-label="Obriši uslugu ${esc(s.name)}">${ICON_TRASH}</button></span>
       </div>`).join("")||`<p class="note">Nema usluga u ovoj kategoriji.</p>`}
     </div>`;
   }).join("")}`;
+}
+function svcAddModal(cat){
+  const titles={lice:"Tretmani lica",telo:"Tretmani tela",masaze:"Masaže",edu:"Edukacije i obuke"};
+  const edu=cat==="edu";
+  showModal(`<h3>Nova usluga — ${esc(titles[cat]||cat)}</h3>
+    <div id="sa-err" class="err hidden"></div>
+    <div class="field"><label for="sa-name">Naziv</label><input id="sa-name" placeholder="npr. Masaža lica — 30 min"></div>
+    <div class="field"><label for="sa-desc">Opis</label><textarea id="sa-desc" placeholder="Kratak opis tretmana za klijente"></textarea></div>
+    ${edu?`<p class="note" style="margin:0 0 14px">Edukacije se prikazuju sa cenom „na upit" i dugmetom za slanje upita.</p>`:`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
+      <div class="field"><label for="sa-price">Cena (RSD)</label><input id="sa-price" type="number" min="0" step="100"></div>
+      <div class="field"><label for="sa-dur">Trajanje (min)</label><input id="sa-dur" type="number" min="10" step="5" value="60"></div>
+    </div>
+    <div class="field"><label>Ko izvodi uslugu</label><div class="choice-row">${S.employees.filter(e=>e.active!==false).map(e=>`<label class="chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:7px"><input type="checkbox" class="sa-emp" value="${esc(e.id)}" ${(e.cats||[]).includes(cat)?"checked":""}>${esc(e.name)}</label>`).join("")}</div></div>`}
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-gold btn-sm" id="sa-save">Dodaj uslugu</button>
+      <button class="btn btn-ghost btn-sm" id="m-close">Odustani</button>
+    </div>`);
+  $("#sa-save").onclick=async()=>{
+    const err=m=>{const b=$("#sa-err");if(b){b.textContent=m;b.classList.remove("hidden")}};
+    const name=$("#sa-name").value.trim(),desc=$("#sa-desc").value.trim();
+    const body={cat,name,desc};
+    if(!name)return err("Unesite naziv usluge.");
+    if(!edu){
+      body.price=+$("#sa-price").value;body.duration=+$("#sa-dur").value;
+      body.emps=[...document.querySelectorAll(".sa-emp:checked")].map(x=>x.value);
+      if($("#sa-price").value===""||!(body.price>=0)||!(body.duration>0))return err("Unesite cenu i trajanje.");
+      if(!body.emps.length)return err("Označite bar jednu zaposlenu koja izvodi uslugu.");
+    }
+    const b=$("#sa-save");b.disabled=true;
+    try{const r=await apiPost("/api/admin/service-new",body);S.services.push(r.service);closeModal();toast("Usluga je dodata.");render()}
+    catch(e){err(e.message);b.disabled=false}
+  };
 }
 function weekStart(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x}
 const CAL_COLORS=["#A8853F","#6B8E6B","#A2645A","#5F7A99","#8A6B9E","#4F8E8B","#7D7461"];
@@ -1172,6 +1299,8 @@ function wire(root){
   root.querySelectorAll("[data-terms]").forEach(b=>b.onclick=e=>{e.preventDefault();termsModal()});
   root.querySelectorAll("[data-more]").forEach(b=>b.onclick=()=>{const p=root.querySelector("#d-"+CSS.escape(b.dataset.more));if(!p)return;const c=p.classList.toggle("clamp");b.textContent=c?"Prikaži više":"Prikaži manje"});
   root.querySelectorAll("[data-emp]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bEmp=b.dataset.emp;S.bSlot=null;render()});
+  root.querySelectorAll("[data-date-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bOff=+b.dataset.dateOff;render()});
+  root.querySelectorAll("[data-cal]").forEach(b=>b.onclick=()=>calModal(b.dataset.cal));
   root.querySelectorAll("[data-date]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bDate=b.dataset.date;S.bSlot=null;render()});
   root.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{S.cart=S.cart.filter(c=>c.id!==b.dataset.rm);if(!S.cart.length){S.view="catalog"}S.bSlot=null;render()});
   const bc=root.querySelector("#bk-confirm");if(bc)bc.onclick=confirmBooking;
@@ -1200,6 +1329,14 @@ function wire(root){
     if(!b.dataset.arm){b.dataset.arm="1";b.textContent="Potvrdi brisanje";setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.textContent="Obriši"}},4000);return}
     try{await apiPost("/api/admin/service-del/"+encodeURIComponent(b.dataset.akdel));S.services=S.services.filter(s=>s.id!==b.dataset.akdel);toast("Akcija je obrisana.");render()}
     catch(e){toast(e.message)}
+  });
+  root.querySelectorAll("[data-svcadd]").forEach(b=>b.onclick=()=>svcAddModal(b.dataset.svcadd));
+  root.querySelectorAll("[data-svcdel]").forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.svcdel;
+    if(!b.dataset.arm){b.dataset.arm="1";b.classList.add("arm");b.title="Klikni ponovo za brisanje";toast("Kliknite ponovo na kantu da potvrdite brisanje.");setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.classList.remove("arm");b.title="Obriši uslugu"}},4000);return}
+    b.disabled=true;
+    try{await apiPost("/api/admin/service-del/"+encodeURIComponent(id));S.services=S.services.filter(s=>s.id!==id);S.cart=S.cart.filter(s=>s.id!==id);toast("Usluga je obrisana.");render()}
+    catch(e){toast(e.message);b.disabled=false}
   });
   root.querySelectorAll("[data-emptoggle]").forEach(b=>b.onclick=async()=>{
     const id=b.dataset.emptoggle;const e=S.employees.find(x=>x.id===id);if(!e)return;b.disabled=true;

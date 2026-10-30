@@ -85,6 +85,11 @@ db.exec(`CREATE TABLE IF NOT EXISTS vouchers(
   recipient TEXT, serviceId TEXT, serviceName TEXT,
   amount INTEGER, message TEXT, status TEXT, created TEXT)`);
 seedIfEmpty();
+/* jednokratno: tajlandska i kombinovana masaža više nisu u ponudi */
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_bez_tajlandske'").get()) {
+  db.prepare("DELETE FROM services WHERE cat IN ('telo','masaze') AND (lower(name) LIKE '%tajland%' OR lower(name) LIKE '%kombinovan%')").run();
+  db.prepare("INSERT INTO settings(key,json) VALUES('mig_bez_tajlandske','true')").run();
+}
 
 const getSetting = k => { const r = db.prepare("SELECT json FROM settings WHERE key=?").get(k); return r ? JSON.parse(r.json) : null; };
 const setSetting = (k, v) => db.prepare("INSERT OR REPLACE INTO settings(key,json) VALUES(?,?)").run(k, JSON.stringify(v));
@@ -407,25 +412,33 @@ app.post("/api/admin/employee/:id", auth, admin, (req, res) => {
   db.prepare("UPDATE employees SET active=? WHERE id=?").run(req.body && req.body.active ? 1 : 0, e.id);
   res.json({ employee: empRow(db.prepare("SELECT * FROM employees WHERE id=?").get(e.id)) });
 });
+const SVC_CATS = ["lice", "telo", "masaze", "akcije", "edu"];
 app.post("/api/admin/service-new", auth, admin, (req, res) => {
   const { name, desc, price, oldPrice, duration, emps } = req.body || {};
+  const cat = SVC_CATS.includes((req.body || {}).cat) ? req.body.cat : "akcije";
   const nm = String(name || "").trim();
-  const pr = Math.round(Number(price)); const d = Math.round(Number(duration));
-  if (!nm || !(pr >= 0) || !(d > 0)) return res.status(400).json({ error: "Unesite naziv, cenu i trajanje." });
+  if (!nm) return res.status(400).json({ error: "Unesite naziv usluge." });
   const ids = (Array.isArray(emps) ? emps : []).map(String)
     .filter(id => db.prepare("SELECT 1 FROM employees WHERE id=?").get(id));
-  if (!ids.length) return res.status(400).json({ error: "Označite bar jednu zaposlenu." });
+  const id = cat + "-" + Date.now();
+  if (cat === "edu") {
+    db.prepare(`INSERT INTO services(id,cat,name,desc,price,duration,active,note,emps,oldPrice)
+      VALUES(?,?,?,?,NULL,NULL,1,?,NULL,NULL)`)
+      .run(id, cat, nm, String(desc || "").trim(), "Cena i termini: na upit");
+    return res.json({ service: svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(id)) });
+  }
+  const pr = Math.round(Number(price)); const d = Math.round(Number(duration));
+  if (!(pr >= 0) || !(d > 0)) return res.status(400).json({ error: "Unesite naziv, cenu i trajanje." });
+  if (cat === "akcije" && !ids.length) return res.status(400).json({ error: "Označite bar jednu zaposlenu." });
   let op = Math.round(Number(oldPrice) || 0); if (!(op > pr)) op = null;
-  const id = "akcija-" + Date.now();
   db.prepare(`INSERT INTO services(id,cat,name,desc,price,duration,active,note,emps,oldPrice)
     VALUES(?,?,?,?,?,?,1,NULL,?,?)`)
-    .run(id, "akcije", nm, String(desc || "").trim(), pr, d, JSON.stringify(ids), op);
+    .run(id, cat, nm, String(desc || "").trim(), pr, d, ids.length ? JSON.stringify(ids) : null, op);
   res.json({ service: svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(id)) });
 });
 app.post("/api/admin/service-del/:id", auth, admin, (req, res) => {
   const s = db.prepare("SELECT * FROM services WHERE id=?").get(req.params.id);
-  if (!s) return res.status(404).json({ error: "Akcija nije pronađena." });
-  if (s.cat !== "akcije") return res.status(400).json({ error: "Brisati se mogu samo akcije; usluge iz cenovnika se isključuju u kartici Usluge." });
+  if (!s) return res.status(404).json({ error: "Usluga nije pronađena." });
   db.prepare("DELETE FROM services WHERE id=?").run(s.id);
   res.json({ ok: true });
 });
