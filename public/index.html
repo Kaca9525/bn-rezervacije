@@ -34,7 +34,7 @@
 }
 *{box-sizing:border-box}
 html,body{height:auto}
-body{margin:0;color:var(--ink);font-family:var(--ff-body);font-size:15px;line-height:1.6;
+body{margin:0;color:var(--ink);font-family:var(--ff-body);font-size:15px;line-height:1.6;font-variant-numeric:lining-nums;
   background:var(--bg);
   background-image:radial-gradient(900px 420px at 50% -120px,var(--bg-glow),transparent 70%);
   background-repeat:no-repeat}
@@ -78,7 +78,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .hero-h{margin-top:14px;font-size:clamp(34px,5.6vw,54px)}
 .hero-hours{margin-top:6px;padding:10px 14px;border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:10px;background:var(--surface);display:inline-block}
 .hero-hours-t{display:block;font-size:12px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:var(--ink);margin-bottom:3px}
-.hero-meta{font-size:12.5px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;font-weight:700}
+.hero-meta{font-size:14.5px;color:var(--ink);font-weight:600;line-height:1.75}
 .hero-orn{display:block;width:120px;height:20px;color:var(--gold);margin-top:22px;opacity:.8}
 .rule{display:flex;align-items:center;gap:16px;margin:34px 0 16px}
 .rule h2{font-family:var(--ff-disp);font-weight:600;font-size:26px;margin:0;white-space:nowrap}
@@ -242,7 +242,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .copybtn{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-strong)}
 .statline{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 20px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 22px;box-shadow:var(--shadow)}
-.stat b{font-size:26px;font-family:var(--ff-disp);font-weight:600;display:block;font-variant-numeric:tabular-nums;color:var(--gold-strong)}
+.stat b{font-size:26px;font-family:var(--ff-disp);font-weight:600;display:block;font-variant-numeric:tabular-nums lining-nums;color:var(--gold-strong)}
 .stat span{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 
 /* ---------- modal & toast ---------- */
@@ -275,6 +275,17 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .pw-eye .e2{display:none}
 .pw-eye.on .e1{display:none}
 .pw-eye.on .e2{display:block}
+/* ---------- kolačići ---------- */
+.cookie{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:45;
+  width:min(380px,calc(100vw - 32px));background:var(--band);color:var(--band-ink);border:1px solid rgba(227,199,132,.4);border-radius:16px;
+  padding:14px 16px;box-shadow:var(--shadow-lg);display:flex;gap:12px;align-items:flex-start;font-size:13px;line-height:1.5;transition:bottom .2s ease}
+.cookie.lift{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+.cookie>svg{flex:none;width:28px;height:28px;color:var(--band-gold);margin-top:1px}
+.cookie p{margin:0 0 10px;color:var(--band-mut)}
+.cookie p b{color:var(--band-ink)}
+.cookie .more{color:var(--band-gold);text-decoration:underline;font-weight:700;padding:0;font-size:inherit;text-transform:none;letter-spacing:0}
+.cookie .ok{padding:8px 18px;border-radius:999px;background:linear-gradient(135deg,var(--gold2),var(--gold));color:var(--on-gold);font-weight:800;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+@media (max-width:760px){.cookie.lift{bottom:calc(128px + env(safe-area-inset-bottom,0px))}}
 /* ---------- kalendar ---------- */
 .cal-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
 .cal-months{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
@@ -330,11 +341,18 @@ input,select,textarea{font:inherit;color:var(--ink)}
     </div>
     <div class="actions">
       <button class="clear" id="cb-clear">Isprazni</button>
-      <button class="btn btn-gold btn-sm" id="cb-go">Izaberi termin →</button>
+      <button class="btn btn-gold btn-sm" id="cb-go">Izaberi termin</button>
     </div>
   </div>
 </div>
 
+<div id="cookie" class="cookie hidden" role="region" aria-label="Obaveštenje o kolačićima">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01M16 15.5v.01M12 12v.01M11 17v.01M7 14v.01"/></svg>
+  <div>
+    <p><b>Kolačići.</b> Koristimo samo neophodne kolačiće, za prijavu i rad rezervacija. Bez praćenja i reklama. <button class="more" id="cookie-policy">Politika privatnosti</button></p>
+    <button class="ok" id="cookie-ok">U redu</button>
+  </div>
+</div>
 <div id="modal-root"></div>
 <div id="toast-root"></div>
 <script>
@@ -357,7 +375,7 @@ const fmtD=s=>{const d=parseD(s);return DOWS[d.getDay()]+", "+d.getDate()+". "+M
 const durTxt=m=>m>=60?(Math.floor(m/60)+"h"+(m%60?" "+(m%60)+"min":"")):(m+" min");
 let toastT=null;
 function toast(msg){const r=$("#toast-root");r.innerHTML=`<div class="toast">${esc(msg)}</div>`;clearTimeout(toastT);toastT=setTimeout(()=>r.innerHTML="",3200)}
-function copyText(t){ (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast("Kopirano ✓")).catch(()=>{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Kopirano ✓")}catch(e){toast("Označite tekst i kopirajte ručno")}ta.remove()}) }
+function copyText(t){ (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast("Kopirano")).catch(()=>{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Kopirano")}catch(e){toast("Označite tekst i kopirajte ručno")}ta.remove()}) }
 
 async function api(path,opts){
   const r=await fetch(path,Object.assign({headers:{"Content-Type":"application/json"},credentials:"same-origin"},opts||{}));
@@ -394,12 +412,23 @@ const tabCats=t=>t==="telo"?["telo","masaze"]:[t];
     if(S.me)loadMy();
   }catch(e){S.loadErr=true}
   render();
+  initCookie();
   if(S.me&&S.me.needConsent)consentGate(async()=>{try{await apiPost("/api/consent");S.me.needConsent=false}catch(e){}},()=>logout());
   try{
     const rt=new URLSearchParams(location.search).get("reset");
     if(rt){history.replaceState(null,"",location.pathname);resetModal(rt)}
   }catch(e){}
 })();
+/* ================= kolačići ================= */
+const COOKIE_KEY="bn_cookies_ok";
+function initCookie(){
+  const el=$("#cookie");if(!el)return;
+  let ok=false;try{ok=localStorage.getItem(COOKIE_KEY)==="1"}catch(e){}
+  if(ok)return;
+  el.classList.remove("hidden");
+  $("#cookie-ok").onclick=()=>{try{localStorage.setItem(COOKIE_KEY,"1")}catch(e){}el.classList.add("hidden")};
+  $("#cookie-policy").onclick=policyModal;
+}
 async function refreshPublic(){try{const p=await apiGet("/api/public");Object.assign(S,{services:p.services,employees:p.employees,hours:p.hours,salon:p.salon})}catch(e){}}
 async function loadMy(){try{S.myBookings=await apiGet("/api/my")}catch(e){S.myBookings=[]}render()}
 async function loadAdm(){try{S.admBookings=await apiGet("/api/admin/bookings")}catch(e){S.admBookings=[]}if(S.view==="admin")render()}
@@ -445,12 +474,13 @@ function svcEmps(s){return S.employees.filter(e=>e.active!==false&&performs(e,s)
 function eligibleEmployees(){return S.cart.length?S.employees.filter(e=>e.active!==false&&S.cart.every(s=>performs(e,s))):[]}
 function hoursSummary(){
   if(!S.hours)return[];
-  const key=k=>{const h=S.hours[k];return !h||h.closed?"x":h.appt?"na zakazivanje":(h.open+"–"+h.close)};
+  const hm=t=>String(t).replace(/:00$/,"");
+  const key=k=>{const h=S.hours[k];return !h||h.closed?"x":h.appt?"na zakazivanje":(hm(h.open)+"-"+hm(h.close))};
   const order=["1","2","3","4","5","6","0"];const parts=[];let i=0;
   while(i<order.length){
     let j=i;while(j+1<order.length&&key(order[j+1])===key(order[i]))j++;
-    const lab=(i===j?DOWS_S[+order[i]]:DOWS_S[+order[i]]+"–"+DOWS_S[+order[j]]).toLowerCase();
-    const v=key(order[i]);parts.push(lab+" "+(v==="x"?"neradno":v));i=j+1;
+    const lab=(i===j?DOWS_S[+order[i]]:DOWS_S[+order[i]]+"-"+DOWS_S[+order[j]]).toLowerCase();
+    const v=key(order[i]);parts.push(lab+": "+(v==="x"?"neradno":v));i=j+1;
   }
   return parts;
 }
@@ -505,9 +535,9 @@ function calMonthHTML(off,sel,attr){
   }
   return `<div class="mcal">
     <div class="mcal-head">
-      <button class="mcal-nav" data-${attr}-off="${off-1}" ${off<=0?"disabled":""} aria-label="Prethodni mesec">‹</button>
+      <button class="mcal-nav" data-${attr}-off="${off-1}" ${off<=0?"disabled":""} aria-label="Prethodni mesec"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       <b>${MONTHS_L[m0.getMonth()]} ${m0.getFullYear()}.</b>
-      <button class="mcal-nav" data-${attr}-off="${off+1}" ${off>=CAL_SPAN?"disabled":""} aria-label="Sledeći mesec">›</button>
+      <button class="mcal-nav" data-${attr}-off="${off+1}" ${off>=CAL_SPAN?"disabled":""} aria-label="Sledeći mesec"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
     <div class="mcal-grid">${["PON","UTO","SRE","ČET","PET","SUB","NED"].map(x=>`<span class="mcal-dow">${x}</span>`).join("")}${cells.join("")}</div>
     <div class="mcal-foot">Radno vreme: ${hoursSummary().map(esc).join(" · ")}</div>
@@ -548,7 +578,7 @@ function calModal(svcId){
       if(noEmp){area.innerHTML=`<p class="note" style="color:var(--danger)">Nijedna zaposlena ne izvodi sve izabrane tretmane u jednoj poseti.</p>`;return}
       if(!h){area.innerHTML=`<p class="note">Salon ne radi izabranog dana.</p>`;return}
       if(!slots.some(x=>x.free)){area.innerHTML=`<p class="note">Nema slobodnih termina tog dana - izaberite drugi dan.</p>`;return}
-      area.innerHTML=`<p class="note" style="margin:0 0 8px">${esc(fmtD(want))} · radno vreme ${toHM(h.open)}–${toHM(h.close)}</p>
+      area.innerHTML=`<p class="note" style="margin:0 0 8px">${esc(fmtD(want))} · radno vreme ${toHM(h.open)}-${toHM(h.close)}</p>
         <div class="slots">${slots.map(x=>`<button class="slot ${st.slot===x.t?"on":""}" data-cmslot="${x.t}" ${x.free?"":"disabled"}>${toHM(x.t)}</button>`).join("")}</div>`;
       area.querySelectorAll("[data-cmslot]").forEach(b=>b.onclick=()=>{st.slot=+b.dataset.cmslot;draw()});
     }).catch(()=>{if(area.isConnected)area.innerHTML=`<p class="note">Termine trenutno nije moguće učitati. Pokušajte ponovo.</p>`});
@@ -617,6 +647,7 @@ function renderCartbar(){
   const bar=$("#cartbar");
   const show=S.cart.length>0&&(S.view==="catalog"||S.view==="my");
   bar.classList.toggle("hidden",!show);
+  const ck=$("#cookie");if(ck)ck.classList.toggle("lift",show);
   if(!show)return;
   const t=cartTotals(),dur=t.dur;
   $("#cb-count").textContent=S.cart.length+(S.cart.length===1?" usluga":S.cart.length<5?" usluge":" usluga");
@@ -677,13 +708,13 @@ function reminderBanner(){
   const tmr=dstr(new Date(Date.now()+864e5));
   const b=S.myBookings.filter(x=>x.status==="zakazano"&&x.date===tmr).sort((a,b)=>a.start<b.start?-1:1)[0];
   if(!b)return"";
-  return `<div class="remind">⏰ Podsetnik: sutra u ${esc(b.start)} imate zakazano - ${esc(b.services.map(s=>s.name).join(", "))} (${esc(b.employeeName)}).</div>`;
+  return `<div class="remind">Podsetnik: sutra u ${esc(b.start)} imate zakazano - ${esc(b.services.map(s=>s.name).join(", "))} (${esc(b.employeeName)}).</div>`;
 }
 function svcCard(s){
   if(s.cat==="edu"){
     return `<div class="card svc">
       <h3>${esc(s.name)}</h3>
-      <div class="svc-meta"><span>⏱ Termini po dogovoru</span><span class="price">Cena: na upit</span></div>
+      <div class="svc-meta"><span>Termini po dogovoru</span><span class="price">Cena: na upit</span></div>
       <p class="clamp" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
       ${(s.desc||"").length>140?`<button class="more" data-more="${esc(s.id)}">Prikaži više</button>`:""}
       <div class="svc-foot">
@@ -693,13 +724,13 @@ function svcCard(s){
     </div>`;
   }
   const inCart=S.cart.some(c=>c.id===s.id);
-  const off=+s.oldPrice>+s.price?`<span class="pill pill-off">AKCIJA −${Math.round((1-s.price/s.oldPrice)*100)}%</span>`:"";
+  const off=+s.oldPrice>+s.price?`<span class="pill pill-off">AKCIJA -${Math.round((1-s.price/s.oldPrice)*100)}%</span>`:"";
   return `<div class="card svc ${inCart?"inCart":""}">
     ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}
-    <div class="svc-meta"><span>⏱ ${durTxt(+s.duration)}</span>${+s.oldPrice>+s.price?`<span style="text-decoration:line-through;opacity:.6">${priceTxt(s,+s.oldPrice)}</span>`:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></div>
+    <div class="svc-meta"><span>${durTxt(+s.duration)}</span>${+s.oldPrice>+s.price?`<span style="text-decoration:line-through;opacity:.6">${priceTxt(s,+s.oldPrice)}</span>`:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></div>
     <p class="clamp" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
     ${(s.desc||"").length>140?`<button class="more" data-more="${esc(s.id)}">Prikaži više</button>`:""}
-    ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
+    ${s.note?`<div class="svc-note">${esc(s.note)}</div>`:""}
     <div class="svc-foot">
       <span class="note">${svcEmps(s).map(e=>e.name).join(" · ")}</span>
       <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
@@ -775,7 +806,7 @@ function termsModal(){
 function obrazacModal(k){
   const t=k==="od"?"Obrazac za odustanak od ugovora":"Obrazac za reklamaciju";
   const f=docModal(t,k==="od"?DOCS.odustanak:DOCS.reklamacija);
-  f.innerHTML=`<a class="btn btn-gold btn-sm" style="text-decoration:none" href="${k==="od"?"/docs/OBRAZAC_ZA_ODUSTANAK_OD_UGOVORA.docx":"/docs/OBRAZAC_ZA_REKLAMACIJU.docx"}" download>⤓ Preuzmi obrazac (.docx)</a><button class="btn btn-ghost btn-sm" id="dm-back">← Uslovi korišćenja</button><button class="btn btn-ghost btn-sm" id="m-close">Zatvori</button>`;
+  f.innerHTML=`<a class="btn btn-gold btn-sm" style="text-decoration:none" href="${k==="od"?"/docs/OBRAZAC_ZA_ODUSTANAK_OD_UGOVORA.docx":"/docs/OBRAZAC_ZA_REKLAMACIJU.docx"}" download>Preuzmi obrazac (.docx)</a><button class="btn btn-ghost btn-sm" id="dm-back">Uslovi korišćenja</button><button class="btn btn-ghost btn-sm" id="m-close">Zatvori</button>`;
   $("#m-close").onclick=closeModal;
   $("#dm-back").onclick=termsModal;
 }
@@ -868,7 +899,7 @@ function tplBooking(){
       <div id="bk-pick" class="note" style="margin:8px 0 12px">${S.bDate&&S.bSlot!=null?esc(fmtD(S.bDate))+" u "+toHM(S.bSlot):"Termin još nije izabran."}</div>
       <button class="btn btn-gold" id="bk-confirm" style="width:100%" ${S.me?(S.bDate&&S.bSlot!=null?"":"disabled"):"disabled"}>Potvrdi rezervaciju</button>
       ${S.me?"":`<p class="note" style="margin-top:10px">Za potvrdu je potrebna <button class="more" id="go-auth" style="padding:0">prijava</button>.</p>`}
-      <button class="btn btn-ghost btn-sm" id="bk-back" style="width:100%;margin-top:10px">← Nazad na usluge</button>
+      <button class="btn btn-ghost btn-sm" id="bk-back" style="width:100%;margin-top:10px">Nazad na usluge</button>
     </div>
   </div>${footer()}`;
 }
@@ -879,7 +910,7 @@ async function renderSlots(){
     const {slots,h}=await computeSlots(S.bDate);
     if(!h){area.innerHTML=`<p class="note">Salon ne radi izabranog dana.</p>`;return}
     if(!slots.length){area.innerHTML=`<p class="note">Nema termina u koje staju svi izabrani tretmani tog dana.</p>`;return}
-    area.innerHTML=`<p class="note" style="margin:0 0 10px">Radno vreme: ${toHM(h.open)}–${toHM(h.close)}</p>
+    area.innerHTML=`<p class="note" style="margin:0 0 10px">Radno vreme: ${toHM(h.open)}-${toHM(h.close)}</p>
       <div class="slots">${slots.map(s=>`<button class="slot ${S.bSlot===s.t?"on":""}" data-slot="${s.t}" ${s.free?"":"disabled"}>${toHM(s.t)}</button>`).join("")}</div>`;
     area.querySelectorAll("[data-slot]").forEach(b=>b.onclick=()=>{S.bSlot=+b.dataset.slot;
       area.querySelectorAll(".slot").forEach(x=>x.classList.toggle("on",x===b));
@@ -895,7 +926,7 @@ function tplDone(){
     <div class="eyebrow" style="justify-content:center">Rezervacija potvrđena</div>
     <h1 class="h-page" style="margin-top:12px">Vidimo se ${esc(fmtD(b.date))}</h1>
     <p class="sub" style="margin:10px auto 18px">u ${esc(b.start)} · ${esc(b.employeeName)} · ${esc(durTxt(b.totalDuration))} · ${money(b.totalPrice||0,b.totalPriceEur||0)}</p>
-    <div class="ok-box" style="text-align:left">${b.services.map(s=>"• "+esc(s.name)).join("<br>")}</div>
+    <div class="ok-box" style="text-align:left">${b.services.map(s=>esc(s.name)).join("<br>")}</div>
     <p class="note" style="margin:16px 0 20px">${S.mailEnabled?"Potvrda je poslata na "+esc(b.userEmail)+", a podsetnik stiže dan pre termina.":"Podsetnik vam stiže dan pre termina."} Za izmene pišite na <b>${esc(rezEmail())}</b> ili otkažite u „Moje rezervacije".</p>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-gold" data-nav2="my">Moje rezervacije</button>
@@ -907,7 +938,7 @@ function bkCard(b,adminView){
   const d=parseD(b.date);const past=b.date<dstr(new Date());
   const cancellable=b.status==="zakazano"&&!past;
   return `<div class="card bk">
-    <div class="when"><div class="d">${d.getDate()}.</div><div class="m">${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}</div><div class="t">${esc(b.start)}–${esc(b.end)}</div></div>
+    <div class="when"><div class="d">${d.getDate()}.</div><div class="m">${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}</div><div class="t">${esc(b.start)}-${esc(b.end)}</div></div>
     <div class="mid">
       <div class="who">${adminView?esc(b.userName):esc(b.employeeName)}</div>
       ${adminView?`<div class="note">${esc(b.userEmail)}${b.userTel?" · "+esc(b.userTel):""} · kod: ${esc(b.employeeName)}</div>`:""}
@@ -945,7 +976,7 @@ function tplAdmin(){
   return `
   <span class="eyebrow">Administracija salona</span>
   <h1 class="h-page">Admin panel</h1>
-  <div class="adm-tabs">${tab("rez","Rezervacije")}${tab("cal","Kalendar")}${tab("rem","Podsetnici")}${tab("vcr","Vaučeri")}${isAdmin()?tab("hrs","Radno vreme")+tab("svc","Usluge")+tab("emp","Zaposlene")+tab("akc","Akcije"):""}${isAdmin()?`<button class="btn btn-ghost btn-sm" data-backup title="Preuzmite sve podatke salona kao fajl">⤓ Rezervna kopija</button>`:""}<button class="btn btn-gold btn-sm" data-manual style="margin-left:auto">+ Ručni unos</button>
+  <div class="adm-tabs">${tab("rez","Rezervacije")}${tab("cal","Kalendar")}${tab("rem","Podsetnici")}${tab("vcr","Vaučeri")}${isAdmin()?tab("hrs","Radno vreme")+tab("svc","Usluge")+tab("emp","Zaposlene")+tab("akc","Akcije"):""}${isAdmin()?`<button class="btn btn-ghost btn-sm" data-backup title="Preuzmite sve podatke salona kao fajl">Rezervna kopija</button>`:""}<button class="btn btn-gold btn-sm" data-manual style="margin-left:auto">+ Ručni unos</button>
     <button class="btn btn-ghost btn-sm" id="adm-refresh">Osveži</button></div>
   <div id="adm-body">${t==="cal"?admCal():t==="rem"?admRem():t==="vcr"?admVcr():(t==="hrs"&&isAdmin())?admHrs():(t==="svc"&&isAdmin())?admSvc():(t==="emp"&&isAdmin())?admEmp():(t==="akc"&&isAdmin())?admAkc():admRez()}</div>
   ${footer()}`;
@@ -977,7 +1008,7 @@ function admRem(){
     ?"Podsetnici se šalju automatski u toku dana; ovde možete poslati odmah ili ručno označiti."
     :"Automatsko slanje e-maila je isključeno (podesite SMTP) - kopirajte tekst i pošaljite sa adrese "+esc(rezEmail())+"."}</p>
   ${list.length?list.map(b=>{
-    const txt=`Poštovana/i ${b.userName},\n\npodsećamo Vas na zakazani termin u salonu Beauty & Nutrition:\n\n📅 ${fmtD(b.date)} u ${b.start}\n💆 ${b.services.map(s=>s.name).join(", ")}\n👩 Kozmetičarka: ${b.employeeName}\n⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice||0,b.totalPriceEur||0)}\n📍 Živojina Žujovića 25, Beograd (Zvezdara)\n\nAko ste sprečeni, javite nam na ${rezEmail()} ili +381 64 93 55 003.\n\nSrdačno,\nBeauty & Nutrition`;
+    const txt=`Poštovana/i ${b.userName},\n\npodsećamo Vas na zakazani termin u salonu Beauty & Nutrition:\n\nTermin: ${fmtD(b.date)} u ${b.start}\nUsluge: ${b.services.map(s=>s.name).join(", ")}\nKozmetičarka: ${b.employeeName}\nTrajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice||0,b.totalPriceEur||0)}\nAdresa: Živojina Žujovića 25, Beograd (Zvezdara)\n\nAko ste sprečeni, javite nam na ${rezEmail()} ili +381 64 93 55 003.\n\nSrdačno,\nBeauty & Nutrition`;
     return `<div class="card rem-card" style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
         <div><b>${esc(b.start)} - ${esc(b.userName)}</b><div class="note">${esc(b.userEmail)}${b.userTel?" · "+esc(b.userTel):""}</div></div>
@@ -1092,9 +1123,9 @@ function admCal(){
     const on=days.some(d=>d.getMonth()===m.getMonth()&&d.getFullYear()===m.getFullYear());
     return `<button class="chip ${on?"on":""}" data-calmonth="${off}">${MONTHS_L[m.getMonth()]} ${m.getFullYear()}.</button>`}).join("")}</div>
   <div class="cal-head">
-    <button class="btn btn-ghost btn-sm" data-calnav="-7">\u2039 Prethodna</button>
+    <button class="btn btn-ghost btn-sm" data-calnav="-7">Prethodna</button>
     <button class="btn btn-ghost btn-sm" data-calnav="0">Danas</button>
-    <button class="btn btn-ghost btn-sm" data-calnav="7">Sledeća \u203a</button>
+    <button class="btn btn-ghost btn-sm" data-calnav="7">Sledeća</button>
     <span class="cal-title">${esc(lab)}</span>
     <span class="cal-legend">${S.employees.map(e=>`<span><span class="cal-dot" style="background:${calColor(e.id)}"></span>${esc(e.name)}</span>`).join("")}</span>
   </div>
@@ -1219,7 +1250,7 @@ function tplVoucher(){
   return `
   <div class="book-grid">
     <div class="card" style="min-width:0">
-      <div class="step-h"><span class="n">\u2726</span><h3>Poručite poklon vaučer</h3></div>
+      <div class="step-h"><span class="n">1</span><h3>Poručite poklon vaučer</h3></div>
       <div id="v-err" class="err hidden"></div>
       <div class="field"><label for="v-rec">Ime i prezime osobe kojoj poklanjate</label><input id="v-rec" placeholder="npr. Petar Petrović"></div>
       <div class="field"><label for="v-svc">Vaučer glasi na</label>
@@ -1249,7 +1280,7 @@ function admVcr(){
   <div class="bk-list">${list.map(v=>`
     <div class="card bk">
       <div class="mid" style="min-width:240px">
-        <div class="who">\u2726 ${esc(v.recipient)} - <span style="color:var(--gold-strong)">${RSD(+v.amount)}</span></div>
+        <div class="who">${esc(v.recipient)} - <span style="color:var(--gold-strong)">${RSD(+v.amount)}</span></div>
         <div class="note">${v.serviceName?("Usluga: "+esc(v.serviceName)):"Iznos po želji"} · Kupac: ${esc(v.buyerName)} (${esc(v.buyerEmail)}${v.buyerTel?", "+esc(v.buyerTel):""})</div>
         ${v.message?`<div class="list" style="font-style:italic">„${esc(v.message)}“</div>`:""}
         <div class="tags"><span class="pill ${v.status==="obrađen"?"pill-ok":"pill-cat"}">${esc(v.status)}</span><span class="note">${esc(String(v.created||v.createdAt||"").slice(0,10))}</span></div>
@@ -1270,7 +1301,7 @@ async function orderVoucher(){
   try{
     await apiPost("/api/vouchers",{recipient:rec,serviceId:svc||null,amount:amt,message:msg});
     S.vcrKey=null;S.admVouchers=null;
-    showModal(`<h3>Vaučer je poručen \u2726</h3><p class="note">Hvala! ${S.mailEnabled?"Potvrda je poslata na vaš e-mail, a salon":"Salon"} vas kontaktira u najkraćem roku radi uplate i preuzimanja vaučera za <b>${esc(rec)}</b> (${RSD(amt)}).</p><div style="margin-top:14px"><button class="btn btn-gold btn-sm" id="m-close">U redu</button></div>`);
+    showModal(`<h3>Vaučer je poručen</h3><p class="note">Hvala! ${S.mailEnabled?"Potvrda je poslata na vaš e-mail, a salon":"Salon"} vas kontaktira u najkraćem roku radi uplate i preuzimanja vaučera za <b>${esc(rec)}</b> (${RSD(amt)}).</p><div style="margin-top:14px"><button class="btn btn-gold btn-sm" id="m-close">U redu</button></div>`);
   }catch(e){err(e.message)}
   btn.disabled=false;
 }
@@ -1369,7 +1400,7 @@ function wire(root){
   root.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>{const t=root.querySelector(`template[data-txt="${CSS.escape(b.dataset.copy)}"]`);if(t)copyText(t.innerHTML.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'"))});
   root.querySelectorAll("[data-copymail]").forEach(b=>b.onclick=()=>copyText(b.dataset.copymail));
   root.querySelectorAll("[data-sent]").forEach(b=>b.onclick=async()=>{try{await apiPost("/api/admin/remind/"+encodeURIComponent(b.dataset.sent),{send:false});toast("Označeno kao poslato.");loadAdm()}catch(e){toast(e.message)}});
-  root.querySelectorAll("[data-sendnow]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{const r=await apiPost("/api/admin/remind/"+encodeURIComponent(b.dataset.sendnow),{send:true});toast(r.sent?"Podsetnik je poslat ✓":"Slanje nije uspelo - proverite SMTP.");loadAdm()}catch(e){toast(e.message);b.disabled=false}});
+  root.querySelectorAll("[data-sendnow]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{const r=await apiPost("/api/admin/remind/"+encodeURIComponent(b.dataset.sendnow),{send:true});toast(r.sent?"Podsetnik je poslat.":"Slanje nije uspelo - proverite SMTP.");loadAdm()}catch(e){toast(e.message);b.disabled=false}});
   const hs=root.querySelector("#hrs-save");
   if(hs)hs.onclick=async()=>{
     const H={};["0","1","2","3","4","5","6"].forEach(k=>{
