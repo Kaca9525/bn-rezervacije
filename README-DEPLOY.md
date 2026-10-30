@@ -40,7 +40,7 @@ npm start          # aplikacija radi na http://localhost:3000
 | `SMTP_PASS`     | za mejl  | Gmail **App Password** (uputstvo ispod) |
 | `REMINDER_HOUR` | ne       | Sat kada se šalju podsetnici za sutra (podrazumevano `18`) |
 | `PORT`          | ne       | Port servera (hosting ga obično sam zada) |
-| `DATA_DIR`      | ne       | Folder za bazu `salon.db` (korisno uz persistent disk) |
+| `DATA_DIR`      | ne       | Folder za bazu `salon.db` i slike usluga (`DATA_DIR/img`, dodaju se u Admin → Usluge → „Slika"); korisno uz persistent disk |
 
 **Bez SMTP podešavanja aplikacija normalno radi** — samo se mejlovi ne šalju automatski;
 u Admin → Podsetnici i dalje imate gotove tekstove za ručno slanje.
@@ -66,7 +66,7 @@ u Admin → Podsetnici i dalje imate gotove tekstove za ručno slanje.
 4. U **Environment** dodajte promenljive iz tabele iznad (bar `SECRET`; za mejlove i `SMTP_USER`/`SMTP_PASS`)
 5. Deploy → dobijate javnu adresu tipa `https://bn-rezervacije.onrender.com`
 
-> **Važno za podatke:** na Render **Free** planu disk nije trajan — rezervacije se mogu izgubiti
+> **Važno za podatke:** na Render **Free** planu disk nije trajan — rezervacije i slike usluga se mogu izgubiti
 > pri restartu servisa. Za pravu produkciju izaberite **Starter** plan + **Disk** (mount npr. `/data`
 > i postavite `DATA_DIR=/data`), ili bilo koji VPS/hosting sa Node podrškom. Free plan je savršen
 > za testiranje sa pravim korisnicima pre konačne odluke.

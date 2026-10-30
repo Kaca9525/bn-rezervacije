@@ -79,6 +79,7 @@ try { db.exec("ALTER TABLE services ADD COLUMN oldPrice INTEGER"); } catch (e) {
 try { db.exec("ALTER TABLE users ADD COLUMN resetHash TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE users ADD COLUMN resetExp TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE services ADD COLUMN cur TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE services ADD COLUMN img INTEGER"); } catch (e) {}
 try { db.exec("ALTER TABLE bookings ADD COLUMN totalPriceEur INTEGER DEFAULT 0"); } catch (e) {}
 db.exec(`CREATE TABLE IF NOT EXISTS vouchers(
   id TEXT PRIMARY KEY, buyerEmail TEXT, buyerName TEXT, buyerTel TEXT,
@@ -158,7 +159,7 @@ function verify(token) {
   return Buffer.from(body, "base64url").toString();
 }
 
-const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice, cur: r.cur || undefined });
+const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice, cur: r.cur || undefined, img: r.img ? "/img/u/" + r.id + ".jpg?v=" + r.img : undefined });
 const empRow = r => r && ({ id: r.id, name: r.name, cats: JSON.parse(r.cats || "[]"), title: r.title || "", active: r.active === 0 ? false : true });
 const bkRow = r => r && ({ ...r, services: JSON.parse(r.services), reminderSent: !!r.reminderSent });
 const performs = (e, s) => Array.isArray(s.emps) ? s.emps.includes(e.id) : (e.cats || []).includes(s.cat);
@@ -181,9 +182,13 @@ function freeAt(busy, start, dur) {
 /* ---------------- app ---------------- */
 const app = express();
 app.set("trust proxy", 1);
-app.use(express.json());
+app.use(express.json({ limit: "4mb" })); // slike usluga stižu kao data URL
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
+/* slike usluga (admin upload) žive uz bazu, u DATA_DIR/img */
+const IMG_DIR = path.join(DATA_DIR, "img");
+try { fs.mkdirSync(IMG_DIR, { recursive: true }); } catch (e) {}
+app.use("/img/u", express.static(IMG_DIR, { maxAge: "30d", immutable: true }));
 
 function me(req) {
   const email = verify(req.cookies.bn);
@@ -449,7 +454,29 @@ app.post("/api/admin/service-del/:id", auth, admin, (req, res) => {
   const s = db.prepare("SELECT * FROM services WHERE id=?").get(req.params.id);
   if (!s) return res.status(404).json({ error: "Usluga nije pronađena." });
   db.prepare("DELETE FROM services WHERE id=?").run(s.id);
+  try { fs.unlinkSync(path.join(IMG_DIR, s.id + ".jpg")); } catch (e) {}
   res.json({ ok: true });
+});
+/* slika usluge: klijent šalje već smanjen JPEG (data URL), čuva se kao DATA_DIR/img/<id>.jpg */
+const safeId = id => /^[A-Za-z0-9_-]+$/.test(id);
+app.post("/api/admin/service-img/:id", auth, admin, (req, res) => {
+  const s = db.prepare("SELECT * FROM services WHERE id=?").get(req.params.id);
+  if (!s || !safeId(s.id)) return res.status(404).json({ error: "Usluga nije pronađena." });
+  const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String((req.body || {}).data || ""));
+  if (!m) return res.status(400).json({ error: "Slika nije u očekivanom formatu (JPEG)." });
+  const buf = Buffer.from(m[1], "base64");
+  if (buf.length < 100 || buf[0] !== 0xFF || buf[1] !== 0xD8) return res.status(400).json({ error: "Slika nije ispravan JPEG." });
+  if (buf.length > 2.5e6) return res.status(400).json({ error: "Slika je prevelika (najviše 2,5 MB)." });
+  fs.writeFileSync(path.join(IMG_DIR, s.id + ".jpg"), buf);
+  db.prepare("UPDATE services SET img=? WHERE id=?").run(Date.now(), s.id);
+  res.json({ service: svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(s.id)) });
+});
+app.post("/api/admin/service-img-del/:id", auth, admin, (req, res) => {
+  const s = db.prepare("SELECT * FROM services WHERE id=?").get(req.params.id);
+  if (!s || !safeId(s.id)) return res.status(404).json({ error: "Usluga nije pronađena." });
+  try { fs.unlinkSync(path.join(IMG_DIR, s.id + ".jpg")); } catch (e) {}
+  db.prepare("UPDATE services SET img=NULL WHERE id=?").run(s.id);
+  res.json({ service: svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(s.id)) });
 });
 app.post("/api/vouchers", auth, (req, res) => {
   const { recipient, serviceId, amount, message } = req.body || {};
