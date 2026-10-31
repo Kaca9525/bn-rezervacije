@@ -159,7 +159,12 @@ function verify(token) {
   return Buffer.from(body, "base64url").toString();
 }
 
-const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice, cur: r.cur || undefined, img: r.img ? "/img/u/" + r.id + ".jpg?v=" + r.img : undefined });
+/* podrazumevane slike usluga su u repou: public/img/usluge/<id>.jpg (koriste se dok admin ne okači svoju; img=0 znači „bez slike“) */
+const DEF_IMG_DIR = path.join(__dirname, "public", "img", "usluge");
+const DEF_IMG = new Map();
+try { for (const f of fs.readdirSync(DEF_IMG_DIR)) if (f.endsWith(".jpg")) DEF_IMG.set(f.slice(0, -4), Math.floor(fs.statSync(path.join(DEF_IMG_DIR, f)).mtimeMs / 1000)); } catch (e) {}
+const svcImgUrl = r => r.img > 0 ? "/img/u/" + r.id + ".jpg?v=" + r.img : (r.img == null && DEF_IMG.has(r.id) ? "/img/usluge/" + r.id + ".jpg?v=" + DEF_IMG.get(r.id) : undefined);
+const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice, cur: r.cur || undefined, img: svcImgUrl(r) });
 const empRow = r => r && ({ id: r.id, name: r.name, cats: JSON.parse(r.cats || "[]"), title: r.title || "", active: r.active === 0 ? false : true });
 const bkRow = r => r && ({ ...r, services: JSON.parse(r.services), reminderSent: !!r.reminderSent });
 const performs = (e, s) => Array.isArray(s.emps) ? s.emps.includes(e.id) : (e.cats || []).includes(s.cat);
@@ -475,7 +480,7 @@ app.post("/api/admin/service-img-del/:id", auth, admin, (req, res) => {
   const s = db.prepare("SELECT * FROM services WHERE id=?").get(req.params.id);
   if (!s || !safeId(s.id)) return res.status(404).json({ error: "Usluga nije pronađena." });
   try { fs.unlinkSync(path.join(IMG_DIR, s.id + ".jpg")); } catch (e) {}
-  db.prepare("UPDATE services SET img=NULL WHERE id=?").run(s.id);
+  db.prepare("UPDATE services SET img=? WHERE id=?").run(DEF_IMG.has(s.id) ? 0 : null, s.id); // 0 = sakrij i podrazumevanu sliku
   res.json({ service: svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(s.id)) });
 });
 app.post("/api/vouchers", auth, (req, res) => {
