@@ -171,11 +171,12 @@ input,select,textarea{font:inherit;color:var(--ink)}
   box-shadow:inset 0 0 0 1px rgba(35,29,23,.06)}
 .svc p.desc{display:none}
 .svc.open p.desc{display:block}
-.svc .more{align-self:flex-start;display:inline-flex;align-items:center;gap:7px;padding:2px 0;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-strong)}
+.svc-meta .pr{display:flex;justify-content:space-between;align-items:baseline;gap:6px 14px;flex-wrap:wrap}
+.svc .more{flex:none;white-space:nowrap;margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:2px 0;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-strong)}
 .svc .more svg{flex:none;transition:transform .18s ease}
 .svc.open .more svg{transform:rotate(90deg)}
 .svc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:auto;padding-top:8px;border-top:1px solid var(--line-soft)}
-.svc-foot>.btn{margin-left:auto}
+.svc-foot .btn svg{flex:none}
 .who{margin-top:12px;display:grid;gap:4px;font-size:12.5px;color:var(--muted)}
 .who b{color:var(--ink);font-weight:700}
 .svc-note{font-size:11.5px;color:var(--gold-strong);font-weight:700}
@@ -223,9 +224,6 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .mcal-day.on{background:var(--band);border-color:var(--band);color:var(--band-gold);box-shadow:var(--shadow)}
 .mcal-foot{font-size:11.5px;color:var(--muted);margin-top:8px}
 .modal.cal-modal{max-width:420px}
-.svc-cal{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:8px;border-top:1px dashed var(--line-soft)}
-.svc-cal .lbl{font-size:10.5px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:var(--gold-strong)}
-.svc-cal .btn svg{flex:none}
 .icon-btn{width:36px;height:36px;border-radius:50%;display:inline-grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--danger);transition:all .15s ease}
 .icon-btn:hover{border-color:var(--danger);background:var(--danger-bg)}
 .icon-btn.arm{background:var(--danger);border-color:var(--danger);color:#fff}
@@ -756,8 +754,8 @@ function svcCard(s){
   if(s.cat==="edu"){
     return `<div class="card svc">
       <h3>${esc(s.name)}</h3>${svcImg(s)}
-      <div class="svc-meta"><span><b class="lbl">⏱ Trajanje tretmana:</b> po dogovoru</span><span><b class="lbl">Cena:</b> <span class="price">na upit</span></span></div>
-      <p class="desc" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>${moreBtn(s)}
+      <div class="svc-meta"><span><b class="lbl">⏱ Trajanje tretmana:</b> po dogovoru</span><span class="pr"><span><b class="lbl">Cena:</b> <span class="price">na upit</span></span>${moreBtn(s)}</span></div>
+      <p class="desc" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
       <div class="svc-foot">
         <span class="note">Edukator: Andrijana</span>
         <button class="btn btn-gold btn-sm" data-inq="${esc(s.id)}">Pošalji upit</button>
@@ -768,13 +766,13 @@ function svcCard(s){
   const off=+s.oldPrice>+s.price?`<span class="pill pill-off">AKCIJA −${Math.round((1-s.price/s.oldPrice)*100)}%</span>`:"";
   return `<div class="card svc ${inCart?"inCart":""}">
     ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}${svcImg(s)}
-    <div class="svc-meta"><span><b class="lbl">⏱ Trajanje tretmana:</b> ${+s.duration>0?durTxt(+s.duration):"po dogovoru"}</span><span><b class="lbl">Cena:</b> ${+s.oldPrice>+s.price?`<s class="old">${priceTxt(s,+s.oldPrice)}</s> `:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></span></div>
-    <p class="desc" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>${moreBtn(s)}
+    <div class="svc-meta"><span><b class="lbl">⏱ Trajanje tretmana:</b> ${+s.duration>0?durTxt(+s.duration):"po dogovoru"}</span><span class="pr"><span><b class="lbl">Cena:</b> ${+s.oldPrice>+s.price?`<s class="old">${priceTxt(s,+s.oldPrice)}</s> `:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></span>${moreBtn(s)}</span></div>
+    <p class="desc" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
     ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
     <div class="svc-foot">
+      ${+s.duration>0?`<button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}" title="Slobodni termini">${ICON_CAL}Kalendar</button>`:"<span></span>"}
       <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
     </div>
-    ${+s.duration>0?`<div class="svc-cal"><span class="lbl">Slobodni termini</span><button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}">${ICON_CAL}Kalendar</button></div>`:""}
   </div>`;
 }
 const byName=(a,b)=>a.name.localeCompare(b.name,"sr");
