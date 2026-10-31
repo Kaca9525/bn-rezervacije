@@ -175,6 +175,9 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc .more svg{flex:none;transition:transform .18s ease}
 .svc.open .more svg{transform:rotate(90deg)}
 .svc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:auto;padding-top:8px;border-top:1px solid var(--line-soft)}
+.svc-foot>.btn{margin-left:auto}
+.who{margin-top:12px;display:grid;gap:4px;font-size:12.5px;color:var(--muted)}
+.who b{color:var(--ink);font-weight:700}
 .svc-note{font-size:11.5px;color:var(--gold-strong);font-weight:700}
 .svc.inCart{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),var(--shadow)}
 .svc.inCart::before{opacity:1}
@@ -769,7 +772,6 @@ function svcCard(s){
     <p class="desc" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>${moreBtn(s)}
     ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
     <div class="svc-foot">
-      <span class="note">${svcEmps(s).map(e=>e.name).join(" · ")}</span>
       <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
     </div>
     ${+s.duration>0?`<div class="svc-cal"><span class="lbl">Slobodni termini</span><button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}">${ICON_CAL}Kalendar</button></div>`:""}
@@ -932,6 +934,7 @@ function tplBooking(){
             return `<button class="chip ${S.bEmp===e.id?"on":""}" data-emp="${esc(e.id)}" ${ok?"":"disabled"} title="${esc(ok?(e.title||""):"Ne izvodi sve izabrane tretmane")}">${esc(e.name)}</button>`;
           }).join("")}
         </div>
+        ${S.cart.length?`<div class="who">${S.cart.map(c=>{const s=S.services.find(x=>x.id===c.id);if(!s)return"";const n=svcEmps(s).map(e=>esc(e.name));return `<div><b>${esc(s.name)}</b>: ${n.length?n.join(", "):"po dogovoru"}</div>`}).join("")}</div>`:""}
         ${emps.length===0?`<p class="note" style="margin-top:10px;color:var(--danger)">Nijedna zaposlena ne pokriva sve izabrane tretmane - razdvojite rezervaciju.</p>`:""}
       </div>
       <div class="card">
