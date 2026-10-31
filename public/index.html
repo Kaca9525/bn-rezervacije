@@ -176,7 +176,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc .more svg{flex:none;transition:transform .18s ease}
 .svc.open .more svg{transform:rotate(90deg)}
 .svc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:auto;padding-top:8px;border-top:1px solid var(--line-soft)}
-.svc-foot .btn svg{flex:none}
+.svc-foot>.btn:only-child{margin-left:auto}
 .who{margin-top:12px;display:grid;gap:4px;font-size:12.5px;color:var(--muted)}
 .who b{color:var(--ink);font-weight:700}
 .svc-note{font-size:11.5px;color:var(--gold-strong);font-weight:700}
@@ -223,7 +223,6 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .mcal-day.today{border-color:var(--line)}
 .mcal-day.on{background:var(--band);border-color:var(--band);color:var(--band-gold);box-shadow:var(--shadow)}
 .mcal-foot{font-size:11.5px;color:var(--muted);margin-top:8px}
-.modal.cal-modal{max-width:420px}
 .icon-btn{width:36px;height:36px;border-radius:50%;display:inline-grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--danger);transition:all .15s ease}
 .icon-btn:hover{border-color:var(--danger);background:var(--danger-bg)}
 .icon-btn.arm{background:var(--danger);border-color:var(--danger);color:#fff}
@@ -541,21 +540,6 @@ async function computeSlots(dateStr){
   }
   return{slots,h};
 }
-/* slobodni termini za proizvoljnu listu usluga (popup kalendar na karticama) */
-async function slotsForServices(dateStr,list){
-  const h=dayHours(dateStr);if(!h)return{slots:[],h:null};
-  const dur=list.reduce((a,s)=>a+(+s.duration||0),0);
-  const emps=S.employees.filter(e=>e.active!==false&&list.every(s=>performs(e,s))).map(e=>e.id);
-  if(!emps.length)return{slots:[],h,noEmp:true};
-  const bks=await bookingsFor(dateStr);
-  const today=dstr(new Date());const now=new Date();const nowMin=now.getHours()*60+now.getMinutes();
-  const slots=[];
-  for(let t=h.open;t+dur<=h.close;t+=30){
-    if(dateStr===today&&t<nowMin+60)continue;
-    slots.push({t,free:emps.some(e=>freeAt(bks,e,t,dur))});
-  }
-  return{slots,h};
-}
 /* kompaktni mesečni kalendar: tekući mesec + naredna 2, samo radni dani salona */
 const MONTHS_L=["januar","februar","mart","april","maj","jun","jul","avgust","septembar","oktobar","novembar","decembar"];
 const CAL_SPAN=2;
@@ -581,50 +565,7 @@ function calMonthHTML(off,sel,attr){
   </div>`;
 }
 const calOffFor=ds=>{if(!ds)return 0;const d=parseD(ds),n=new Date();return Math.max(0,Math.min(CAL_SPAN,(d.getFullYear()-n.getFullYear())*12+d.getMonth()-n.getMonth()))};
-const ICON_CAL=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`;
 const ICON_TRASH=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>`;
-function calModal(svcId){
-  const s=S.services.find(x=>x.id===svcId);if(!s)return;
-  const list=S.cart.some(c=>c.id===s.id)?S.cart.slice():S.cart.concat([s]);
-  const st={off:0,date:null,slot:null};
-  const dur=list.reduce((a,x)=>a+(+x.duration||0),0);
-  const draw=()=>{
-    const m=$("#modal-root .modal");if(!m)return;
-    m.innerHTML=`<h3>${esc(s.name)}</h3>
-      <p class="note" style="margin:-4px 0 14px">${list.length>1?"Zajedno sa uslugama iz korpe · ":""}trajanje ${durTxt(dur)}. Izaberite dan, pa slobodan termin.</p>
-      ${calMonthHTML(st.off,st.date,"cmday")}
-      <div id="cm-slots" style="margin-top:14px"></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
-        <button class="btn btn-gold btn-sm" id="cm-go" ${st.date&&st.slot!=null?"":"disabled"}>${st.date&&st.slot!=null?"Nastavi · "+esc(st.date.split("-").reverse().slice(0,2).join(".")+". u "+toHM(st.slot)):"Nastavi"}</button>
-        <button class="btn btn-ghost btn-sm" id="m-close">Zatvori</button>
-      </div>`;
-    m.querySelector("#m-close").onclick=closeModal;
-    m.querySelectorAll("[data-cmday-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;st.off=+b.dataset.cmdayOff;draw()});
-    m.querySelectorAll("[data-cmday]").forEach(b=>b.onclick=()=>{if(b.disabled)return;st.date=b.dataset.cmday;st.slot=null;draw()});
-    m.querySelector("#cm-go").onclick=()=>{
-      if(!st.date||st.slot==null)return;
-      if(!S.cart.some(c=>c.id===s.id))S.cart.push(s);
-      S.bEmp="__any";S.bDate=st.date;S.bSlot=st.slot;S.bOff=null;closeModal();S.view="booking";render();
-    };
-    const area=m.querySelector("#cm-slots");
-    if(!st.date){area.innerHTML=`<p class="note">Izaberite datum da biste videli slobodne termine.</p>`;return}
-    area.innerHTML=`<div class="loading" style="padding:10px 0">Proveravam slobodne termine…</div>`;
-    const want=st.date;
-    slotsForServices(want,list).then(({slots,h,noEmp})=>{
-      if(st.date!==want||!area.isConnected)return;
-      if(noEmp){area.innerHTML=`<p class="note" style="color:var(--danger)">Nijedna zaposlena ne izvodi sve izabrane tretmane u jednoj poseti.</p>`;return}
-      if(!h){area.innerHTML=`<p class="note">Salon ne radi izabranog dana.</p>`;return}
-      if(!slots.some(x=>x.free)){area.innerHTML=`<p class="note">Nema slobodnih termina tog dana - izaberite drugi dan.</p>`;return}
-      area.innerHTML=`<p class="note" style="margin:0 0 8px">${esc(fmtD(want))} · radno vreme ${toHM(h.open)}-${toHM(h.close)}</p>
-        <div class="slots">${slots.map(x=>`<button class="slot ${st.slot===x.t?"on":""}" data-cmslot="${x.t}" ${x.free?"":"disabled"}>${toHM(x.t)}</button>`).join("")}</div>`;
-      area.querySelectorAll("[data-cmslot]").forEach(b=>b.onclick=()=>{st.slot=+b.dataset.cmslot;draw()});
-    }).catch(()=>{if(area.isConnected)area.innerHTML=`<p class="note">Termine trenutno nije moguće učitati. Pokušajte ponovo.</p>`});
-  };
-  showModal("");
-  const m=$("#modal-root .modal");if(m)m.classList.add("cal-modal");
-  draw();
-}
-
 /* ================= booking ================= */
 async function confirmBooking(){
   if(!S.me){toast("Prijavite se da biste zakazali termin.");S.view="auth";render();return}
@@ -770,7 +711,6 @@ function svcCard(s){
     <p class="desc" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
     ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
     <div class="svc-foot">
-      ${+s.duration>0?`<button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}" title="Slobodni termini">${ICON_CAL}Kalendar</button>`:"<span></span>"}
       <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
     </div>
   </div>`;
@@ -1429,7 +1369,6 @@ function wire(root){
   });
   root.querySelectorAll("[data-emp]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bEmp=b.dataset.emp;S.bSlot=null;render()});
   root.querySelectorAll("[data-date-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bOff=+b.dataset.dateOff;render()});
-  root.querySelectorAll("[data-cal]").forEach(b=>b.onclick=()=>calModal(b.dataset.cal));
   root.querySelectorAll("[data-date]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bDate=b.dataset.date;S.bSlot=null;render()});
   root.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{S.cart=S.cart.filter(c=>c.id!==b.dataset.rm);if(!S.cart.length){S.view="catalog"}S.bSlot=null;render()});
   const bc=root.querySelector("#bk-confirm");if(bc)bc.onclick=confirmBooking;
