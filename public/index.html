@@ -157,11 +157,18 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc:hover::before{opacity:1}
 .svc-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
 .svc h3{font-family:var(--ff-disp);font-weight:600;font-size:21.5px;line-height:1.18;margin:0;text-wrap:balance}
-.svc-meta{display:flex;gap:16px;align-items:baseline;font-size:12.5px;color:var(--muted);letter-spacing:.03em}
+.svc-meta{display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--ink)}
+.svc-meta .lbl{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-right:3px}
+.svc-meta .old{text-decoration:line-through;opacity:.55;font-size:13px}
 .svc-meta .price{font-weight:800;color:var(--gold-strong);font-size:16px;font-variant-numeric:tabular-nums;letter-spacing:0}
 .svc p{margin:0;color:var(--muted);font-size:13.5px}
 /* slika usluge ispod naziva; opis je na svakoj kartici sakriven dok se ne klikne „Saznaj više" */
-.svc-img{margin:4px -22px 2px;aspect-ratio:16/9;background:var(--surface2) center/cover no-repeat;border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)}
+.svc-img{position:relative;margin:2px 0 0;aspect-ratio:16/9;border-radius:14px;background:var(--surface2) center/cover no-repeat;overflow:hidden}
+.svc-img::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,0) 58%,rgba(255,255,255,.28) 84%,rgba(255,255,255,.72) 100%),
+             linear-gradient(90deg,rgba(255,255,255,.26),rgba(255,255,255,0) 12%,rgba(255,255,255,0) 88%,rgba(255,255,255,.26)),
+             linear-gradient(0deg,rgba(255,255,255,0) 92%,rgba(255,255,255,.22) 100%);
+  box-shadow:inset 0 0 0 1px rgba(35,29,23,.06)}
 .svc p.desc{display:none}
 .svc.open p.desc{display:block}
 .svc .more{align-self:flex-start;display:inline-flex;align-items:center;gap:7px;padding:2px 0;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-strong)}
@@ -746,7 +753,7 @@ function svcCard(s){
   if(s.cat==="edu"){
     return `<div class="card svc">
       <h3>${esc(s.name)}</h3>${svcImg(s)}
-      <div class="svc-meta"><span>⏱ Termini po dogovoru</span><span class="price">Cena: na upit</span></div>
+      <div class="svc-meta"><span><b class="lbl">⏱ Trajanje tretmana:</b> po dogovoru</span><span><b class="lbl">Cena:</b> <span class="price">na upit</span></span></div>
       <p class="desc" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>${moreBtn(s)}
       <div class="svc-foot">
         <span class="note">Edukator: Andrijana</span>
@@ -758,7 +765,7 @@ function svcCard(s){
   const off=+s.oldPrice>+s.price?`<span class="pill pill-off">AKCIJA −${Math.round((1-s.price/s.oldPrice)*100)}%</span>`:"";
   return `<div class="card svc ${inCart?"inCart":""}">
     ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}${svcImg(s)}
-    <div class="svc-meta"><span>⏱ ${durTxt(+s.duration)}</span>${+s.oldPrice>+s.price?`<span style="text-decoration:line-through;opacity:.6">${priceTxt(s,+s.oldPrice)}</span>`:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></div>
+    <div class="svc-meta"><span><b class="lbl">⏱ Trajanje tretmana:</b> ${+s.duration>0?durTxt(+s.duration):"po dogovoru"}</span><span><b class="lbl">Cena:</b> ${+s.oldPrice>+s.price?`<s class="old">${priceTxt(s,+s.oldPrice)}</s> `:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></span></div>
     <p class="desc" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>${moreBtn(s)}
     ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
     <div class="svc-foot">
