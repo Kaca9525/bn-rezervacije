@@ -163,7 +163,17 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc-meta .price{font-weight:800;color:var(--gold-strong);font-size:16px;font-variant-numeric:tabular-nums;letter-spacing:0}
 .svc p{margin:0;color:var(--muted);font-size:13.5px}
 /* slika usluge ispod naziva; opis je na svakoj kartici sakriven dok se ne klikne „Saznaj više" */
-.svc-img{position:relative;margin:2px 0 0;aspect-ratio:16/9;border-radius:14px;background:var(--surface2) center/cover no-repeat;overflow:hidden}
+.svc-img{position:relative;margin:2px 0 0;aspect-ratio:16/9;border-radius:14px;background:var(--surface2);overflow:hidden;isolation:isolate}
+/* slika je zamućena dok je miš ne pređe (:hover) ili prst ne dodirne (klasa .peek); scale krije zamućene ivice */
+.svc-img::before{content:"";position:absolute;inset:0;background:var(--img) center/cover no-repeat;filter:blur(7px);transform:scale(1.08);transition:filter .45s ease,transform .45s ease}
+@media (hover:hover){.svc-img:hover::before{filter:none;transform:none}}
+.svc-img.peek::before{filter:none;transform:none}
+/* kartica sa portretom preko cele površine (Besplatna konsultacija): tekst pri dnu na belom prelivu */
+.svc.svc-photo{isolation:isolate;min-height:340px;justify-content:flex-end;background:var(--img) center top/100% auto no-repeat,var(--surface)}
+.svc.svc-photo::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,0) 42%,rgba(255,255,255,.9) 64%,var(--surface) 100%)}
+.svc.svc-photo h3{margin-top:auto}
+.svc.svc-photo .svc-foot{margin-top:0}
 .svc-img::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
   background:linear-gradient(180deg,rgba(255,255,255,0) 58%,rgba(255,255,255,.28) 84%,rgba(255,255,255,.72) 100%),
              linear-gradient(90deg,rgba(255,255,255,.26),rgba(255,255,255,0) 12%,rgba(255,255,255,0) 88%,rgba(255,255,255,.26)),
@@ -688,7 +698,21 @@ function reminderBanner(){
   if(!b)return"";
   return `<div class="remind">⏰ Podsetnik: sutra u ${esc(b.start)} imate zakazano - ${esc(b.services.map(s=>s.name).join(", "))} (${esc(b.employeeName)}).</div>`;
 }
-const svcImg=s=>s.img?`<div class="svc-img" style="background-image:url('${esc(s.img)}')" role="img" aria-label="${esc(s.name)}"></div>`:"";
+/* usluge čija slika ide preko cele kartice (portret), bez zamućenja */
+const PHOTO_CARD=new Set(["konsultacija"]);
+const svcImg=s=>s.img?`<div class="svc-img" style="--img:url('${esc(s.img)}')" role="img" aria-label="${esc(s.name)}"></div>`:"";
+/* na dodir prsta slika ispod prsta se otkriva (i dok prst prelazi preko ekrana), a 1,8 s po podizanju prsta se opet zamuti */
+(()=>{
+  let cur=null,tmr=0;
+  const peek=el=>{if(el===cur)return;if(cur)cur.classList.remove("peek");cur=el;if(cur)cur.classList.add("peek")};
+  const under=t=>{const e=document.elementFromPoint(t.clientX,t.clientY);return e&&e.closest?e.closest(".svc-img"):null};
+  const on=e=>{clearTimeout(tmr);const t=e.touches[0];if(t)peek(under(t))};
+  const off=()=>{clearTimeout(tmr);tmr=setTimeout(()=>peek(null),1800)};
+  document.addEventListener("touchstart",on,{passive:true});
+  document.addEventListener("touchmove",on,{passive:true});
+  document.addEventListener("touchend",off,{passive:true});
+  document.addEventListener("touchcancel",off,{passive:true});
+})();
 /* opis usluge je skriven dok se ne klikne „Saznaj više“, slika je glavni fokus kartice */
 const moreBtn=s=>(s.desc||"").trim()?`<button class="more" data-more="${esc(s.id)}" aria-expanded="false" aria-controls="d-${esc(s.id)}"><span>Saznaj više</span>${ICON_ARROW}</button>`:"";
 function svcCard(s){
@@ -705,8 +729,9 @@ function svcCard(s){
   }
   const inCart=S.cart.some(c=>c.id===s.id);
   const off=+s.oldPrice>+s.price?`<span class="pill pill-off">AKCIJA −${Math.round((1-s.price/s.oldPrice)*100)}%</span>`:"";
-  return `<div class="card svc ${inCart?"inCart":""}">
-    ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}${svcImg(s)}
+  const photo=!!s.img&&PHOTO_CARD.has(s.id); /* fotografija preko cele kartice, tekst pri dnu */
+  return `<div class="card svc ${inCart?"inCart":""}${photo?" svc-photo":""}"${photo?` style="--img:url('${esc(s.img)}')"`:""}>
+    ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}${photo?"":svcImg(s)}
     <div class="svc-meta"><span><b class="lbl">⏱ Trajanje tretmana:</b> ${+s.duration>0?durTxt(+s.duration):"po dogovoru"}</span><span class="pr"><span><b class="lbl">Cena:</b> ${+s.oldPrice>+s.price?`<s class="old">${priceTxt(s,+s.oldPrice)}</s> `:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></span>${moreBtn(s)}</span></div>
     <p class="desc" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
     ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
