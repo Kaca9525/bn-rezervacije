@@ -151,15 +151,16 @@ function sendMail(to, subject, text) {
   }).then(() => true).catch(e => { console.error("Mail greška:", e.message); return false; });
 }
 
-/* ---------------- SMS (Infobip ili Twilio) ---------------- */
+/* ---------------- SMS (Android telefon preko SMSGate, Infobip ili Twilio) ---------------- */
 const SMS_PROVIDER = (process.env.SMS_PROVIDER ||
-  (process.env.INFOBIP_API_KEY ? "infobip" : process.env.TWILIO_ACCOUNT_SID ? "twilio" : "")).toLowerCase();
+  (process.env.SMSGATE_USER ? "smsgate" : process.env.INFOBIP_API_KEY ? "infobip" : process.env.TWILIO_ACCOUNT_SID ? "twilio" : "")).toLowerCase();
 const SMS_FROM = process.env.SMS_FROM || "BNSalon";
-const smsOn = (SMS_PROVIDER === "infobip" && !!process.env.INFOBIP_API_KEY) ||
+const smsOn = (SMS_PROVIDER === "smsgate" && !!process.env.SMSGATE_USER && !!process.env.SMSGATE_PASS) ||
+  (SMS_PROVIDER === "infobip" && !!process.env.INFOBIP_API_KEY) ||
   (SMS_PROVIDER === "twilio" && !!process.env.TWILIO_ACCOUNT_SID && !!process.env.TWILIO_AUTH_TOKEN) ||
   SMS_PROVIDER === "log";
-console.log(smsOn ? "SMS slanje je UKLJUČENO (" + SMS_PROVIDER + ", pošiljalac " + SMS_FROM + ")."
-  : "SMS slanje je ISKLJUČENO - postavite INFOBIP_API_KEY ili TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN.");
+console.log(smsOn ? "SMS slanje je UKLJUČENO (" + SMS_PROVIDER + (SMS_PROVIDER === "smsgate" ? ", sa broja telefona" : ", pošiljalac " + SMS_FROM) + ")."
+  : "SMS slanje je ISKLJUČENO - postavite SMSGATE_USER/SMSGATE_PASS, INFOBIP_API_KEY ili TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN.");
 /* broj telefona u međunarodnom formatu (+381…) ili null; prima 064 123 4567, +381 64…, 00381…, 381… */
 function normTel(s) {
   let t = String(s || "").trim().replace(/[\s\-\/().]/g, "");
@@ -173,12 +174,25 @@ function normTel(s) {
 /* SMS bez kvačica (č→c, đ→dj): ostaje u GSM kodiranju, 160 znakova po poruci umesto 70 */
 const smsAscii = s => String(s).replace(/đ/g, "dj").replace(/Đ/g, "Dj").normalize("NFD")
   .replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E\n]/g, "");
-async function sendSms(to, text) {
+/* opts.validUntil (Date): posle tog trenutka poruka se više ne šalje (telefon bio isključen) */
+async function sendSms(to, text, opts) {
   const tel = normTel(to);
   if (!smsOn || !tel) return false;
   const body = smsAscii(text);
+  const until = opts && opts.validUntil instanceof Date && !isNaN(opts.validUntil) ? opts.validUntil : null;
   try {
-    if (SMS_PROVIDER === "infobip") {
+    if (SMS_PROVIDER === "smsgate") {
+      /* SMSGate: aplikacija na Android telefonu šalje SMS sa SIM kartice; server samo predaje poruku telefonu */
+      const base = (process.env.SMSGATE_URL || "https://api.sms-gate.app/3rdparty/v1").replace(/\/+$/, "");
+      const msg = { textMessage: { text: body }, phoneNumbers: [tel] };
+      if (until) msg.validUntil = until.toISOString();
+      const r = await fetch(base + "/messages", {
+        method: "POST",
+        headers: { Authorization: "Basic " + Buffer.from(process.env.SMSGATE_USER + ":" + process.env.SMSGATE_PASS).toString("base64"), "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(msg),
+      });
+      if (!r.ok) throw new Error("SMSGate " + r.status + " " + (await r.text()).slice(0, 300));
+    } else if (SMS_PROVIDER === "infobip") {
       const base = (process.env.INFOBIP_BASE_URL || "https://api.infobip.com").replace(/\/+$/, "");
       const r = await fetch(base + "/sms/3/messages", {
         method: "POST",
@@ -373,7 +387,7 @@ app.post("/api/forgot", (req, res) => {
     db.prepare("UPDATE users SET resetHash=?, resetExp=? WHERE email=?").run(hash, exp, email);
     const proto = req.protocol || "https";   // iza Render proksija: https (trust proxy)
     const link = proto + "://" + req.get("host") + "/?reset=" + token;
-    if (smsOn && normTel(u.telefon)) sendSms(u.telefon, "Beauty & Nutrition: link za novu lozinku (vazi 1 sat): " + link);
+    if (smsOn && normTel(u.telefon)) sendSms(u.telefon, "Beauty & Nutrition: link za novu lozinku (vazi 1 sat): " + link, { validUntil: new Date(Date.now() + 36e5) });
     if (mailer) sendMail(email, "Resetovanje lozinke - Beauty & Nutrition",
 `Poštovana/i ${u.ime},
 
@@ -926,7 +940,7 @@ async function runSmsReminders() {
       const plan = smsPlan(b, kind, now);
       if (plan === "wait") continue;
       if (plan === "skip") { db.prepare(`UPDATE bookings SET ${kind}=2 WHERE id=?`).run(b.id); continue; }
-      const ok = await sendSms(b.userTel, smsText(b, kind));
+      const ok = await sendSms(b.userTel, smsText(b, kind), { validUntil: startOf(b) });
       const key = b.id + kind, n = (smsTries.get(key) || 0) + 1;
       if (ok) { db.prepare(`UPDATE bookings SET ${kind}=1 WHERE id=?`).run(b.id); smsTries.delete(key); }
       else { smsTries.set(key, n); if (n >= 3) db.prepare(`UPDATE bookings SET ${kind}=3 WHERE id=?`).run(b.id); }
