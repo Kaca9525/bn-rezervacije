@@ -131,6 +131,15 @@ input,select,textarea{font:inherit;color:var(--ink)}
   transition:all .18s ease;box-shadow:var(--shadow)}
 .cat-tabs button:hover{border-color:var(--gold);color:var(--gold-strong)}
 .cat-tabs button.on{background:var(--band);border-color:var(--band);color:var(--band-gold);box-shadow:var(--shadow-lg)}
+.search{position:relative;flex:1 1 230px;min-width:190px;margin-left:auto;display:flex;align-items:center}
+.search>svg{position:absolute;left:15px;color:var(--muted);pointer-events:none}
+.search input{width:100%;padding:11px 38px 11px 40px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:14px;box-shadow:var(--shadow);transition:border-color .15s ease,box-shadow .15s ease}
+.search input::placeholder{color:var(--muted)}
+.search input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
+.search .clr{display:none;position:absolute;right:6px;width:30px;height:30px;padding:0;border:0;background:transparent;box-shadow:none;border-radius:50%;place-items:center;color:var(--muted)}
+.search.has-q .clr{display:grid}
+.search .clr:hover{background:var(--surface2);color:var(--ink)}
+.search-sum{margin:0 0 14px;color:var(--muted);font-size:13.5px}
 .svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
 .svc{position:relative;display:flex;flex-direction:column;gap:10px;min-width:0;overflow:hidden;
   transition:transform .2s ease,box-shadow .25s ease,border-color .2s ease}
@@ -350,6 +359,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .eh-add label.cl{display:flex;gap:7px;align-items:center;font-size:12.5px;color:var(--muted);white-space:nowrap}
 .eh-item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
 @media (max-width:760px){
+  .search{order:-1;flex-basis:100%;margin-left:0}
   .auth-grid,.book-grid{grid-template-columns:1fr}
   .adm-svc{grid-template-columns:1fr auto auto;row-gap:6px}
   .adm-svc .nm{grid-column:1/-1}
@@ -442,7 +452,7 @@ const S={
   me:null,loaded:false,loadErr:false,mailEnabled:false,smsEnabled:false,
   services:[],employees:[],hours:null,salon:null,
   myBookings:[],admBookings:[],
-  cart:[],view:"catalog",cat:"lice",authTab:"login",
+  cart:[],view:"catalog",cat:"lice",q:"",authTab:"login",
   bEmp:"__any",bDate:null,bSlot:null,
   admTab:"rez",lastBooking:null
 };
@@ -457,6 +467,7 @@ const telOk=s=>!!normTel(s);
 const CATS={lice:"Tretmani lica",telo:"Tretmani tela",masaze:"Masaže",akcije:"Akcija",edu:"Edukacije"};
 const TABS={lice:"Tretmani lica",telo:"Tretmani tela",akcije:"Akcije",vauceri:"Poklon vaučeri",edu:"Edukacije i obuke"};
 const tabCats=t=>t==="telo"?["telo","masaze"]:[t];
+const ICON_SEARCH=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>`;
 
 /* ================= boot & data ================= */
 (async function boot(){
@@ -818,24 +829,40 @@ function svcCard(s){
     ${+s.duration>0?`<div class="svc-cal"><span class="lbl">Slobodni termini</span><button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}">${ICON_CAL}Kalendar</button></div>`:""}
   </div>`;
 }
-function tplCatalog(){
-  const loading=!S.loaded;
+const byName=(a,b)=>a.name.localeCompare(b.name,"sr");
+/* pretraga: bez obzira na kvačice (š=s, ć=c, đ=dj), sve reči upita moraju da se nađu u nazivu ili opisu */
+const fold=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/đ/g,"dj");
+function searchServices(q){
+  const toks=fold(q).split(/\s+/).filter(Boolean);if(!toks.length)return[];
+  return S.services.filter(s=>s.active!==false&&toks.every(t=>(fold(s.name)+" "+fold(s.desc)).includes(t)));
+}
+const nTretmana=n=>n+(n%10===1&&n%100!==11?" tretman":" tretmana");
+function catalogBody(){
+  const q=(S.q||"").trim();
   const cats=tabCats(S.cat);
-  const byCat=c=>S.services.filter(s=>s.active!==false&&s.cat===c).sort((a,b)=>a.name.localeCompare(b.name,"sr"));
-  let body;
-  if(S.cat==="vauceri")body=tplVoucher();
-  else if(loading)body=`<div class="loading">Učitavanje cenovnika…</div>`;
-  else{
-    const total=cats.reduce((n,c)=>n+byCat(c).length,0);
-    if(!total&&S.cat==="akcije")body=`<div class="empty"><p style="font-weight:800">Trenutno nema aktuelnih akcija.</p><p class="note">Zavirite uskoro - paketi i popusti se objavljuju ovde.</p></div>`;
-    else if(!total)body=`<div class="empty"><p style="font-weight:800">Cenovnik se upravo priprema.</p><p class="note">Usluge za „${esc(TABS[S.cat])}" biće vidljive čim ih salon objavi.</p></div>`;
-    else if(S.cat==="telo"){
-      const t=byCat("telo"),m=byCat("masaze");
-      body=(t.length?`<div class="rule"><h2>Tretmani tela</h2></div><div class="svc-grid">${t.map(svcCard).join("")}</div>`:"")
-          +(m.length?`<div class="rule"><h2>Masaže</h2></div><div class="svc-grid">${m.map(svcCard).join("")}</div>`:"");
-    }
-    else body=`<div class="svc-grid">${byCat(cats[0]).map(svcCard).join("")}</div>`;
+  const byCat=c=>S.services.filter(s=>s.active!==false&&s.cat===c).sort(byName);
+  if(q&&S.loaded){
+    const hits=searchServices(q);
+    if(!hits.length)return `<div class="empty"><p style="font-weight:800">Nema tretmana za „${esc(q)}“.</p><p class="note">Probajte drugu reč, npr. „hydrafacial“, „celulit“ ili „masaža“.</p></div>`;
+    return `<p class="search-sum">${nTretmana(hits.length)} za „${esc(q)}“</p>`+["lice","telo","masaze","akcije","edu"].map(c=>{
+      const arr=hits.filter(s=>s.cat===c).sort(byName);
+      return arr.length?`<div class="rule"><h2>${esc(TABS[c]||CATS[c]||c)}</h2></div><div class="svc-grid">${arr.map(svcCard).join("")}</div>`:"";
+    }).join("");
   }
+  if(S.cat==="vauceri")return tplVoucher();
+  if(!S.loaded)return `<div class="loading">Učitavanje cenovnika…</div>`;
+  const total=cats.reduce((n,c)=>n+byCat(c).length,0);
+  if(!total&&S.cat==="akcije")return `<div class="empty"><p style="font-weight:800">Trenutno nema aktuelnih akcija.</p><p class="note">Zavirite uskoro - paketi i popusti se objavljuju ovde.</p></div>`;
+  if(!total)return `<div class="empty"><p style="font-weight:800">Cenovnik se upravo priprema.</p><p class="note">Usluge za „${esc(TABS[S.cat])}" biće vidljive čim ih salon objavi.</p></div>`;
+  if(S.cat==="telo"){
+    const t=byCat("telo"),m=byCat("masaze");
+    return (t.length?`<div class="rule"><h2>Tretmani tela</h2></div><div class="svc-grid">${t.map(svcCard).join("")}</div>`:"")
+          +(m.length?`<div class="rule"><h2>Masaže</h2></div><div class="svc-grid">${m.map(svcCard).join("")}</div>`:"");
+  }
+  return `<div class="svc-grid">${byCat(cats[0]).map(svcCard).join("")}</div>`;
+}
+function tplCatalog(){
+  const q=(S.q||"").trim();
   const sub=S.cat==="vauceri"?`Poklon vaučer na iznos po želji ili za izabrani tretman - poručite online, a uplatu i preuzimanje dogovarate sa salonom.`:S.cat==="edu"
     ?`Profesionalne, sertifikovane obuke za rad u estetici. Program i cena se dogovaraju individualno - pošaljite upit i javljamo se u najkraćem roku.`
     :`Dodajte jedan ili više tretmana, zatim izaberite kozmetičarku, dan i slobodan termin. ${S.me?"":`<button class="more" id="go-auth" style="padding:0">Prijavite se</button> da biste zakazali.`}`;
@@ -848,8 +875,8 @@ function tplCatalog(){
     <div class="hero-hours"><span class="hero-hours-t">Radno vreme</span><div class="hero-meta">${hoursSummary().map(p=>esc(p)).join("<br>")}</div></div>
     
   </section>
-  <div class="cat-tabs">${Object.entries(TABS).map(([k,v])=>`<button data-cat="${k}" class="${S.cat===k?"on":""}">${v}</button>`).join("")}</div>
-  ${body}
+  <div class="cat-tabs">${Object.entries(TABS).map(([k,v])=>`<button data-cat="${k}" class="${!q&&S.cat===k?"on":""}">${v}</button>`).join("")}<form class="search ${q?"has-q":""}" role="search">${ICON_SEARCH}<input id="svc-q" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" aria-label="Pretraga tretmana" placeholder="Pretraži tretmane…" value="${esc(S.q||"")}"><button type="button" class="clr" id="svc-q-clr" aria-label="Obriši pretragu"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></form></div>
+  <div id="cat-body">${catalogBody()}</div>
   ${footer()}`;
 }
 function inquiryModal(s){
@@ -1598,7 +1625,17 @@ function wire(root){
   root.querySelectorAll("[data-forgot]").forEach(b=>b.onclick=forgotModal);
   const tl2=root.querySelector("#t-login2");if(tl2)tl2.onclick=()=>{S.authTab="login";render()};
   const fr=root.querySelector("#f-reg");if(fr)fr.onsubmit=e=>{e.preventDefault();register(fr)};
-  root.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{S.cat=b.dataset.cat;render()});
+  root.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{S.cat=b.dataset.cat;S.q="";render()});
+  const sq=root.querySelector("#svc-q");
+  if(sq){ /* pretraga osvežava samo listu, bez render() da kursor i skrol ostanu na mestu */
+    const refresh=()=>{const q=(S.q||"").trim();const body=$("#cat-body");if(body){body.innerHTML=catalogBody();wire(body)}
+      document.querySelectorAll(".cat-tabs [data-cat]").forEach(b=>b.classList.toggle("on",!q&&b.dataset.cat===S.cat));
+      sq.closest(".search").classList.toggle("has-q",!!q)};
+    sq.oninput=()=>{S.q=sq.value;refresh()};
+    sq.onkeydown=e=>{if(e.key==="Escape"){S.q="";sq.value="";refresh()}else if(e.key==="Enter"){e.preventDefault();sq.blur()}};
+    const sf=sq.closest("form");if(sf)sf.onsubmit=e=>{e.preventDefault();sq.blur()};
+    const sc=root.querySelector("#svc-q-clr");if(sc)sc.onclick=()=>{S.q="";sq.value="";refresh();sq.focus()};
+  }
   root.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.add;const s=S.services.find(x=>x.id===id);if(!s)return;
     const i=S.cart.findIndex(c=>c.id===id);
