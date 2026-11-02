@@ -17,6 +17,9 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "kaca9525@gmail.com")
 const STAFF_EMAILS = (process.env.STAFF_EMAILS || "")
   .split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
 const REMINDER_HOUR = parseInt(process.env.REMINDER_HOUR || "18", 10); // sat slanja podsetnika
+const SMS_DAY_HOUR = parseInt(process.env.SMS_DAY_HOUR || "8", 10);     // od kog sata idu SMS podsetnici (i onaj „na dan tretmana")
+const SMS_QUIET_HOUR = 21;                                               // posle 21h se SMS ne šalje
+const MAX_PER_EMP = 3;                                                   // najviše usluga po klijentu kod jedne zaposlene
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 
 /* ---------------- baza ---------------- */
@@ -80,6 +83,14 @@ try { db.exec("ALTER TABLE users ADD COLUMN resetHash TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE users ADD COLUMN resetExp TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE services ADD COLUMN cur TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE bookings ADD COLUMN totalPriceEur INTEGER DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE bookings ADD COLUMN source TEXT"); } catch (e) {}          // 'online' | 'manual'
+try { db.exec("ALTER TABLE bookings ADD COLUMN note TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE bookings ADD COLUMN changed TEXT"); } catch (e) {}         // vreme poslednje izmene termina
+try { db.exec("ALTER TABLE bookings ADD COLUMN sms24 INTEGER DEFAULT 0"); } catch (e) {}  // 0 čeka, 1 poslat, 2 nije potreban, 3 greška
+try { db.exec("ALTER TABLE bookings ADD COLUMN smsDay INTEGER DEFAULT 0"); } catch (e) {}
+/* radno vreme zaposlenih: day = "w0".."w6" (stalni raspored po danu u nedelji) ili "YYYY-MM-DD" (izmena za datum) */
+db.exec(`CREATE TABLE IF NOT EXISTS emp_hours(
+  emp TEXT, day TEXT, open TEXT, close TEXT, off INTEGER DEFAULT 0, PRIMARY KEY(emp, day))`);
 db.exec(`CREATE TABLE IF NOT EXISTS vouchers(
   id TEXT PRIMARY KEY, buyerEmail TEXT, buyerName TEXT, buyerTel TEXT,
   recipient TEXT, serviceId TEXT, serviceName TEXT,
@@ -94,6 +105,11 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_bez_tajlandske'").get()) 
 if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_bez_dugih_crta'").get()) {
   db.prepare("UPDATE services SET name=replace(replace(name,' \u2014 ',' - '),'\u2014','-'), desc=replace(replace(desc,' \u2014 ',' - '),'\u2014','-')").run();
   db.prepare("INSERT INTO settings(key,json) VALUES('mig_bez_dugih_crta','true')").run();
+}
+/* jednokratno: stari termini bez naloga klijenta su ručni unosi */
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_izvor_termina'").get()) {
+  db.prepare("UPDATE bookings SET source = CASE WHEN ifnull(userEmail,'')='' OR userEmail NOT IN (SELECT email FROM users) THEN 'manual' ELSE 'online' END WHERE source IS NULL").run();
+  db.prepare("INSERT INTO settings(key,json) VALUES('mig_izvor_termina','true')").run();
 }
 if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_crte_zaposlene'").get()) {
   db.prepare("UPDATE employees SET title=replace(replace(title,' \u2014 ',' - '),'\u2014','-')").run();
@@ -125,6 +141,59 @@ function sendMail(to, subject, text) {
     to, subject, text,
     replyTo: rezEmail(),
   }).then(() => true).catch(e => { console.error("Mail greška:", e.message); return false; });
+}
+
+/* ---------------- SMS (Infobip ili Twilio) ---------------- */
+const SMS_PROVIDER = (process.env.SMS_PROVIDER ||
+  (process.env.INFOBIP_API_KEY ? "infobip" : process.env.TWILIO_ACCOUNT_SID ? "twilio" : "")).toLowerCase();
+const SMS_FROM = process.env.SMS_FROM || "BNSalon";
+const smsOn = (SMS_PROVIDER === "infobip" && !!process.env.INFOBIP_API_KEY) ||
+  (SMS_PROVIDER === "twilio" && !!process.env.TWILIO_ACCOUNT_SID && !!process.env.TWILIO_AUTH_TOKEN) ||
+  SMS_PROVIDER === "log";
+console.log(smsOn ? "SMS slanje je UKLJUČENO (" + SMS_PROVIDER + ", pošiljalac " + SMS_FROM + ")."
+  : "SMS slanje je ISKLJUČENO - postavite INFOBIP_API_KEY ili TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN.");
+/* broj telefona u međunarodnom formatu (+381…) ili null; prima 064 123 4567, +381 64…, 00381…, 381… */
+function normTel(s) {
+  let t = String(s || "").trim().replace(/[\s\-\/().]/g, "");
+  if (!t) return null;
+  if (t.startsWith("00")) t = "+" + t.slice(2);
+  else if (t.startsWith("0")) t = "+381" + t.slice(1);
+  else if (t.startsWith("381")) t = "+" + t;
+  else if (/^6\d{7,9}$/.test(t)) t = "+381" + t;
+  return /^\+[1-9]\d{7,14}$/.test(t) ? t : null;
+}
+/* SMS bez kvačica (č→c, đ→dj): ostaje u GSM kodiranju, 160 znakova po poruci umesto 70 */
+const smsAscii = s => String(s).replace(/đ/g, "dj").replace(/Đ/g, "Dj").normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E\n]/g, "");
+async function sendSms(to, text) {
+  const tel = normTel(to);
+  if (!smsOn || !tel) return false;
+  const body = smsAscii(text);
+  try {
+    if (SMS_PROVIDER === "infobip") {
+      const base = (process.env.INFOBIP_BASE_URL || "https://api.infobip.com").replace(/\/+$/, "");
+      const r = await fetch(base + "/sms/3/messages", {
+        method: "POST",
+        headers: { Authorization: "App " + process.env.INFOBIP_API_KEY, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ messages: [{ sender: SMS_FROM, destinations: [{ to: tel.slice(1) }], content: { text: body } }] }),
+      });
+      if (!r.ok) throw new Error("Infobip " + r.status + " " + (await r.text()).slice(0, 300));
+    } else if (SMS_PROVIDER === "twilio") {
+      const sid = process.env.TWILIO_ACCOUNT_SID;
+      const form = new URLSearchParams({ To: tel, Body: body });
+      if (process.env.TWILIO_MESSAGING_SERVICE_SID) form.set("MessagingServiceSid", process.env.TWILIO_MESSAGING_SERVICE_SID);
+      else form.set("From", SMS_FROM);
+      const r = await fetch("https://api.twilio.com/2010-04-01/Accounts/" + encodeURIComponent(sid) + "/Messages.json", {
+        method: "POST",
+        headers: { Authorization: "Basic " + Buffer.from(sid + ":" + process.env.TWILIO_AUTH_TOKEN).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
+        body: form,
+      });
+      if (!r.ok) throw new Error("Twilio " + r.status + " " + (await r.text()).slice(0, 300));
+    } else {
+      console.log("SMS (probni režim) -> " + tel + ": " + body);
+    }
+    return true;
+  } catch (e) { console.error("SMS greška:", e.message); return false; }
 }
 
 /* ---------------- pomoćne ---------------- */
@@ -160,7 +229,7 @@ function verify(token) {
 
 const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice, cur: r.cur || undefined });
 const empRow = r => r && ({ id: r.id, name: r.name, cats: JSON.parse(r.cats || "[]"), title: r.title || "", active: r.active === 0 ? false : true });
-const bkRow = r => r && ({ ...r, services: JSON.parse(r.services), reminderSent: !!r.reminderSent });
+const bkRow = r => r && ({ ...r, services: JSON.parse(r.services), reminderSent: !!r.reminderSent, source: r.source || "online", sms24: r.sms24 || 0, smsDay: r.smsDay || 0 });
 const performs = (e, s) => Array.isArray(s.emps) ? s.emps.includes(e.id) : (e.cats || []).includes(s.cat);
 
 function dayHours(dateStr) {
@@ -169,14 +238,31 @@ function dayHours(dateStr) {
   if (!h || h.closed) return null;
   return { open: toMin(h.open), close: toMin(h.close) };
 }
-function busyFor(dateStr, employee) {
-  return db.prepare("SELECT start,end FROM bookings WHERE date=? AND employee=? AND status='zakazano'")
-    .all(dateStr, employee).map(b => [toMin(b.start), toMin(b.end)]);
+function busyFor(dateStr, employee, exceptId) {
+  return db.prepare("SELECT start,end FROM bookings WHERE date=? AND employee=? AND status='zakazano' AND id<>?")
+    .all(dateStr, employee, exceptId || "").map(b => [toMin(b.start), toMin(b.end)]);
 }
+/* radno vreme zaposlene za datum: izmena za taj datum, pa stalni raspored, pa radno vreme salona;
+   uvek u okviru radnog vremena salona. null = ne radi. */
+const ehGet = db.prepare("SELECT * FROM emp_hours WHERE emp=? AND day=?");
+function empHours(empId, dateStr) {
+  const salon = dayHours(dateStr);
+  if (!salon) return null;
+  const r = ehGet.get(empId, dateStr) || ehGet.get(empId, "w" + parseD(dateStr).getDay());
+  if (!r) return salon;
+  if (r.off) return null;
+  const open = Math.max(salon.open, toMin(r.open)), close = Math.min(salon.close, toMin(r.close));
+  return open < close ? { open, close } : null;
+}
+const worksAt = (empId, dateStr, start, dur) => { const h = empHours(empId, dateStr); return !!h && start >= h.open && start + dur <= h.close; };
 function freeAt(busy, start, dur) {
   const end = start + dur;
   return !busy.some(([s, e]) => !(end <= s || start >= e));
 }
+
+const insBookingStmt = db.prepare(`INSERT INTO bookings(id,userEmail,userName,userTel,services,employee,employeeName,date,start,end,totalPrice,totalPriceEur,totalDuration,status,reminderSent,created,source,note,sms24,smsDay)
+  VALUES(@id,@userEmail,@userName,@userTel,@servicesJson,@employee,@employeeName,@date,@start,@end,@totalPrice,@totalPriceEur,@totalDuration,@status,@reminderSent,@created,@source,@note,0,0)`);
+const insBooking = b => insBookingStmt.run({ ...b, servicesJson: JSON.stringify(b.services), note: b.note || null });
 
 /* ---------------- app ---------------- */
 const app = express();
@@ -204,7 +290,19 @@ app.get("/api/public", (req, res) => {
     hours: getSetting("hours"),
     salon: (({ rezEmail, phone, address }) => ({ rezEmail, phone, address }))(getSetting("salon") || {}),
     mailEnabled: !!mailer,
+    smsEnabled: smsOn,
   });
+});
+/* radno vreme salona i svake zaposlene za dan (za prikaz slobodnih termina) */
+app.get("/api/work", (req, res) => {
+  const { date } = req.query;
+  if (!validDate(date)) return res.status(400).json({ error: "Neispravan datum." });
+  const h = dayHours(date), emps = {};
+  for (const e of db.prepare("SELECT id FROM employees").all()) {
+    const w = empHours(e.id, date);
+    emps[e.id] = w ? { open: toHM(w.open), close: toHM(w.close) } : null;
+  }
+  res.json({ salon: h ? { open: toHM(h.open), close: toHM(h.close) } : null, emps });
 });
 /* zauzeti intervali za dan (bez ličnih podataka) */
 app.get("/api/day", (req, res) => {
@@ -220,10 +318,12 @@ app.post("/api/register", async (req, res) => {
   email = String(email || "").trim().toLowerCase(); telefon = String(telefon || "").trim();
   if (!ime || !prezime || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || String(pw || "").length < 6)
     return res.status(400).json({ error: "Popunite ime, prezime i ispravan e-mail; lozinka najmanje 6 karaktera." });
+  if (!telefon) return res.status(400).json({ error: "Unesite broj telefona - bez njega registracija nije moguća.", field: "tel" });
+  if (!normTel(telefon)) return res.status(400).json({ error: "Broj telefona nije ispravan - upišite ga npr. kao 064 123 4567.", field: "tel" });
   if ((req.body || {}).consent !== true)
     return res.status(400).json({ error: "Potrebno je da potvrdite da ste upoznati sa Politikom Privatnosti." });
   if (db.prepare("SELECT 1 FROM users WHERE email=?").get(email))
-    return res.status(409).json({ error: "Nalog sa ovom e-mail adresom već postoji - prijavite se." });
+    return res.status(409).json({ error: "Nalog sa ovom e-mail adresom već postoji - prijavite se.", exists: true });
   const salt = crypto.randomBytes(12).toString("hex");
   db.prepare("INSERT INTO users(email,ime,prezime,telefon,salt,hash,created,consent) VALUES(?,?,?,?,?,?,?,?)")
     .run(email, ime, prezime, telefon, salt, scrypt(String(pw), salt), new Date().toISOString(), new Date().toISOString());
@@ -247,16 +347,19 @@ app.post("/api/logout", (req, res) => { res.clearCookie("bn"); res.json({ ok: tr
 app.post("/api/forgot", (req, res) => {
   const email = String((req.body || {}).email || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Unesite ispravnu e-mail adresu." });
-  if (!mailer) return res.status(503).json({ error: "Slanje mejlova još nije podešeno - javite se salonu na " + rezEmail() + " radi nove lozinke." });
+  if (!mailer && !smsOn) return res.status(503).json({ error: "Slanje mejlova još nije podešeno - javite se salonu na " + rezEmail() + " radi nove lozinke." });
   const u = db.prepare("SELECT * FROM users WHERE email=?").get(email);
-  if (u) {
+  /* novi link najranije 2 minuta posle prethodnog (zaštita od zatrpavanja mejlovima i SMS-ovima) */
+  const recent = u && u.resetExp && new Date(u.resetExp).getTime() - 58 * 60 * 1000 > Date.now();
+  if (u && !recent) {
     const token = crypto.randomBytes(24).toString("hex");
     const hash = crypto.createHash("sha256").update(token).digest("hex");
     const exp = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     db.prepare("UPDATE users SET resetHash=?, resetExp=? WHERE email=?").run(hash, exp, email);
-    const proto = req.get("x-forwarded-proto") || "https";
+    const proto = req.protocol || "https";   // iza Render proksija: https (trust proxy)
     const link = proto + "://" + req.get("host") + "/?reset=" + token;
-    sendMail(email, "Resetovanje lozinke - Beauty & Nutrition",
+    if (smsOn && normTel(u.telefon)) sendSms(u.telefon, "Beauty & Nutrition: link za novu lozinku (vazi 1 sat): " + link);
+    if (mailer) sendMail(email, "Resetovanje lozinke - Beauty & Nutrition",
 `Poštovana/i ${u.ime},
 
 primili smo zahtev za novu lozinku za vaš nalog. Kliknite na link (važi 1 sat):
@@ -267,7 +370,7 @@ Ako niste vi tražili promenu, slobodno ignorišite ovu poruku - lozinka ostaje 
 
 Beauty & Nutrition`);
   }
-  res.json({ ok: true });
+  res.json({ ok: true, mail: !!mailer, sms: smsOn });
 });
 app.post("/api/reset", (req, res) => {
   const token = String((req.body || {}).token || "");
@@ -285,6 +388,14 @@ app.post("/api/reset", (req, res) => {
   res.json({ me: { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: ADMIN_EMAILS.includes(u.email), staff: STAFF_EMAILS.includes(u.email) } });
 });
 app.get("/api/me", (req, res) => res.json({ me: me(req) }));
+/* dopuna broja telefona (stari nalozi bez broja) */
+app.post("/api/profile", auth, (req, res) => {
+  const telefon = String((req.body || {}).telefon || "").trim();
+  if (!normTel(telefon)) return res.status(400).json({ error: "Broj telefona nije ispravan - upišite ga npr. kao 064 123 4567." });
+  db.prepare("UPDATE users SET telefon=? WHERE email=?").run(telefon, req.user.email);
+  db.prepare("UPDATE bookings SET userTel=? WHERE userEmail=? AND ifnull(userTel,'')='' AND date>=?").run(telefon, req.user.email, dstr(new Date()));
+  res.json({ me: me(req) });
+});
 app.post("/api/consent", auth, (req, res) => {
   db.prepare("UPDATE users SET consent=? WHERE email=?").run(new Date().toISOString(), req.user.email);
   res.json({ ok: true });
@@ -299,6 +410,8 @@ app.post("/api/bookings", auth, (req, res) => {
   const { services: ids, employee: wantEmp, date, start } = req.body || {};
   if (!Array.isArray(ids) || !ids.length || !validDate(date) || !validTime(start))
     return res.status(400).json({ error: "Nepotpuni podaci rezervacije." });
+  if (!normTel(req.user.telefon))
+    return res.status(400).json({ error: "Dodajte broj telefona u nalog - na njega stižu SMS podsetnici za termin.", code: "phone" });
   const services = ids.map(id => svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(String(id))));
   if (services.some(s => !s || !s.active || s.cat === "edu" || !s.duration || s.price == null))
     return res.status(400).json({ error: "Izabrana usluga nije dostupna za online zakazivanje." });
@@ -322,9 +435,10 @@ app.post("/api/bookings", auth, (req, res) => {
   if (wantEmp && wantEmp !== "__any") {
     chosen = emps.find(e => e.id === wantEmp);
     if (!chosen) return res.status(400).json({ error: "Izabrana zaposlena ne izvodi sve izabrane tretmane." });
+    if (!worksAt(chosen.id, date, t, dur)) return res.status(409).json({ error: chosen.name + " ne radi u tom terminu - izaberite drugo vreme." });
     if (!freeAt(busyFor(date, chosen.id), t, dur)) chosen = null;
   } else {
-    chosen = emps.find(e => freeAt(busyFor(date, e.id), t, dur)) || null;
+    chosen = emps.find(e => worksAt(e.id, date, t, dur) && freeAt(busyFor(date, e.id), t, dur)) || null;
   }
   if (!chosen) return res.status(409).json({ error: "Ovaj termin je upravo zauzet - izaberite drugi." });
 
@@ -335,11 +449,9 @@ app.post("/api/bookings", auth, (req, res) => {
     employee: chosen.id, employeeName: chosen.name,
     date, start: toHM(t), end: toHM(t + dur),
     totalPrice: priceR, totalPriceEur: priceE, totalDuration: dur, status: "zakazano", reminderSent: 0,
-    created: new Date().toISOString(),
+    created: new Date().toISOString(), source: "online", note: null,
   };
-  db.prepare(`INSERT INTO bookings(id,userEmail,userName,userTel,services,employee,employeeName,date,start,end,totalPrice,totalPriceEur,totalDuration,status,reminderSent,created)
-    VALUES(@id,@userEmail,@userName,@userTel,@servicesJson,@employee,@employeeName,@date,@start,@end,@totalPrice,@totalPriceEur,@totalDuration,@status,@reminderSent,@created)`)
-    .run({ ...b, servicesJson: JSON.stringify(b.services) });
+  insBooking(b);
 
   const list = b.services.map(s => "• " + s.name).join("\n");
   sendMail(b.userEmail, "Potvrda rezervacije - Beauty & Nutrition",
@@ -353,7 +465,7 @@ ${list}
 ⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
 📍 Živojina Žujovića 25, Beograd (Zvezdara)
 
-Podsetnik vam stiže dan pre termina. Za izmene nam pišite na ${rezEmail()} ili pozovite +381 64 93 55 003.
+Podsetnik vam stiže dan pre termina (e-mailom i SMS-om). Za izmene nam pišite na ${rezEmail()} ili pozovite +381 64 93 55 003.
 
 Srdačno,
 Beauty & Nutrition`);
@@ -510,6 +622,7 @@ app.get("/api/admin/backup", auth, admin, (req, res) => {
     services: db.prepare("SELECT * FROM services").all().map(svcRow),
     users: db.prepare("SELECT * FROM users").all(),
     bookings: db.prepare("SELECT * FROM bookings").all().map(bkRow),
+    empHours: db.prepare("SELECT * FROM emp_hours").all(),
   };
   res.setHeader("Content-Disposition", 'attachment; filename="bn-kopija-' + dstr(new Date()) + '.json"');
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -524,52 +637,201 @@ app.post("/api/admin/remind/:id", auth, staff, async (req, res) => {
   res.json({ ok: true, sent });
 });
 
-app.post("/api/admin/manual", auth, staff, (req, res) => {
-  const { name, tel, email, employee, serviceId, label, duration, price, date, start, note } = req.body || {};
-  const nm = String(name || "").trim();
-  if (!nm || !validDate(String(date || "")) || !validTime(String(start || "")) || !(Number(duration) > 0))
-    return res.status(400).json({ error: "Proverite ime, datum, vreme i trajanje." });
-  const emp = empRow(db.prepare("SELECT * FROM employees WHERE id=?").get(String(employee || "")));
-  if (!emp) return res.status(400).json({ error: "Izaberite zaposlenu." });
-  if (emp.active === false) return res.status(400).json({ error: emp.name + " je trenutno na odmoru." });
-  const d = Math.round(Number(duration));
-  const pr = Math.max(0, Math.round(Number(price) || 0));
-  const t = toMin(start);
-  if (t < 7 * 60 || t + d > 22 * 60) return res.status(400).json({ error: "Termin mora biti između 07:00 i 22:00." });
-  if (!freeAt(busyFor(date, emp.id), t, d))
-    return res.status(409).json({ error: "Termin se preklapa sa postojećom rezervacijom kod: " + emp.name + "." });
-  let svcName = String(label || "").trim(), cat = "telo", sid = "manual";
-  if (serviceId) {
-    const s = svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(String(serviceId)));
-    if (s) { svcName = s.name; cat = s.cat; sid = s.id; }
+/* ---- ručni unos: klijent + jedan ili više blokova (zaposlena, datum, vreme, do 3 usluge) ---- */
+const MANUAL_CATS = ["lice", "telo", "masaze", "akcije"];
+function manualServices(items) {
+  if (!Array.isArray(items) || !items.length) return { error: "Dodajte bar jednu uslugu." };
+  if (items.length > MAX_PER_EMP) return { error: "Najviše " + MAX_PER_EMP + " usluge po klijentu kod jedne zaposlene." };
+  const out = [];
+  for (const it of items) {
+    const d = Math.round(Number(it && it.duration));
+    const pr = Math.max(0, Math.round(Number(it && it.price) || 0));
+    if (!(d > 0) || d > 600) return { error: "Proverite trajanje usluga." };
+    const s = it.serviceId ? svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(String(it.serviceId))) : null;
+    if (s && s.cat !== "edu") { out.push({ id: s.id, name: s.name, price: pr, duration: d, cat: s.cat, cur: s.cur || null }); continue; }
+    const name = String((it && it.label) || "").trim().slice(0, 120);
+    if (!name) return { error: "Izaberite uslugu ili upišite naziv paketa." };
+    out.push({ id: "manual", name, price: pr, duration: d, cat: MANUAL_CATS.includes(it.cat) ? it.cat : "telo", cur: null });
   }
-  if (!svcName) svcName = "Tretman (ručni unos)";
-  if (String(note || "").trim()) svcName += " - " + String(note).trim();
-  const mail = String(email || "").trim().toLowerCase();
-  const b = {
-    id: crypto.randomUUID(), userEmail: mail, userName: nm, userTel: String(tel || "").trim(),
-    services: [{ id: sid, name: svcName, price: pr, duration: d, cat }],
-    employee: emp.id, employeeName: emp.name, date, start: toHM(t), end: toHM(t + d),
-    totalPrice: pr, totalPriceEur: 0, totalDuration: d, status: "zakazano", reminderSent: mail ? 0 : 1,
-    created: new Date().toISOString(),
-  };
-  db.prepare(`INSERT INTO bookings(id,userEmail,userName,userTel,services,employee,employeeName,date,start,end,totalPrice,totalPriceEur,totalDuration,status,reminderSent,created)
-    VALUES(@id,@userEmail,@userName,@userTel,@servicesJson,@employee,@employeeName,@date,@start,@end,@totalPrice,@totalPriceEur,@totalDuration,@status,@reminderSent,@created)`)
-    .run({ ...b, servicesJson: JSON.stringify(b.services) });
-  if (mail) sendMail(mail, "Potvrda termina - Beauty & Nutrition",
-`Poštovana/i ${nm},
+  return { services: out };
+}
+/* koliko usluga klijent (isti telefon ili e-mail) već ima kod zaposlene tog dana */
+function clientSvcCount(date, empId, tel, mail, exceptId) {
+  const t = normTel(tel), m = String(mail || "").toLowerCase();
+  if (!t && !m) return 0;
+  return db.prepare("SELECT * FROM bookings WHERE date=? AND employee=? AND status='zakazano' AND id<>?").all(date, empId, exceptId || "")
+    .map(bkRow).filter(b => (t && normTel(b.userTel) === t) || (m && String(b.userEmail || "").toLowerCase() === m))
+    .reduce((a, b) => a + b.services.length, 0);
+}
+/* drugi termin istog klijenta (telefon ili e-mail) koji se vremenski preklapa - klijent ne može biti na dva mesta */
+function clientClash(date, t, dur, tel, mail, exceptId) {
+  const tn = normTel(tel), m = String(mail || "").toLowerCase();
+  if (!tn && !m) return null;
+  return db.prepare("SELECT * FROM bookings WHERE date=? AND status='zakazano' AND id<>?").all(date, exceptId || "")
+    .find(b => ((tn && normTel(b.userTel) === tn) || (m && String(b.userEmail || "").toLowerCase() === m))
+      && !(t + dur <= toMin(b.start) || t >= toMin(b.end))) || null;
+}
+function checkBlock(bl, client, exceptId) {
+  bl = bl || {};
+  const date = String(bl.date || ""), start = String(bl.start || "");
+  if (!validDate(date) || !validTime(start)) return { error: "Proverite datum i vreme." };
+  const emp = empRow(db.prepare("SELECT * FROM employees WHERE id=?").get(String(bl.employee || "")));
+  if (!emp) return { error: "Izaberite zaposlenu." };
+  if (emp.active === false) return { error: emp.name + " je trenutno na odmoru." };
+  const ms = manualServices(bl.services);
+  if (ms.error) return ms;
+  const dur = ms.services.reduce((a, x) => a + x.duration, 0);
+  const t = toMin(start);
+  if (t < 7 * 60 || t + dur > 22 * 60) return { error: "Termin mora biti između 07:00 i 22:00." };
+  if (!freeAt(busyFor(date, emp.id, exceptId), t, dur))
+    return { status: 409, error: "Termin se preklapa sa postojećom rezervacijom kod: " + emp.name + "." };
+  const cc = clientClash(date, t, dur, client.tel, client.mail, exceptId);
+  if (cc) return { status: 409, error: "Klijent u to vreme već ima termin kod: " + cc.employeeName + " (" + cc.start + "-" + cc.end + ")." };
+  const had = clientSvcCount(date, emp.id, client.tel, client.mail, exceptId);
+  if (had + ms.services.length > MAX_PER_EMP)
+    return { error: "Najviše " + MAX_PER_EMP + " usluge po klijentu kod iste zaposlene" + (had ? " - klijent tog dana već ima " + had + " kod: " + emp.name : "") + "." };
+  return { emp, date, t, dur, services: ms.services, note: String(bl.note || "").trim().slice(0, 200) };
+}
+function checkClient(body) {
+  const name = String(body.name || "").trim(), tel = String(body.tel || "").trim(), mail = String(body.email || "").trim().toLowerCase();
+  if (!name) return { error: "Unesite ime i prezime klijenta." };
+  if (!normTel(tel)) return { error: "Unesite ispravan broj telefona klijenta (npr. 064 123 4567) - na njega stiže SMS podsetnik." };
+  if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return { error: "E-mail adresa klijenta nije ispravna." };
+  return { name, tel, mail };
+}
+const visitLines = list => list.map(b => `📅 ${fmtD(b.date)} u ${b.start}\n💆 ${b.services.map(x => x.name).join(" + ")}\n👩 ${b.employeeName}`).join("\n\n");
+app.post("/api/admin/manual", auth, staff, (req, res) => {
+  const body = req.body || {};
+  const c = checkClient(body);
+  if (c.error) return res.status(400).json({ error: c.error });
+  /* stari oblik zahteva (jedna usluga) i dalje radi */
+  const blocks = Array.isArray(body.blocks) ? body.blocks : [{ employee: body.employee, date: body.date, start: body.start, note: body.note,
+    services: [{ serviceId: body.serviceId, label: body.label, duration: body.duration, price: body.price }] }];
+  if (!blocks.length || blocks.length > 8) return res.status(400).json({ error: "Dodajte bar jednu zaposlenu sa uslugom." });
+  const plan = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const v = checkBlock(blocks[i], c, null);
+    const pre = blocks.length > 1 ? "Zaposlena " + (i + 1) + ": " : "";
+    if (v.error) return res.status(v.status || 400).json({ error: pre + v.error });
+    if (plan.some(p => p.emp.id === v.emp.id))
+      return res.status(400).json({ error: v.emp.name + " je izabrana dva puta - spojite usluge u jedan blok (najviše " + MAX_PER_EMP + ")." });
+    const clash = plan.find(p => p.date === v.date && !(v.t + v.dur <= p.t || v.t >= p.t + p.dur));
+    if (clash) return res.status(409).json({ error: "Termini kod: " + clash.emp.name + " i " + v.emp.name + " se preklapaju - klijent ne može biti na dva tretmana u isto vreme." });
+    plan.push(v);
+  }
+  const now = new Date().toISOString();
+  const list = plan.map(v => ({
+    id: crypto.randomUUID(), userEmail: c.mail, userName: c.name, userTel: c.tel,
+    services: v.services, employee: v.emp.id, employeeName: v.emp.name, date: v.date, start: toHM(v.t), end: toHM(v.t + v.dur),
+    totalPrice: v.services.reduce((a, x) => a + (x.cur === "EUR" ? 0 : x.price), 0),
+    totalPriceEur: v.services.reduce((a, x) => a + (x.cur === "EUR" ? x.price : 0), 0),
+    totalDuration: v.dur, status: "zakazano", reminderSent: c.mail ? 0 : 1, created: now, source: "manual", note: v.note || null,
+  }));
+  db.transaction(() => list.forEach(insBooking))();
+  if (c.mail) sendMail(c.mail, "Potvrda termina - Beauty & Nutrition",
+`Poštovana/i ${c.name},
 
-vaš termin u salonu Beauty & Nutrition je zakazan:
+${list.length > 1 ? "vaši termini" : "vaš termin"} u salonu Beauty & Nutrition ${list.length > 1 ? "su zakazani" : "je zakazan"}:
 
-📅 ${fmtD(date)} u ${b.start}
-💆 ${svcName}
-👩 ${emp.name}
+${visitLines(list)}
 📍 Živojina Žujovića 25, Beograd (Zvezdara)
 
 Podsetnik vam stiže dan pre termina. Za izmene: ${rezEmail()} ili +381 64 93 55 003.
 
 Beauty & Nutrition`);
-  res.json({ booking: { ...b, reminderSent: !mail } });
+  res.json({ bookings: list.map(b => ({ ...b, reminderSent: !c.mail, sms24: 0, smsDay: 0 })) });
+});
+/* izmena ručno unetog termina (greška pri unosu, pomeranje) */
+app.post("/api/admin/booking/:id", auth, staff, (req, res) => {
+  const b = bkRow(db.prepare("SELECT * FROM bookings WHERE id=?").get(req.params.id));
+  if (!b) return res.status(404).json({ error: "Termin nije pronađen." });
+  if (b.source !== "manual") return res.status(400).json({ error: "Online rezervacija se ne menja ovde - otkažite je ili upišite novi termin." });
+  if (b.status !== "zakazano") return res.status(400).json({ error: "Otkazan termin ne može da se menja." });
+  const body = req.body || {};
+  const c = checkClient(body);
+  if (c.error) return res.status(400).json({ error: c.error });
+  const v = checkBlock({ employee: body.employee, date: body.date, start: body.start, note: body.note, services: body.services }, c, b.id);
+  if (v.error) return res.status(v.status || 400).json({ error: v.error });
+  const start = toHM(v.t);
+  const moved = v.date !== b.date || start !== b.start || v.emp.id !== b.employee;
+  const changed = moved || v.services.map(x => x.name).join("|") !== b.services.map(x => x.name).join("|");
+  const telChanged = normTel(c.tel) !== normTel(b.userTel);
+  const sms = k => moved ? 0 : (telChanged && b[k] !== 1 ? 0 : b[k]);
+  const reminderSent = !c.mail ? 1 : (moved || !b.userEmail) ? 0 : (b.reminderSent ? 1 : 0);
+  db.prepare(`UPDATE bookings SET userName=?, userTel=?, userEmail=?, services=?, employee=?, employeeName=?, date=?, start=?, end=?,
+    totalPrice=?, totalPriceEur=?, totalDuration=?, note=?, reminderSent=?, sms24=?, smsDay=?, changed=? WHERE id=?`).run(
+    c.name, c.tel, c.mail, JSON.stringify(v.services), v.emp.id, v.emp.name, v.date, start, toHM(v.t + v.dur),
+    v.services.reduce((a, x) => a + (x.cur === "EUR" ? 0 : x.price), 0), v.services.reduce((a, x) => a + (x.cur === "EUR" ? x.price : 0), 0),
+    v.dur, v.note || null, reminderSent, sms("sms24"), sms("smsDay"), moved ? new Date().toISOString() : (b.changed || null), b.id);
+  const nb = bkRow(db.prepare("SELECT * FROM bookings WHERE id=?").get(b.id));
+  if (changed && c.mail) sendMail(c.mail, "Izmenjen termin - Beauty & Nutrition",
+`Poštovana/i ${c.name},
+
+vaš termin u salonu Beauty & Nutrition je izmenjen. Novi podaci:
+
+${visitLines([nb])}
+📍 Živojina Žujovića 25, Beograd (Zvezdara)
+
+Za pitanja: ${rezEmail()} ili +381 64 93 55 003.
+
+Beauty & Nutrition`);
+  res.json({ booking: nb });
+});
+/* brisanje ručno unetog termina (bez obaveštenja klijentu - za greške pri unosu) */
+app.post("/api/admin/booking-del/:id", auth, staff, (req, res) => {
+  const b = db.prepare("SELECT * FROM bookings WHERE id=?").get(req.params.id);
+  if (!b) return res.status(404).json({ error: "Termin nije pronađen." });
+  if ((b.source || "online") !== "manual") return res.status(400).json({ error: "Online rezervacija se otkazuje, ne briše." });
+  db.prepare("DELETE FROM bookings WHERE id=?").run(b.id);
+  res.json({ ok: true });
+});
+
+/* ---- radno vreme zaposlenih ---- */
+const ehOut = r => r.off ? { off: true } : { open: r.open, close: r.close };
+const validSpan = h => !!h && (h.off === true || (validTime(h.open) && validTime(h.close) && toMin(h.open) < toMin(h.close)));
+app.get("/api/admin/emp-hours", auth, staff, (req, res) => {
+  const today = dstr(new Date()), week = {}, dates = {};
+  for (const r of db.prepare("SELECT * FROM emp_hours ORDER BY day").all()) {
+    if (r.day[0] === "w") (week[r.emp] = week[r.emp] || {})[r.day.slice(1)] = ehOut(r);
+    else if (r.day >= today) (dates[r.emp] = dates[r.emp] || []).push({ date: r.day, ...ehOut(r) });
+  }
+  const n = new Date(), days = [];
+  for (let i = 0; i < 7; i++) days.push(dstr(new Date(n.getFullYear(), n.getMonth(), n.getDate() + i)));
+  const eff = {};
+  for (const e of db.prepare("SELECT id FROM employees").all())
+    eff[e.id] = days.map(d => { const w = empHours(e.id, d); return w ? toHM(w.open) + "-" + toHM(w.close) : null; });
+  res.json({ week, dates, days, eff });
+});
+app.post("/api/admin/emp-hours/:emp/week", auth, admin, (req, res) => {
+  const e = db.prepare("SELECT * FROM employees WHERE id=?").get(req.params.emp);
+  if (!e) return res.status(404).json({ error: "Zaposlena nije pronađena." });
+  const W = req.body || {};
+  if (!W.reset) for (const k of ["0","1","2","3","4","5","6"])
+    if (!validSpan(W[k])) return res.status(400).json({ error: "Proverite vreme za: " + DOWS[+k] + " (početak pre kraja)." });
+  db.transaction(() => {
+    db.prepare("DELETE FROM emp_hours WHERE emp=? AND day LIKE 'w%'").run(e.id);
+    if (!W.reset) for (const k of ["0","1","2","3","4","5","6"]) {
+      const h = W[k];
+      db.prepare("INSERT INTO emp_hours(emp,day,open,close,off) VALUES(?,?,?,?,?)").run(e.id, "w" + k, h.off ? null : h.open, h.off ? null : h.close, h.off ? 1 : 0);
+    }
+  })();
+  res.json({ ok: true });
+});
+app.post("/api/admin/emp-hours/:emp/date", auth, admin, (req, res) => {
+  const e = db.prepare("SELECT * FROM employees WHERE id=?").get(req.params.emp);
+  if (!e) return res.status(404).json({ error: "Zaposlena nije pronađena." });
+  const { date, open, close, off } = req.body || {};
+  if (!validDate(String(date || "")) || date < dstr(new Date())) return res.status(400).json({ error: "Izaberite današnji ili neki budući datum." });
+  const h = off === true ? { off: true } : { open, close };
+  if (!validSpan(h)) return res.status(400).json({ error: "Proverite vreme (početak pre kraja)." });
+  db.prepare("INSERT OR REPLACE INTO emp_hours(emp,day,open,close,off) VALUES(?,?,?,?,?)").run(e.id, date, h.off ? null : h.open, h.off ? null : h.close, h.off ? 1 : 0);
+  res.json({ ok: true });
+});
+app.post("/api/admin/emp-hours/:emp/date-del", auth, admin, (req, res) => {
+  const date = String((req.body || {}).date || "");
+  if (!validDate(date)) return res.status(400).json({ error: "Neispravan datum." });
+  db.prepare("DELETE FROM emp_hours WHERE emp=? AND day=?").run(req.params.emp, date);
+  res.json({ ok: true });
 });
 
 /* ---- automatski podsetnici dan pre ---- */
@@ -604,8 +866,59 @@ async function runReminders() {
     if (ok || !mailer) db.prepare("UPDATE bookings SET reminderSent=1 WHERE id=?").run(b.id);
   }
 }
-setInterval(() => runReminders().catch(e => console.error(e)), 10 * 60 * 1000);
-runReminders().catch(e => console.error(e));
+
+/* ---- SMS podsetnici: 24h pre termina i na dan termina (od SMS_DAY_HOUR, ne posle 21h) ---- */
+const SMS_DOW = ["ned", "pon", "uto", "sre", "cet", "pet", "sub"];
+const salonTel = () => (getSetting("salon") || {}).phone || "+381 64 93 55 003";
+const smsSvc = b => { const t = b.services.map(x => x.name).join(", "); return t.length > 45 ? t.slice(0, 43).trimEnd() + "..." : t; };
+function smsText(b, kind) {
+  const d = parseD(b.date);
+  return kind === "sms24"
+    ? `Beauty & Nutrition: podsecamo Vas da sutra (${SMS_DOW[d.getDay()]} ${pad(d.getDate())}.${pad(d.getMonth() + 1)}.) u ${b.start} imate zakazan tretman: ${smsSvc(b)}. Ako ste spreceni, javite se na ${salonTel()}.`
+    : `Beauty & Nutrition: podsecamo Vas da danas u ${b.start} imate zakazan tretman: ${smsSvc(b)}. Zivojina Zujovica 25, Zvezdara. Info: ${salonTel()}`;
+}
+const startOf = b => { const d = parseD(b.date), m = toMin(b.start); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(m / 60), m % 60); };
+/* šta raditi sa podsetnikom: "send", "skip" (nije potreban) ili "wait" */
+function smsPlan(b, kind, now) {
+  if (!normTel(b.userTel)) return "skip";
+  const H = 36e5, st = startOf(b), made = new Date(b.changed || b.created), left = st - now;
+  const today = dstr(now), tmr = dstr(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+  if (kind === "sms24") {
+    if (st - made < 24 * H) return "skip";        // zakazano (ili pomereno) manje od 24h pre termina
+    if (b.date === today) return "skip";            // propušten dan pre - pokriva ga podsetnik na dan termina
+    if (b.date !== tmr) return "wait";
+    /* tačno 24h pre; kasni termini (posle 21h) dobijaju podsetnik od 20h, pre tihih sati */
+    return left <= 24 * H || now.getHours() >= SMS_QUIET_HOUR - 1 ? "send" : "wait";
+  }
+  if (b.date !== today) return "wait";
+  if (dstr(made) === b.date) return "skip";         // zakazano istog dana - klijent tek što je zakazao
+  return left >= 30 * 60 * 1000 ? "send" : "skip";
+}
+const smsTries = new Map();
+let smsBusy = false;
+async function runSmsReminders() {
+  if (!smsOn || smsBusy) return;
+  const now = new Date();
+  if (now.getHours() < SMS_DAY_HOUR || now.getHours() >= SMS_QUIET_HOUR) return;
+  smsBusy = true;
+  try {
+    const today = dstr(now), tmr = dstr(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+    const list = db.prepare("SELECT * FROM bookings WHERE status='zakazano' AND date IN (?,?) AND (sms24=0 OR smsDay=0)").all(today, tmr).map(bkRow);
+    for (const b of list) for (const kind of ["sms24", "smsDay"]) {
+      if (b[kind] !== 0) continue;
+      const plan = smsPlan(b, kind, now);
+      if (plan === "wait") continue;
+      if (plan === "skip") { db.prepare(`UPDATE bookings SET ${kind}=2 WHERE id=?`).run(b.id); continue; }
+      const ok = await sendSms(b.userTel, smsText(b, kind));
+      const key = b.id + kind, n = (smsTries.get(key) || 0) + 1;
+      if (ok) { db.prepare(`UPDATE bookings SET ${kind}=1 WHERE id=?`).run(b.id); smsTries.delete(key); }
+      else { smsTries.set(key, n); if (n >= 3) db.prepare(`UPDATE bookings SET ${kind}=3 WHERE id=?`).run(b.id); }
+    }
+  } finally { smsBusy = false; }
+}
+const tick = () => { runReminders().catch(e => console.error(e)); runSmsReminders().catch(e => console.error(e)); };
+setInterval(tick, 5 * 60 * 1000);
+setTimeout(tick, 3000);
 
 app.get("/zdravlje", (req, res) => res.json({ ok: true }));
 app.listen(PORT, () => console.log("Beauty & Nutrition rezervacije - http://localhost:" + PORT));

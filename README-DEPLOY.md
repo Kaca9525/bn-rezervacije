@@ -2,7 +2,7 @@
 
 Javna web aplikacija za online zakazivanje: cenovnik tretmana lica i tela (masaže u sklopu
 tretmana tela), edukacije na upit, nalozi klijenata, slobodni termini po zaposlenima,
-admin panel i automatski e-mail podsetnici dan pre termina.
+admin panel, automatski e-mail podsetnici dan pre termina i SMS podsetnici (24h pre i na dan termina).
 
 Radi za **neograničen broj realnih korisnika** — nije potreban nikakav Claude ili Google nalog,
 samo link (ili QR kod) do vaše adrese.
@@ -39,6 +39,11 @@ npm start          # aplikacija radi na http://localhost:3000
 | `SMTP_USER`     | za mejl  | Gmail adresa sa koje se šalju potvrde/podsetnici, npr. `andrijanaobradovic5@gmail.com` |
 | `SMTP_PASS`     | za mejl  | Gmail **App Password** (uputstvo ispod) |
 | `REMINDER_HOUR` | ne       | Sat kada se šalju podsetnici za sutra (podrazumevano `18`) |
+| `INFOBIP_API_KEY`, `INFOBIP_BASE_URL` | za SMS | Infobip nalog (API ključ i Base URL) - vidi „SMS podsetnici" |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | za SMS | Umesto Infobip-a može Twilio; opciono i `TWILIO_MESSAGING_SERVICE_SID` |
+| `SMS_FROM`      | ne       | Ime pošiljaoca SMS-a (podrazumevano `BNSalon`, do 11 znakova) |
+| `SMS_DAY_HOUR`  | ne       | Od kog sata ide SMS „na dan termina" (podrazumevano `8`) |
+| `SMS_PROVIDER`  | ne       | `log` = probni režim (poruke samo u logu); inače se bira sam po ključu |
 | `PORT`          | ne       | Port servera (hosting ga obično sam zada) |
 | `DATA_DIR`      | ne       | Folder za bazu `salon.db` (korisno uz persistent disk) |
 
@@ -54,6 +59,25 @@ u Admin → Podsetnici i dalje imate gotove tekstove za ručno slanje.
 Šta se tada šalje automatski:
 - **klijentu**: potvrda odmah po rezervaciji + podsetnik dan pre termina (u `REMINDER_HOUR` sati)
 - **salonu** (`andrijanaobradovic5@gmail.com`): obaveštenje o svakoj novoj rezervaciji i svakom otkazivanju
+- **link za novu lozinku** kada klijent klikne „Zaboravljena lozinka?" (važi 1 sat)
+
+### SMS podsetnici
+Broj telefona je obavezan pri registraciji i u ručnom unosu, pa svaki klijent dobija:
+- **24h pre termina**: „podsećamo Vas da sutra u 10:00 imate zakazan tretman: …"
+- **na dan termina** (od `SMS_DAY_HOUR`, podrazumevano 8h): „podsećamo Vas da danas u 10:00 …"
+
+Ako je termin zakazan manje od 24h unapred, šalje se samo podsetnik na dan termina; ako je zakazan
+istog dana, SMS se ne šalje (klijent je upravo dobio potvrdu). Posle 21h se SMS ne šalje.
+Status svakog SMS-a vidi se u Admin → Podsetnici.
+
+Podešavanje (Infobip, dobar izbor za Srbiju):
+1. Napravite nalog na **infobip.com** i dopunite kredit
+2. U nalogu prepišite **API key** i **Base URL** (izgleda kao `xxxxxx.api.infobip.com`)
+3. Na Renderu dodajte `INFOBIP_API_KEY` i `INFOBIP_BASE_URL=https://xxxxxx.api.infobip.com`
+4. Po želji zatražite od Infobip-a ime pošiljaoca (npr. `BNSalon`) i postavite `SMS_FROM`
+
+Twilio radi isto tako, sa `TWILIO_ACCOUNT_SID` i `TWILIO_AUTH_TOKEN`. Bez ovih ključeva aplikacija
+radi normalno, samo se SMS ne šalje. Poruke idu bez kvačica (č→c), da bi stale u jedan SMS.
 
 ---
 
@@ -65,6 +89,11 @@ u Admin → Podsetnici i dalje imate gotove tekstove za ručno slanje.
 3. Podešavanja: Build Command `npm install` · Start Command `npm start` · Instance: po želji
 4. U **Environment** dodajte promenljive iz tabele iznad (bar `SECRET`; za mejlove i `SMTP_USER`/`SMTP_PASS`)
 5. Deploy → dobijate javnu adresu tipa `https://bn-rezervacije.onrender.com`
+
+> **Važno za podsetnike:** Render **Free** plan „uspava" aplikaciju posle 15 minuta bez posetilaca,
+> a dok spava ne šalje ni mejl ni SMS podsetnike (pošalje ih kad se probudi, ako još nije kasno).
+> Za pouzdane podsetnike izaberite plaćenu instancu (Starter) ili podesite besplatni „pinger"
+> (npr. UptimeRobot) da otvara `https://VAŠA-ADRESA/zdravlje` na svakih 10 minuta.
 
 > **Važno za podatke:** na Render **Free** planu disk nije trajan — rezervacije se mogu izgubiti
 > pri restartu servisa. Za pravu produkciju izaberite **Starter** plan + **Disk** (mount npr. `/data`
@@ -82,7 +111,8 @@ i upišite prikazani CNAME kod svog registra domena. HTTPS je automatski.
 ## Prvi koraci posle postavljanja
 
 1. Otvorite aplikaciju → **Registracija** sa adresom `kaca9525@gmail.com` → taj nalog je automatski **Admin**
-2. Admin → **Radno vreme**: proverite/izmenite (postavljeno: pon–pet 09–21, sub 10–15, nedelja neradna)
+2. Admin → **Radno vreme**: proverite/izmenite (postavljeno: pon–pet 09–21, sub 10–15, nedelja neradna),
+   a u delu **Radno vreme zaposlenih** upišite kada koja zaposlena radi (nedeljni raspored + izuzeci po datumu)
 3. Admin → **Usluge**: cene, trajanja i aktivnost menjate u par klikova
 4. Pošaljite mi javnu adresu — **regenerisaću QR karticu** sa njom za minut
 
