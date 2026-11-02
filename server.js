@@ -78,6 +78,8 @@ function seedIfEmpty() {
 }
 try { db.exec("ALTER TABLE users ADD COLUMN consent TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE employees ADD COLUMN active INTEGER DEFAULT 1"); } catch (e) {}
+try { db.exec("ALTER TABLE employees ADD COLUMN kind TEXT"); } catch (e) {}               // "aparat" = kolona za tretmane na aparatu
+try { db.exec("ALTER TABLE services ADD COLUMN aparat INTEGER DEFAULT 0"); } catch (e) {} // 1 = radi se na aparatu, ne zauzima zaposlene
 try { db.exec("ALTER TABLE services ADD COLUMN oldPrice INTEGER"); } catch (e) {}
 try { db.exec("ALTER TABLE users ADD COLUMN resetHash TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE users ADD COLUMN resetExp TEXT"); } catch (e) {}
@@ -110,6 +112,12 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_bez_dugih_crta'").get()) 
 if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_izvor_termina'").get()) {
   db.prepare("UPDATE bookings SET source = CASE WHEN ifnull(userEmail,'')='' OR userEmail NOT IN (SELECT email FROM users) THEN 'manual' ELSE 'online' END WHERE source IS NULL").run();
   db.prepare("INSERT INTO settings(key,json) VALUES('mig_izvor_termina','true')").run();
+}
+/* kolona „Aparat": tretmani na aparatu se zakazuju tu i ne zauzimaju zaposlene (isti aparat ne prima dva klijenta) */
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_aparat'").get()) {
+  db.prepare("INSERT OR IGNORE INTO employees(id,name,cats,title,active,kind) VALUES('aparat','Aparat','[]','tretmani na aparatu',1,'aparat')").run();
+  db.prepare("UPDATE services SET aparat=1 WHERE id IN ('presoterapija','ems-body','termo-cebe')").run();
+  db.prepare("INSERT INTO settings(key,json) VALUES('mig_aparat','true')").run();
 }
 if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_crte_zaposlene'").get()) {
   db.prepare("UPDATE employees SET title=replace(replace(title,' \u2014 ',' - '),'\u2014','-')").run();
@@ -227,10 +235,17 @@ function verify(token) {
   return Buffer.from(body, "base64url").toString();
 }
 
-const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice, cur: r.cur || undefined });
-const empRow = r => r && ({ id: r.id, name: r.name, cats: JSON.parse(r.cats || "[]"), title: r.title || "", active: r.active === 0 ? false : true });
+const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice, cur: r.cur || undefined, aparat: r.aparat ? true : undefined });
+const empRow = r => r && ({ id: r.id, name: r.name, cats: JSON.parse(r.cats || "[]"), title: r.title || "", active: r.active === 0 ? false : true, kind: r.kind || undefined });
 const bkRow = r => r && ({ ...r, services: JSON.parse(r.services), reminderSent: !!r.reminderSent, source: r.source || "online", sms24: r.sms24 || 0, smsDay: r.smsDay || 0 });
-const performs = (e, s) => Array.isArray(s.emps) ? s.emps.includes(e.id) : (e.cats || []).includes(s.cat);
+/* tretman na aparatu radi samo kolona „Aparat"; aparat ne radi ostale tretmane */
+const isDev = e => !!e && e.kind === "aparat";
+const performs = (e, s) => s.aparat ? isDev(e) : !isDev(e) && (Array.isArray(s.emps) ? s.emps.includes(e.id) : (e.cats || []).includes(s.cat));
+const isDevId = id => !!db.prepare("SELECT 1 FROM employees WHERE id=? AND kind='aparat'").get(String(id || ""));
+/* red o zaposlenoj u mejlovima; za aparat piše „Tretman na aparatu" */
+const empLine = (b, short) => isDevId(b.employee)
+  ? "✨ Tretman na aparatu" + (/^aparat$/i.test(b.employeeName || "") ? "" : ": " + b.employeeName)
+  : "👩 " + (short ? "" : "Kozmetičarka: ") + b.employeeName;
 
 function dayHours(dateStr) {
   const H = getSetting("hours") || {};
@@ -461,7 +476,7 @@ vaša rezervacija je primljena:
 
 📅 ${fmtD(b.date)} u ${b.start}
 ${list}
-👩 Kozmetičarka: ${b.employeeName}
+${empLine(b)}
 ⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
 📍 Živojina Žujovića 25, Beograd (Zvezdara)
 
@@ -474,7 +489,7 @@ Beauty & Nutrition`);
 
 Klijent: ${b.userName} (${b.userEmail}${b.userTel ? ", " + b.userTel : ""})
 Termin: ${fmtD(b.date)} u ${b.start}–${b.end}
-Kozmetičarka: ${b.employeeName}
+${empLine(b).replace(/^\S+ /, "")}
 Usluge:
 ${list}
 Ukupno: ${money(b.totalPrice, b.totalPriceEur || 0)} · ${durTxt(b.totalDuration)}`);
@@ -517,11 +532,12 @@ app.post("/api/admin/hours", auth, admin, (req, res) => {
 app.post("/api/admin/service/:id", auth, admin, (req, res) => {
   const s = db.prepare("SELECT * FROM services WHERE id=?").get(req.params.id);
   if (!s) return res.status(404).json({ error: "Usluga nije pronađena." });
-  const { price, duration, active } = req.body || {};
+  const { price, duration, active, aparat } = req.body || {};
   if (s.cat !== "edu") {
     if (!(Number(price) >= 0) || !(Number(duration) > 0)) return res.status(400).json({ error: "Proverite cenu i trajanje." });
     db.prepare("UPDATE services SET price=?,duration=?,active=? WHERE id=?")
       .run(Math.round(Number(price)), Math.round(Number(duration)), active ? 1 : 0, s.id);
+    if (typeof aparat === "boolean") db.prepare("UPDATE services SET aparat=? WHERE id=?").run(aparat ? 1 : 0, s.id);
   } else {
     db.prepare("UPDATE services SET active=? WHERE id=?").run(active ? 1 : 0, s.id);
   }
@@ -536,6 +552,7 @@ app.post("/api/admin/employee/:id", auth, admin, (req, res) => {
 const SVC_CATS = ["lice", "telo", "masaze", "akcije", "edu"];
 app.post("/api/admin/service-new", auth, admin, (req, res) => {
   const { name, desc, price, oldPrice, duration, emps } = req.body || {};
+  const aparat = !!(req.body || {}).aparat;
   const cat = SVC_CATS.includes((req.body || {}).cat) ? req.body.cat : "akcije";
   const nm = String(name || "").trim();
   if (!nm) return res.status(400).json({ error: "Unesite naziv usluge." });
@@ -550,11 +567,11 @@ app.post("/api/admin/service-new", auth, admin, (req, res) => {
   }
   const pr = Math.round(Number(price)); const d = Math.round(Number(duration));
   if (!(pr >= 0) || !(d > 0)) return res.status(400).json({ error: "Unesite naziv, cenu i trajanje." });
-  if (cat === "akcije" && !ids.length) return res.status(400).json({ error: "Označite bar jednu zaposlenu." });
+  if (cat === "akcije" && !ids.length && !aparat) return res.status(400).json({ error: "Označite bar jednu zaposlenu." });
   let op = Math.round(Number(oldPrice) || 0); if (!(op > pr)) op = null;
-  db.prepare(`INSERT INTO services(id,cat,name,desc,price,duration,active,note,emps,oldPrice)
-    VALUES(?,?,?,?,?,?,1,NULL,?,?)`)
-    .run(id, cat, nm, String(desc || "").trim(), pr, d, ids.length ? JSON.stringify(ids) : null, op);
+  db.prepare(`INSERT INTO services(id,cat,name,desc,price,duration,active,note,emps,oldPrice,aparat)
+    VALUES(?,?,?,?,?,?,1,NULL,?,?,?)`)
+    .run(id, cat, nm, String(desc || "").trim(), pr, d, ids.length ? JSON.stringify(ids) : null, op, aparat ? 1 : 0);
   res.json({ service: svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(id)) });
 });
 app.post("/api/admin/service-del/:id", auth, admin, (req, res) => {
@@ -699,7 +716,7 @@ function checkClient(body) {
   if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return { error: "E-mail adresa klijenta nije ispravna." };
   return { name, tel, mail };
 }
-const visitLines = list => list.map(b => `📅 ${fmtD(b.date)} u ${b.start}\n💆 ${b.services.map(x => x.name).join(" + ")}\n👩 ${b.employeeName}`).join("\n\n");
+const visitLines = list => list.map(b => `📅 ${fmtD(b.date)} u ${b.start}\n💆 ${b.services.map(x => x.name).join(" + ")}\n${empLine(b, true)}`).join("\n\n");
 app.post("/api/admin/manual", auth, staff, (req, res) => {
   const body = req.body || {};
   const c = checkClient(body);
@@ -842,7 +859,7 @@ podsećamo Vas na zakazani termin u salonu Beauty & Nutrition:
 
 📅 ${fmtD(b.date)} u ${b.start}
 💆 ${b.services.map(s => s.name).join(", ")}
-👩 Kozmetičarka: ${b.employeeName}
+${empLine(b)}
 ⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
 📍 Živojina Žujovića 25, Beograd (Zvezdara)
 

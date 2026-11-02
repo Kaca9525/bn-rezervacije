@@ -234,6 +234,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .hours-row input[type=time]{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);width:100%}
 .hours-row label.cl{display:flex;gap:7px;align-items:center;font-size:12.5px;color:var(--muted);white-space:nowrap}
 .adm-svc{display:grid;grid-template-columns:1fr auto auto auto auto;gap:10px;align-items:center;padding:11px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.svc-flags{display:grid;gap:5px}.svc-flags label{display:flex;gap:6px;align-items:center;cursor:pointer;white-space:nowrap}
 .adm-svc .nm{font-weight:700;min-width:0}
 .adm-svc .nm small{display:block;color:var(--muted);font-weight:400}
 .adm-svc input{width:90px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-variant-numeric:tabular-nums}
@@ -538,7 +539,8 @@ function dayHours(dateStr){
   return {open:toMin(h.open),close:toMin(h.close)};
 }
 function cartTotals(){const t={dur:0,rsd:0,eur:0};S.cart.forEach(s=>{t.dur+=+s.duration||0;if(s.cur==="EUR")t.eur+=+s.price||0;else t.rsd+=+s.price||0});return t}
-function performs(e,s){return Array.isArray(s.emps)?s.emps.includes(e.id):(e.cats||[]).includes(s.cat)}
+const isDev=e=>!!e&&e.kind==="aparat";
+function performs(e,s){return s.aparat?isDev(e):!isDev(e)&&(Array.isArray(s.emps)?s.emps.includes(e.id):(e.cats||[]).includes(s.cat))}
 function svcEmps(s){return S.employees.filter(e=>e.active!==false&&performs(e,s))}
 function eligibleEmployees(){return S.cart.length?S.employees.filter(e=>e.active!==false&&S.cart.every(s=>performs(e,s))):[]}
 function hoursSummary(){
@@ -810,7 +812,7 @@ function svcCard(s){
     ${(s.desc||"").length>140?`<button class="more" data-more="${esc(s.id)}">Prikaži više</button>`:""}
     ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
     <div class="svc-foot">
-      <span class="note">${svcEmps(s).map(e=>e.name).join(" · ")}</span>
+      <span class="note">${s.aparat?"Tretman na aparatu":svcEmps(s).map(e=>e.name).join(" · ")}</span>
       <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
     </div>
     ${+s.duration>0?`<div class="svc-cal"><span class="lbl">Slobodni termini</span><button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}">${ICON_CAL}Kalendar</button></div>`:""}
@@ -960,6 +962,7 @@ function closeModal(){$("#modal-root").innerHTML=""}
 function tplBooking(){
   const t=cartTotals(),dur=t.dur;
   const emps=eligibleEmployees();
+  const devCart=S.cart.length>0&&S.cart.every(s=>s.aparat),mixCart=!devCart&&S.cart.some(s=>s.aparat);
   if(S.bOff==null)S.bOff=calOffFor(S.bDate);
   return `
   <span class="eyebrow">Korak 2 od 2</span>
@@ -968,15 +971,15 @@ function tplBooking(){
   <div class="book-grid">
     <div style="display:grid;gap:18px;min-width:0">
       <div class="card">
-        <div class="step-h"><span class="n">1</span><h3>Kozmetičarka</h3></div>
+        <div class="step-h"><span class="n">1</span><h3>${devCart?"Aparat":"Kozmetičarka"}</h3></div>
         <div class="choice-row" id="emp-row">
-          <button class="chip ${S.bEmp==="__any"?"on":""}" data-emp="__any">Bilo koja slobodna</button>
-          ${S.employees.filter(e=>e.active!==false).map(e=>{
+          <button class="chip ${S.bEmp==="__any"?"on":""}" data-emp="__any">${devCart?"Bilo koji slobodan":"Bilo koja slobodna"}</button>
+          ${S.employees.filter(e=>e.active!==false&&(devCart?isDev(e):!isDev(e))).map(e=>{
             const ok=emps.some(x=>x.id===e.id);
             return `<button class="chip ${S.bEmp===e.id?"on":""}" data-emp="${esc(e.id)}" ${ok?"":"disabled"} title="${esc(ok?(e.title||""):"Ne izvodi sve izabrane tretmane")}">${esc(e.name)}</button>`;
           }).join("")}
         </div>
-        ${emps.length===0?`<p class="note" style="margin-top:10px;color:var(--danger)">Nijedna zaposlena ne pokriva sve izabrane tretmane - razdvojite rezervaciju.</p>`:""}
+        ${emps.length===0?`<p class="note" style="margin-top:10px;color:var(--danger)">${mixCart?"Tretmani na aparatu zakazuju se posebno - razdvojite rezervaciju.":devCart?"Aparat trenutno nije dostupan za zakazivanje.":"Nijedna zaposlena ne pokriva sve izabrane tretmane - razdvojite rezervaciju."}</p>`:devCart?`<p class="note" style="margin-top:10px">Ovaj tretman se radi na aparatu.</p>`:""}
       </div>
       <div class="card">
         <div class="step-h"><span class="n">2</span><h3>Datum</h3></div>
@@ -1204,7 +1207,7 @@ function admSvc(){
   const groups=["lice","telo","masaze","edu"];
   const titles={lice:"Tretmani lica",telo:"Tretmani tela",masaze:"Masaže (u sklopu tretmana tela)",edu:"Edukacije i obuke (cena na upit)"};
   return `
-  <p class="sub">Izmenite cenu (RSD) ili trajanje (min) direktno u listi, pa „Sačuvaj". Isključena usluga se ne prikazuje korisnicima. „+ Dodaj uslugu" dodaje novu uslugu u kategoriju, a kanta je trajno briše.</p>
+  <p class="sub">Izmenite cenu (RSD) ili trajanje (min) direktno u listi, pa „Sačuvaj". Isključena usluga se ne prikazuje korisnicima. „Na aparatu": usluga se zakazuje u koloni Aparat i ne zauzima zaposlene. „+ Dodaj uslugu" dodaje novu uslugu u kategoriju, a kanta je trajno briše.</p>
   ${groups.map(g=>{
     const list=S.services.filter(s=>s.cat===g).sort((a,b)=>a.name.localeCompare(b.name,"sr"));
     return `<div class="rule"><h2>${titles[g]}</h2><button class="btn btn-gold btn-sm" data-svcadd="${g}">+ Dodaj uslugu</button></div><div class="card">
@@ -1213,7 +1216,7 @@ function admSvc(){
         ${g==="edu"?`<span class="note">na upit</span><span></span>`:`
         <label class="note">RSD <input type="number" min="0" step="100" id="sp-${esc(s.id)}" value="${esc(s.price)}"></label>
         <label class="note">min <input type="number" min="10" step="5" id="sd-${esc(s.id)}" value="${esc(s.duration)}"></label>`}
-        <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="sa-${esc(s.id)}" ${s.active!==false?"checked":""}> aktivna</label>
+        <span class="svc-flags"><label class="note"><input type="checkbox" id="sa-${esc(s.id)}" ${s.active!==false?"checked":""}> aktivna</label>${g==="edu"?"":`<label class="note" title="Zakazuje se u koloni Aparat i ne zauzima zaposlene"><input type="checkbox" id="sap-${esc(s.id)}" ${s.aparat?"checked":""}> na aparatu</label>`}</span>
         <span style="display:flex;gap:8px;align-items:center"><button class="btn btn-ghost btn-sm" data-svcsave="${esc(s.id)}">Sačuvaj</button><button class="icon-btn" data-svcdel="${esc(s.id)}" title="Obriši uslugu" aria-label="Obriši uslugu ${esc(s.name)}">${ICON_TRASH}</button></span>
       </div>`).join("")||`<p class="note">Nema usluga u ovoj kategoriji.</p>`}
     </div>`;
@@ -1231,7 +1234,8 @@ function svcAddModal(cat){
       <div class="field"><label for="sa-price">Cena (RSD)</label><input id="sa-price" type="number" min="0" step="100"></div>
       <div class="field"><label for="sa-dur">Trajanje (min)</label><input id="sa-dur" type="number" min="10" step="5" value="60"></div>
     </div>
-    <div class="field"><label>Ko izvodi uslugu</label><div class="choice-row">${S.employees.filter(e=>e.active!==false).map(e=>`<label class="chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:7px"><input type="checkbox" class="sa-emp" value="${esc(e.id)}" ${(e.cats||[]).includes(cat)?"checked":""}>${esc(e.name)}</label>`).join("")}</div></div>`}
+    <div class="field"><label>Ko izvodi uslugu</label><div class="choice-row">${S.employees.filter(e=>e.active!==false&&!isDev(e)).map(e=>`<label class="chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:7px"><input type="checkbox" class="sa-emp" value="${esc(e.id)}" ${(e.cats||[]).includes(cat)?"checked":""}>${esc(e.name)}</label>`).join("")}</div>
+      <label class="note" style="display:flex;gap:7px;align-items:center;margin-top:10px;cursor:pointer"><input type="checkbox" id="sa-aparat"> Radi se na aparatu (zakazuje se u koloni Aparat, ne zauzima zaposlene)</label></div>`}
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn btn-gold btn-sm" id="sa-save">Dodaj uslugu</button>
       <button class="btn btn-ghost btn-sm" id="m-close">Odustani</button>
@@ -1244,8 +1248,9 @@ function svcAddModal(cat){
     if(!edu){
       body.price=+$("#sa-price").value;body.duration=+$("#sa-dur").value;
       body.emps=[...document.querySelectorAll(".sa-emp:checked")].map(x=>x.value);
+      body.aparat=!!($("#sa-aparat")&&$("#sa-aparat").checked);
       if($("#sa-price").value===""||!(body.price>=0)||!(body.duration>0))return err("Unesite cenu i trajanje.");
-      if(!body.emps.length)return err("Označite bar jednu zaposlenu koja izvodi uslugu.");
+      if(!body.emps.length&&!body.aparat)return err("Označite bar jednu zaposlenu koja izvodi uslugu.");
     }
     const b=$("#sa-save");b.disabled=true;
     try{const r=await apiPost("/api/admin/service-new",body);S.services.push(r.service);closeModal();toast("Usluga je dodata.");render()}
@@ -1255,6 +1260,19 @@ function svcAddModal(cat){
 function weekStart(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x}
 const CAL_COLORS=["#A8853F","#6B8E6B","#A2645A","#5F7A99","#8A6B9E","#4F8E8B","#7D7461"];
 function calColor(empId){const i=S.employees.findIndex(e=>e.id===empId);return CAL_COLORS[(i<0?6:i)%CAL_COLORS.length]}
+/* termini koji se preklapaju u istom danu idu jedan pored drugog (npr. zaposlena i aparat u 17:30) */
+function calLanes(bks){
+  const arr=bks.map(b=>({id:b.id,s:toMin(b.start),e:toMin(b.start)+Math.max(15,+b.totalDuration||0)})).sort((x,y)=>x.s-y.s||y.e-x.e);
+  const out={};let cl=[],clEnd=-1,ends=[];
+  const flush=()=>{cl.forEach(c=>out[c.id]={lane:c.lane,lanes:ends.length});cl=[];ends=[];clEnd=-1};
+  for(const c of arr){
+    if(cl.length&&c.s>=clEnd)flush();
+    let i=ends.findIndex(e=>e<=c.s);if(i<0){i=ends.length;ends.push(c.e)}else ends[i]=c.e;
+    c.lane=i;cl.push(c);clEnd=Math.max(clEnd,c.e);
+  }
+  if(cl.length)flush();
+  return out;
+}
 function admCal(){
   const wsD=S.calWS?parseD(S.calWS):weekStart(new Date());const ws=dstr(weekStart(wsD));S.calWS=ws;
   loadCal(ws);
@@ -1266,11 +1284,12 @@ function admCal(){
   const hrs=[];for(let h=8;h<=21;h++)hrs.push(h);
   const gut=`<div class="cal-gut" style="height:${H}px">${hrs.map(h=>`<span class="cal-hlabel" style="top:${(h*60-O)/60*PXH}px">${pad(h)}h</span>`).join("")}</div>`;
   const cols=days.map(d=>{const ds=dstr(d);const open=dayHours(ds);
-    const bks=list.filter(b=>b.date===ds);
+    const bks=list.filter(b=>b.date===ds),ln=calLanes(bks);
     return `<div class="cal-col ${open?"":"closed"}" style="height:${H}px">
       ${hrs.map(h=>`<div class="cal-hr" style="top:${(h*60-O)/60*PXH}px"></div>`).join("")}
-      ${bks.map(b=>{const t=toMin(b.start);const hpx=Math.max(21,(b.totalDuration/60)*PXH-2);
-        return `<div class="cal-bk ${b.source==="manual"?"man":""}" data-calbk="${esc(b.id)}" style="top:${(t-O)/60*PXH}px;height:${hpx}px;background:${calColor(b.employee)}" title="${esc(b.start+"\u2013"+b.end+" \u00b7 "+b.userName+" \u00b7 "+b.services.map(s=>s.name).join(", ")+" ("+b.employeeName+")")}"><b>${esc(b.start)}</b> ${esc(b.userName)}<br>${esc(b.employeeName)}</div>`}).join("")}
+      ${bks.map(b=>{const t=toMin(b.start);const hpx=Math.max(21,(b.totalDuration/60)*PXH-2);const L=ln[b.id]||{lane:0,lanes:1};
+        const pos=L.lanes>1?`left:calc(${(L.lane*100/L.lanes).toFixed(3)}% + 1px);right:auto;width:calc(${(100/L.lanes).toFixed(3)}% - 2px);`:"";
+        return `<div class="cal-bk ${b.source==="manual"?"man":""}" data-calbk="${esc(b.id)}" style="${pos}top:${(t-O)/60*PXH}px;height:${hpx}px;background:${calColor(b.employee)}" title="${esc(b.start+"\u2013"+b.end+" \u00b7 "+b.userName+" \u00b7 "+b.services.map(s=>s.name).join(", ")+" ("+b.employeeName+")")}"><b>${esc(b.start)}</b> ${esc(b.userName)}<br>${esc(b.employeeName)}</div>`}).join("")}
       ${open?"":`<div style="position:absolute;inset:0;display:grid;place-items:center;font-size:11px;letter-spacing:.14em;color:var(--muted)">NERADNO</div>`}
     </div>`}).join("");
   const headRow=`<div></div>${days.map(d=>{const ds=dstr(d);return `<div class="cal-dayh ${ds===today?"today":""}">${DOWS_S[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}.</div>`}).join("")}`;
@@ -1445,8 +1464,8 @@ function admEmp(){
   <div class="card">${S.employees.map(e=>`
     <div class="adm-svc" style="grid-template-columns:1fr auto auto">
       <div class="nm">${esc(e.name)}<small>${esc(e.title||"")}${e.cats&&e.cats.length?" \u00b7 "+e.cats.map(c=>CATS[c]||c).join(", "):""}</small></div>
-      <span class="pill ${e.active!==false?"pill-ok":"pill-off"}">${e.active!==false?"Dostupna":"Na odmoru"}</span>
-      <button class="btn ${e.active!==false?"btn-danger":"btn-gold"} btn-sm" data-emptoggle="${esc(e.id)}">${e.active!==false?"Pošalji na odmor":"Vrati u ponudu"}</button>
+      <span class="pill ${e.active!==false?"pill-ok":"pill-off"}">${isDev(e)?(e.active!==false?"Dostupan":"Isključen"):(e.active!==false?"Dostupna":"Na odmoru")}</span>
+      <button class="btn ${e.active!==false?"btn-danger":"btn-gold"} btn-sm" data-emptoggle="${esc(e.id)}">${isDev(e)?(e.active!==false?"Isključi":"Uključi"):(e.active!==false?"Pošalji na odmor":"Vrati u ponudu")}</button>
     </div>`).join("")}
   </div>`;
 }
@@ -1466,7 +1485,7 @@ function admAkc(){
       <div class="field"><label for="ak-price">Cena (RSD)</label><input id="ak-price" type="number" min="0" step="100"></div>
       <div class="field"><label for="ak-old">Stara cena (opciono)</label><input id="ak-old" type="number" min="0" step="100"></div>
     </div>
-    <div class="field"><label>Ko izvodi paket</label><div class="choice-row">${S.employees.filter(e=>e.active!==false).map(e=>`<label class="chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:7px"><input type="checkbox" class="ak-emp" value="${esc(e.id)}">${esc(e.name)}</label>`).join("")}</div></div>
+    <div class="field"><label>Ko izvodi paket</label><div class="choice-row">${S.employees.filter(e=>e.active!==false&&!isDev(e)).map(e=>`<label class="chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:7px"><input type="checkbox" class="ak-emp" value="${esc(e.id)}">${esc(e.name)}</label>`).join("")}</div></div>
     <button class="btn btn-gold" id="ak-save">Objavi akciju</button>
   </div>
   ${list.length?`<div class="rule"><h2>Objavljene akcije</h2></div><div class="card">${list.map(s=>`
@@ -1635,7 +1654,7 @@ function wire(root){
     try{
       const r=await apiPost("/api/admin/employee/"+encodeURIComponent(id),{active:e.active===false});
       const i=S.employees.findIndex(x=>x.id===id);if(i>=0)S.employees[i]=r.employee;
-      toast(r.employee.active===false?e.name+" je na odmoru.":e.name+" je ponovo dostupna.");render();
+      toast(isDev(e)?(r.employee.active===false?e.name+" je isključen.":e.name+" je ponovo dostupan."):(r.employee.active===false?e.name+" je na odmoru.":e.name+" je ponovo dostupna."));render();
     }catch(er){toast(er.message);b.disabled=false}
   });
   root.querySelectorAll("[data-calnav]").forEach(b=>b.onclick=()=>{const n=+b.dataset.calnav;if(n===0){S.calWS=dstr(weekStart(new Date()))}else{const d=parseD(S.calWS);S.calWS=dstr(new Date(d.getFullYear(),d.getMonth(),d.getDate()+n))}render()});
@@ -1703,8 +1722,9 @@ function wire(root){
   root.querySelectorAll("[data-svcsave]").forEach(b=>b.onclick=async()=>{
     const id=b.dataset.svcsave;
     const pe=root.querySelector("#sp-"+CSS.escape(id)),de=root.querySelector("#sd-"+CSS.escape(id));
-    const a=root.querySelector("#sa-"+CSS.escape(id)).checked;
+    const a=root.querySelector("#sa-"+CSS.escape(id)).checked,ap=root.querySelector("#sap-"+CSS.escape(id));
     const body={active:a};
+    if(ap)body.aparat=ap.checked;
     if(pe&&de){
       const p=+pe.value,d=+de.value;
       if(!(p>=0)||!(d>0))return toast("Proverite cenu i trajanje.");
@@ -1714,6 +1734,7 @@ function wire(root){
       const r=await apiPost("/api/admin/service/"+encodeURIComponent(id),body);
       const i=S.services.findIndex(x=>x.id===id);if(i>=0)S.services[i]=r.service;
       toast("Usluga je ažurirana.");
+      if(ap)render();
     }catch(e){toast(e.message)}
   });
   root.querySelectorAll('[id^="h-x-"]').forEach(x=>x.onchange=()=>{
