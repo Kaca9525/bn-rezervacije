@@ -186,7 +186,10 @@ input,select,textarea{font:inherit;color:var(--ink)}
 /* kompaktni mesečni kalendar (izbor datuma) */
 .mcal{width:100%;max-width:330px}
 .mcal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
-.mcal-head b{font-family:var(--ff-disp);font-size:19px;font-weight:600;text-transform:capitalize}
+.mcal-title{position:relative;display:inline-flex;align-items:center;min-width:0}
+.mcal-title::after{content:"";position:absolute;right:10px;top:50%;width:6px;height:6px;border-right:2px solid var(--gold-strong);border-bottom:2px solid var(--gold-strong);transform:translateY(-75%) rotate(45deg);pointer-events:none}
+.mcal-title select{-webkit-appearance:none;appearance:none;font-family:var(--ff-disp);font-size:19px;font-weight:600;color:var(--ink);background:transparent;border:1px solid transparent;border-radius:10px;padding:3px 28px 3px 10px;cursor:pointer;max-width:100%}
+.mcal-title select:hover,.mcal-title select:focus-visible{border-color:var(--gold);outline:none}
 .mcal-nav{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:16px;line-height:1;color:var(--gold-strong);transition:border-color .15s ease}
 .mcal-nav:hover{border-color:var(--gold)}
 .mcal-nav[disabled]{opacity:.3;cursor:not-allowed}
@@ -298,8 +301,11 @@ input,select,textarea{font:inherit;color:var(--ink)}
 @media (max-width:760px){.cookie.lift{bottom:calc(128px + env(safe-area-inset-bottom,0px))}}
 /* ---------- kalendar ---------- */
 .cal-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
-.cal-months{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
-.cal-months .chip{padding:7px 14px;font-size:12px;text-transform:capitalize}
+.cal-months{display:flex;gap:8px 16px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.cal-years,.cal-mrow{display:flex;gap:6px;flex-wrap:wrap}
+.cal-months .chip{padding:7px 12px;font-size:12px;text-transform:capitalize}
+.cal-mrow .chip{min-width:48px}
+@media (max-width:560px){.cal-mrow{display:grid;grid-template-columns:repeat(6,1fr);width:100%}.cal-mrow .chip{min-width:0;padding:7px 0}}
 .cal-title{font-family:var(--ff-disp);font-size:20px;font-weight:600;margin-right:auto}
 .cal-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
 .cal-legend span{display:inline-flex;align-items:center;gap:5px}
@@ -606,10 +612,16 @@ async function slotsForServices(dateStr,list){
   if(!wins.length)return{slots:[],h,off:true};
   return slotGrid(dateStr,wins,bks,dur);
 }
-/* kompaktni mesečni kalendar: tekući mesec + naredna 2, samo radni dani salona */
+/* kompaktni mesečni kalendar: od januara tekuće godine (najranije 2026.) do decembra naredne godine,
+   sada cela 2026. i 2027.; klijent bira samo današnji i buduće radne dane salona */
 const MONTHS_L=["januar","februar","mart","april","maj","jun","jul","avgust","septembar","oktobar","novembar","decembar"];
-const CAL_SPAN=2;
+const CAL_Y0=2026;
+/* opseg meseci kao pomak od tekućeg meseca (negativno = prošli meseci) */
+function calRange(){const n=new Date(),y=n.getFullYear(),m=n.getMonth();return{min:(Math.max(CAL_Y0,y)-y)*12-m,max:(Math.max(CAL_Y0+1,y+1)-y)*12+11-m}}
+const calYears=()=>{const a=[],y1=Math.max(CAL_Y0+1,new Date().getFullYear()+1);for(let y=CAL_Y0;y<=y1;y++)a.push(y);return a};
+const capM=i=>MONTHS_L[i].charAt(0).toUpperCase()+MONTHS_L[i].slice(1);
 function calMonthHTML(off,sel,attr){
+  const R=calRange();off=Math.max(R.min,Math.min(R.max,+off||0));
   const now=new Date();const today=dstr(now);
   const m0=new Date(now.getFullYear(),now.getMonth()+off,1);
   const days=new Date(m0.getFullYear(),m0.getMonth()+1,0).getDate();
@@ -620,17 +632,18 @@ function calMonthHTML(off,sel,attr){
     const ok=ds>=today&&!!dayHours(ds);
     cells.push(`<button class="mcal-day ${ds===today?"today":""} ${sel===ds?"on":""}" data-${attr}="${ds}" ${ok?"":"disabled"} aria-label="${esc(fmtD(ds))}">${d}</button>`);
   }
+  const opts=[];for(let o=R.min;o<=R.max;o++){const d=new Date(now.getFullYear(),now.getMonth()+o,1);opts.push(`<option value="${o}"${o===off?" selected":""}>${capM(d.getMonth())} ${d.getFullYear()}.</option>`)}
   return `<div class="mcal">
     <div class="mcal-head">
-      <button class="mcal-nav" data-${attr}-off="${off-1}" ${off<=0?"disabled":""} aria-label="Prethodni mesec"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <b>${MONTHS_L[m0.getMonth()]} ${m0.getFullYear()}.</b>
-      <button class="mcal-nav" data-${attr}-off="${off+1}" ${off>=CAL_SPAN?"disabled":""} aria-label="Sledeći mesec"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="mcal-nav" data-${attr}-off="${off-1}" ${off<=R.min?"disabled":""} aria-label="Prethodni mesec"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <label class="mcal-title"><select data-${attr}-sel aria-label="Izaberite mesec">${opts.join("")}</select></label>
+      <button class="mcal-nav" data-${attr}-off="${off+1}" ${off>=R.max?"disabled":""} aria-label="Sledeći mesec"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
     <div class="mcal-grid">${["PON","UTO","SRE","ČET","PET","SUB","NED"].map(x=>`<span class="mcal-dow">${x}</span>`).join("")}${cells.join("")}</div>
     <div class="mcal-foot">Radno vreme: ${hoursSummary().map(esc).join(" · ")}</div>
   </div>`;
 }
-const calOffFor=ds=>{if(!ds)return 0;const d=parseD(ds),n=new Date();return Math.max(0,Math.min(CAL_SPAN,(d.getFullYear()-n.getFullYear())*12+d.getMonth()-n.getMonth()))};
+const calOffFor=ds=>{if(!ds)return 0;const R=calRange(),d=parseD(ds),n=new Date();return Math.max(R.min,Math.min(R.max,(d.getFullYear()-n.getFullYear())*12+d.getMonth()-n.getMonth()))};
 const ICON_CAL=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`;
 const ICON_TRASH=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>`;
 function calModal(svcId){
@@ -650,6 +663,7 @@ function calModal(svcId){
       </div>`;
     m.querySelector("#m-close").onclick=closeModal;
     m.querySelectorAll("[data-cmday-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;st.off=+b.dataset.cmdayOff;draw()});
+    m.querySelectorAll("[data-cmday-sel]").forEach(s=>s.onchange=()=>{st.off=+s.value;draw();const x=m.querySelector("[data-cmday-sel]");if(x)x.focus({preventScroll:true})});
     m.querySelectorAll("[data-cmday]").forEach(b=>b.onclick=()=>{if(b.disabled)return;st.date=b.dataset.cmday;st.slot=null;draw()});
     m.querySelector("#cm-go").onclick=()=>{
       if(!st.date||st.slot==null)return;
@@ -1307,6 +1321,7 @@ function admCal(){
   const list=have?S.calBk.list.filter(b=>b.status==="zakazano"):[];
   const d0=parseD(ws);const days=[];for(let i=0;i<7;i++)days.push(new Date(d0.getFullYear(),d0.getMonth(),d0.getDate()+i));
   const O=480,CL=1260,PXH=44;const H=(CL-O)/60*PXH;
+  const shownY=S.calYear||days[3].getFullYear();
   const today=dstr(new Date());
   const hrs=[];for(let h=8;h<=21;h++)hrs.push(h);
   const gut=`<div class="cal-gut" style="height:${H}px">${hrs.map(h=>`<span class="cal-hlabel" style="top:${(h*60-O)/60*PXH}px">${pad(h)}h</span>`).join("")}</div>`;
@@ -1322,9 +1337,10 @@ function admCal(){
   const headRow=`<div></div>${days.map(d=>{const ds=dstr(d);return `<div class="cal-dayh ${ds===today?"today":""}">${DOWS_S[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}.</div>`}).join("")}`;
   const lab=days[0].getDate()+". "+MONTHS[days[0].getMonth()]+" \u2013 "+days[6].getDate()+". "+MONTHS[days[6].getMonth()]+" "+days[6].getFullYear()+".";
   return `
-  <div class="cal-months">${[0,1,2].map(off=>{const n=new Date();const m=new Date(n.getFullYear(),n.getMonth()+off,1);
-    const on=days.some(d=>d.getMonth()===m.getMonth()&&d.getFullYear()===m.getFullYear());
-    return `<button class="chip ${on?"on":""}" data-calmonth="${off}">${MONTHS_L[m.getMonth()]} ${m.getFullYear()}.</button>`}).join("")}</div>
+  <div class="cal-months">
+    <div class="cal-years" role="group" aria-label="Godina">${calYears().map(y=>`<button class="chip ${y===shownY?"on":""}" data-calyear="${y}">${y}</button>`).join("")}</div>
+    <div class="cal-mrow" role="group" aria-label="Mesec">${MONTHS.map((nm,i)=>`<button class="chip ${days.some(d=>d.getMonth()===i&&d.getFullYear()===shownY)?"on":""}" data-calym="${shownY}-${i}" title="${capM(i)} ${shownY}.">${nm}</button>`).join("")}</div>
+  </div>
   <div class="cal-head">
     <button class="btn btn-ghost btn-sm" data-calnav="-7">\u2039 Prethodna</button>
     <button class="btn btn-ghost btn-sm" data-calnav="0">Danas</button>
@@ -1647,7 +1663,10 @@ function wire(root){
   root.querySelectorAll("[data-terms]").forEach(b=>b.onclick=e=>{e.preventDefault();termsModal()});
   root.querySelectorAll("[data-more]").forEach(b=>b.onclick=()=>{const p=root.querySelector("#d-"+CSS.escape(b.dataset.more));if(!p)return;const c=p.classList.toggle("clamp");b.textContent=c?"Prikaži više":"Prikaži manje"});
   root.querySelectorAll("[data-emp]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bEmp=b.dataset.emp;S.bSlot=null;render()});
-  root.querySelectorAll("[data-date-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bOff=+b.dataset.dateOff;render()});
+  /* promena meseca zadržava položaj stranice (render inače skroluje na vrh) */
+  const keepY=()=>{const y=window.scrollY;render();window.scrollTo({top:y})};
+  root.querySelectorAll("[data-date-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bOff=+b.dataset.dateOff;keepY()});
+  root.querySelectorAll("[data-date-sel]").forEach(s=>s.onchange=()=>{S.bOff=+s.value;keepY();const x=$("[data-date-sel]");if(x)x.focus({preventScroll:true})});
   root.querySelectorAll("[data-cal]").forEach(b=>b.onclick=()=>calModal(b.dataset.cal));
   root.querySelectorAll("[data-date]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bDate=b.dataset.date;S.bSlot=null;render()});
   root.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{S.cart=S.cart.filter(c=>c.id!==b.dataset.rm);if(!S.cart.length){S.view="catalog"}S.bSlot=null;render()});
@@ -1694,9 +1713,11 @@ function wire(root){
       toast(isDev(e)?(r.employee.active===false?e.name+" je isključen.":e.name+" je ponovo dostupan."):(r.employee.active===false?e.name+" je na odmoru.":e.name+" je ponovo dostupna."));render();
     }catch(er){toast(er.message);b.disabled=false}
   });
-  root.querySelectorAll("[data-calnav]").forEach(b=>b.onclick=()=>{const n=+b.dataset.calnav;if(n===0){S.calWS=dstr(weekStart(new Date()))}else{const d=parseD(S.calWS);S.calWS=dstr(new Date(d.getFullYear(),d.getMonth(),d.getDate()+n))}render()});
-  root.querySelectorAll("[data-calmonth]").forEach(b=>b.onclick=()=>{const off=+b.dataset.calmonth;const n=new Date();
-    const d=off===0?n:new Date(n.getFullYear(),n.getMonth()+off,1);S.calWS=dstr(weekStart(d));render()});
+  root.querySelectorAll("[data-calnav]").forEach(b=>b.onclick=()=>{const n=+b.dataset.calnav;S.calYear=null;if(n===0){S.calWS=dstr(weekStart(new Date()))}else{const d=parseD(S.calWS);S.calWS=dstr(new Date(d.getFullYear(),d.getMonth(),d.getDate()+n))}render()});
+  root.querySelectorAll("[data-calyear]").forEach(b=>b.onclick=()=>{const y=+b.dataset.calyear,n=new Date();
+    S.calYear=y;S.calWS=dstr(weekStart(y===n.getFullYear()?n:new Date(y,0,1)));render()});
+  root.querySelectorAll("[data-calym]").forEach(b=>b.onclick=()=>{const[y,m]=b.dataset.calym.split("-").map(Number),n=new Date();
+    S.calYear=y;S.calWS=dstr(weekStart(y===n.getFullYear()&&m===n.getMonth()?n:new Date(y,m,1)));render()});
   const mb=root.querySelector("[data-manual]");if(mb)mb.onclick=()=>manualModal();
   root.querySelectorAll("[data-bkedit]").forEach(b=>b.onclick=()=>{const x=findBk(b.dataset.bkedit);if(x)manualModal(x)});
   root.querySelectorAll("[data-bkdel]").forEach(b=>b.onclick=()=>{
