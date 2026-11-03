@@ -152,8 +152,12 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc-meta .price{font-weight:800;color:var(--gold-strong);font-size:16px;font-variant-numeric:tabular-nums;letter-spacing:0}
 .svc p{margin:0;color:var(--muted);font-size:13.5px}
 .svc p.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.svc .more{align-self:flex-start;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-strong)}
-.svc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:auto;padding-top:8px;border-top:1px solid var(--line-soft)}
+.svc .more{align-self:flex-end;margin-top:auto;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-strong)}
+.svc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px 14px;margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)}
+.svc-foot .note{min-width:0}
+.svc-acts{display:flex;flex-direction:column;align-items:stretch;gap:8px;flex:none;min-width:136px}
+.svc .more+.svc-foot{margin-top:0} /* „Prikaži više" stoji u desnom uglu iznad Dodaj/Kalendar, linije kartica u redu ostaju poravnate */
+.svc-acts .btn svg{flex:none}
 .svc-note{font-size:11.5px;color:var(--gold-strong);font-weight:700}
 .svc.inCart{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),var(--shadow)}
 .svc.inCart::before{opacity:1}
@@ -210,9 +214,6 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .mcal-day.on{background:var(--band);border-color:var(--band);color:var(--band-gold);box-shadow:var(--shadow)}
 .mcal-foot{font-size:11.5px;color:var(--muted);margin-top:8px}
 .modal.cal-modal{max-width:420px}
-.svc-cal{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:8px;border-top:1px dashed var(--line-soft)}
-.svc-cal .lbl{font-size:10.5px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:var(--gold-strong)}
-.svc-cal .btn svg{flex:none}
 .icon-btn{width:36px;height:36px;border-radius:50%;display:inline-grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--danger);transition:all .15s ease}
 .icon-btn:hover{border-color:var(--danger);background:var(--danger-bg)}
 .icon-btn.arm{background:var(--danger);border-color:var(--danger);color:#fff}
@@ -878,17 +879,20 @@ function photoModal(id){
     if(e.key==="Escape"){closeModal();document.removeEventListener("keydown",onKey)}};
   document.addEventListener("keydown",onKey);
 }
+const svcMore=s=>(s.desc||"").length>140?`<button class="more" data-more="${esc(s.id)}">Prikaži više</button>`:"";
 function svcCard(s){
   if(s.cat==="edu"){
     return `<div class="card svc">
       ${svcImgHtml(s)}
       <h3>${esc(s.name)}</h3>
-      <div class="svc-meta"><span>⏱ Termini po dogovoru</span><span class="price">Cena: na upit</span></div>
+      <div class="svc-meta"><span>Termini po dogovoru</span><span class="price">Cena: na upit</span></div>
       <p class="clamp" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
-      ${(s.desc||"").length>140?`<button class="more" data-more="${esc(s.id)}">Prikaži više</button>`:""}
+      ${svcMore(s)}
       <div class="svc-foot">
         <span class="note">Edukator: Andrijana</span>
-        <button class="btn btn-gold btn-sm" data-inq="${esc(s.id)}">Pošalji upit</button>
+        <div class="svc-acts">
+          <button class="btn btn-gold btn-sm" data-inq="${esc(s.id)}">Pošalji upit</button>
+        </div>
       </div>
     </div>`;
   }
@@ -899,13 +903,15 @@ function svcCard(s){
     ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}
     <div class="svc-meta"><span>⏱ ${durTxt(+s.duration)}</span>${+s.oldPrice>+s.price?`<span style="text-decoration:line-through;opacity:.6">${priceTxt(s,+s.oldPrice)}</span>`:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></div>
     <p class="clamp" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
-    ${(s.desc||"").length>140?`<button class="more" data-more="${esc(s.id)}">Prikaži više</button>`:""}
     ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
+    ${svcMore(s)}
     <div class="svc-foot">
       <span class="note">${s.aparat?"Tretman na aparatu":svcEmps(s).map(e=>e.name).join(" · ")}</span>
-      <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
+      <div class="svc-acts">
+        <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
+        ${+s.duration>0?`<button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}">${ICON_CAL}Kalendar</button>`:""}
+      </div>
     </div>
-    ${+s.duration>0?`<div class="svc-cal"><span class="lbl">Slobodni termini</span><button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}">${ICON_CAL}Kalendar</button></div>`:""}
   </div>`;
 }
 const byName=(a,b)=>a.name.localeCompare(b.name,"sr");
