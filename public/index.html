@@ -74,8 +74,14 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .h-page em{font-style:italic;font-weight:500;color:var(--gold-strong)}
 .sub{color:var(--muted);margin:0 0 22px;max-width:64ch;font-size:15.5px}
 .eyebrow{display:inline-flex;align-items:center;gap:12px;font-size:10.5px;font-weight:800;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-strong)}
-.hero{padding:26px 0 8px;margin-bottom:10px}
-.hero-h{margin-top:14px;font-size:clamp(34px,5.6vw,54px)}
+/* hero sa fotografijom salona: tekst levo na kremastoj podlozi, zdesna zid sa natpisom koji se blago utapa u podlogu,
+   pa se ni naslov ni natpis na zidu ne preklapaju */
+.hero{position:relative;padding:36px 40px 30px;margin:0 0 22px;border-radius:24px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);
+  background:#FBF8F2;min-height:380px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start}
+.hero::before{content:"";position:absolute;top:0;right:0;bottom:0;width:60%;background:#F3ECDF url(/img/hero.jpg) 60% 8%/auto 126% no-repeat;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,rgba(0,0,0,.55) 16%,#000 34%);mask-image:linear-gradient(90deg,transparent 0,rgba(0,0,0,.55) 16%,#000 34%)}
+.hero>*{position:relative;max-width:46%}
+.hero-h{margin-top:0;font-size:clamp(34px,5.6vw,54px)}
 .hero-hours{margin-top:6px;padding:10px 14px;border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:10px;background:var(--surface);display:inline-block}
 .hero-hours-t{display:block;font-size:12px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:var(--ink);margin-bottom:3px}
 .hero-meta{font-size:14.5px;color:var(--ink);font-weight:600;line-height:1.75}
@@ -368,7 +374,10 @@ input,select,textarea{font:inherit;color:var(--ink)}
   .bk .when{border-right:none;border-bottom:1px dashed var(--line);padding:0 0 10px;text-align:left;min-width:0}
   .bk .side{align-items:flex-start;margin-left:0}
   .bk-sum{position:static}
-  .hero{padding-top:14px}
+  .hero{padding:212px 18px 22px;min-height:0}
+  .hero::before{left:0;width:auto;bottom:auto;height:230px;background-position:67% 0;background-size:auto 380px;
+    -webkit-mask-image:linear-gradient(180deg,#000 62%,transparent);mask-image:linear-gradient(180deg,#000 62%,transparent)}
+  .hero>*{max-width:none}
   .m3{grid-template-columns:1fr 1fr}
   .m3 .field:first-child{grid-column:1/-1}
   .mrow-main{grid-template-columns:1fr 1fr}
@@ -869,7 +878,6 @@ function tplCatalog(){
   return `
   ${reminderBanner()}
   <section class="hero">
-    <span class="eyebrow">Estetsko edukativni centar · Zvezdara</span>
     <h1 class="h-page hero-h">${S.cat==="vauceri"?"Poklonite <em>lepotu</em>.":S.cat==="edu"?"Znanje koje <em>inspiriše</em>.":S.cat==="akcije"?"Aktuelne <em>akcije</em> i paketi.":"Luksuz u nezi <em>lica</em> i <em>tela</em>."}</h1>
     <p class="sub">${sub}</p>
     <div class="hero-hours"><span class="hero-hours-t">Radno vreme</span><div class="hero-meta">${hoursSummary().map(p=>esc(p)).join("<br>")}</div></div>
