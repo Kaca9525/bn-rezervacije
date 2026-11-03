@@ -347,17 +347,87 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .mblock-f{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
 .m-tot{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink)}
 .m-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-/* ---------- radno vreme zaposlenih ---------- */
-.eh-wrap{overflow-x:auto}
-.eh-tab{border-collapse:separate;border-spacing:3px;font-size:12.5px;min-width:600px;width:100%}
-.eh-tab th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:800;text-align:center;padding:4px}
-.eh-tab tbody th{text-align:left;color:var(--ink);font-size:13px;letter-spacing:0;text-transform:none;white-space:nowrap;padding-right:8px}
-.eh-tab td{text-align:center;padding:8px 4px;border-radius:8px;background:var(--gold-soft);color:var(--gold-strong);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
-.eh-tab td.off{background:var(--surface2);color:var(--muted);font-weight:600}
-.eh-add{display:grid;grid-template-columns:1.3fr 1fr 1fr auto auto;gap:8px;align-items:center;margin-bottom:12px}
-.eh-add input[type=date],.eh-add input[type=time]{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);width:100%;min-width:0}
-.eh-add label.cl{display:flex;gap:7px;align-items:center;font-size:12.5px;color:var(--muted);white-space:nowrap}
-.eh-item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+/* ---------- raspored smena ---------- */
+.sh-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+.sh-nav{display:inline-flex;align-items:center;gap:8px}
+.sh-arrow{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:20px;line-height:1;color:var(--gold-strong);transition:border-color .15s ease}
+.sh-arrow:hover{border-color:var(--gold)}
+.sh-title{font-family:var(--ff-disp);font-size:22px;font-weight:600;min-width:150px;text-align:center}
+.sh-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
+.sh-tab{border-collapse:separate;border-spacing:0;width:100%;min-width:860px;font-size:12.5px}
+.sh-tab th,.sh-tab td{border-bottom:1px solid var(--line-soft);border-right:1px solid var(--line-soft);padding:7px 5px;text-align:center;vertical-align:middle}
+.sh-tab tr>*:last-child{border-right:none}
+.sh-tab tbody tr:last-child>*{border-bottom:none}
+.sh-tab thead th{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--surface2);padding:11px 5px;white-space:nowrap}
+.sh-tab thead th.today{color:var(--gold-strong);box-shadow:inset 0 -2px 0 var(--gold)}
+.sh-tab .sh-name{position:sticky;left:0;z-index:1;background:var(--surface);text-align:left;font-size:13px;font-weight:800;color:var(--ink);letter-spacing:0;text-transform:none;white-space:nowrap;min-width:150px;padding:8px 12px}
+.sh-tab thead .sh-name{background:var(--surface2);z-index:2}
+.sh-name small{display:block;font-weight:600;font-size:11px;color:var(--muted)}
+.sh-name button{font-weight:800;text-align:left;padding:0;text-decoration:underline dotted var(--gold);text-underline-offset:4px}
+.sh-name button:hover{color:var(--gold-strong)}
+.sh-tab tr.sh-salon>*{background:var(--surface2)}
+.sh-salon td{color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sh-cell{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;min-height:40px;border-radius:9px;padding:6px 4px;font-weight:800;font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap;border:1px solid transparent}
+button.sh-cell{transition:box-shadow .12s ease}
+button.sh-cell:hover{box-shadow:0 0 0 2px var(--gold)}
+.sh-am{background:#E4F1E0;color:#3B6A35;border-color:#CDE2C5}
+.sh-pm{background:#E2EBF7;color:#2D5A89;border-color:#C9D9EE}
+.sh-off{background:var(--surface2);color:var(--muted);font-weight:700}
+.sh-def{border:1px dashed var(--line);color:var(--muted);font-weight:600}
+.sh-add{border:1px dashed var(--line);color:var(--gold-strong);font-size:19px;font-weight:600}
+.sh-closed{color:var(--muted);font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;background:repeating-linear-gradient(45deg,var(--surface2),var(--surface2) 6px,var(--surface) 6px,var(--surface) 12px)}
+.sh-rep{font-size:12px;font-weight:700;opacity:.7}
+td.past .sh-cell{opacity:.55}
+.sh-legend{display:flex;gap:8px 16px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin:12px 0 0}
+.sh-legend>span{display:inline-flex;align-items:center;gap:6px}
+.sh-legend .sh-cell{display:inline-flex;width:auto;min-height:0;padding:3px 8px;font-size:11px}
+.sh-opt{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;cursor:pointer}
+.sh-opt input{margin-top:4px;flex:none}
+.sh-pre{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.sh-pre .chip{padding:7px 13px;font-size:12px;font-variant-numeric:tabular-nums}
+.sh-times{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.sh-mode{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}
+.sh-mode label{display:flex;gap:9px;align-items:center;font-size:14px;cursor:pointer}
+.sh-week-row{display:grid;grid-template-columns:105px 135px 1fr 1fr;gap:8px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
+.sh-week-row select,.sh-week-row input{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);width:100%;min-width:0}
+.sh-week-row input:disabled{opacity:.45}
+/* ---------- klijenti ---------- */
+.cli-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.cli-bar .search{margin-left:0;flex:1 1 260px;max-width:440px}
+.cli-sum{margin:0 0 10px;color:var(--muted);font-size:13px}
+.cli-list{padding:4px 20px}
+.cli-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:6px 16px;align-items:center;padding:12px 0;border-bottom:1px dashed var(--line)}
+.cli-row:last-child{border-bottom:none}
+.cli-nm{font-weight:800;font-size:14.5px;overflow-wrap:anywhere}
+.cli-nm small{display:block;font-weight:600;font-size:12px;color:var(--muted)}
+.cli-ct{font-size:13px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.cli-ct a{color:var(--ink);font-weight:700;text-decoration:none}
+.cli-ct a:hover{color:var(--gold-strong)}
+.cli-ct small{display:block;color:var(--muted);font-size:12px}
+.cli-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.imp-help{font-size:12.5px;color:var(--muted);background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:10px 13px;margin:12px 0}
+.imp-help b{color:var(--ink)}
+.imp-help ul{margin:6px 0 4px;padding-left:18px}
+.imp-help li{margin:3px 0}
+.imp-ta{width:100%;min-height:150px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;resize:vertical}
+.imp-ta:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
+.imp-file{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px dashed var(--gold);border-radius:14px;padding:16px;background:var(--surface);cursor:pointer}
+.imp-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.imp-file{position:relative}
+.imp-file:focus-within{box-shadow:0 0 0 3px var(--gold-soft)}
+.imp-prev{max-height:330px;overflow:auto;border:1px solid var(--line);border-radius:12px;margin:10px 0 12px}
+.imp-prev table{width:100%;border-collapse:collapse;font-size:12.5px}
+.imp-prev th{position:sticky;top:0;z-index:1;background:var(--surface2);text-align:left;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:8px}
+.imp-prev td{padding:6px 8px;border-top:1px solid var(--line-soft);vertical-align:top;overflow-wrap:anywhere}
+.imp-prev tr.no td{color:var(--muted)}
+.imp-st{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.imp-st.ok{color:var(--ok)}.imp-st.ex{color:var(--gold-strong)}.imp-st.bad{color:var(--danger)}
+.ac-wrap{position:relative}
+.ac-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);max-height:270px;overflow-y:auto}
+.ac-list button{display:block;width:100%;text-align:left;padding:9px 13px;font-size:13.5px;font-weight:700;border-bottom:1px solid var(--line-soft)}
+.ac-list button:last-child{border-bottom:none}
+.ac-list button small{display:block;font-weight:400;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.ac-list button.on,.ac-list button:hover{background:var(--gold-soft)}
 @media (max-width:760px){
   .search{order:-1;flex-basis:100%;margin-left:0}
   .auth-grid,.book-grid{grid-template-columns:1fr}
@@ -373,8 +443,14 @@ input,select,textarea{font:inherit;color:var(--ink)}
   .m3 .field:first-child{grid-column:1/-1}
   .mrow-main{grid-template-columns:1fr 1fr}
   .mrow-main select{grid-column:1/-1}
-  .eh-add{grid-template-columns:1fr 1fr}
-  .eh-add input[type=date]{grid-column:1/-1}
+  .cli-row{grid-template-columns:1fr}
+  .cli-act{justify-content:flex-start}
+  .cli-list{padding:4px 14px}
+  .sh-week-row{grid-template-columns:1fr 1fr}
+  .sh-title{min-width:0;font-size:19px}
+  .sh-tab{min-width:740px}
+  .sh-tab .sh-name{min-width:96px;max-width:112px;white-space:normal;font-size:12px;padding:8px}
+  .sh-cell{font-size:11.5px;min-height:38px}
 }
 </style>
 </head>
@@ -1110,11 +1186,17 @@ function tplAdmin(){
   return `
   <span class="eyebrow">Administracija salona</span>
   <h1 class="h-page">Admin panel</h1>
-  <div class="adm-tabs">${tab("rez","Rezervacije")}${tab("cal","Kalendar")}${tab("rem","Podsetnici")}${tab("vcr","Vaučeri")}${isAdmin()?tab("hrs","Radno vreme")+tab("svc","Usluge")+tab("emp","Zaposlene")+tab("akc","Akcije"):""}${isAdmin()?`<button class="btn btn-ghost btn-sm" data-backup title="Preuzmite sve podatke salona kao fajl">⤓ Rezervna kopija</button>`:""}<button class="btn btn-gold btn-sm" data-manual style="margin-left:auto">+ Ručni unos</button>
+  <div class="adm-tabs">${tab("rez","Rezervacije")}${tab("cal","Kalendar")}${tab("sh","Smene")}${tab("cli","Klijenti")}${tab("rem","Podsetnici")}${tab("vcr","Vaučeri")}${isAdmin()?tab("hrs","Radno vreme")+tab("svc","Usluge")+tab("emp","Zaposlene")+tab("akc","Akcije"):""}${isAdmin()?`<button class="btn btn-ghost btn-sm" data-backup title="Preuzmite sve podatke salona kao fajl">⤓ Rezervna kopija</button>`:""}<button class="btn btn-gold btn-sm" data-manual style="margin-left:auto">+ Ručni unos</button>
     <button class="btn btn-ghost btn-sm" id="adm-refresh">Osveži</button></div>
-  <div id="adm-body">${t==="cal"?admCal():t==="rem"?admRem():t==="vcr"?admVcr():(t==="hrs"&&isAdmin())?admHrs():(t==="svc"&&isAdmin())?admSvc():(t==="emp"&&isAdmin())?admEmp():(t==="akc"&&isAdmin())?admAkc():admRez()}</div>
+  <div id="adm-body">${admBody()}</div>
   ${footer()}`;
 }
+function admBody(){
+  const t=S.admTab;
+  return t==="cal"?admCal():t==="sh"?admSh():t==="cli"?admCli():t==="rem"?admRem():t==="vcr"?admVcr():(t==="hrs"&&isAdmin())?admHrs():(t==="svc"&&isAdmin())?admSvc():(t==="emp"&&isAdmin())?admEmp():(t==="akc"&&isAdmin())?admAkc():admRez();
+}
+/* osveži samo sadržaj kartice (bez skoka na vrh strane) */
+function rerenderAdm(){const b=$("#adm-body");if(S.view!=="admin"||!b)return;b.innerHTML=admBody();wire(b)}
 function admRez(){
   const f=S.admFilter||"__all";
   const act=S.admBookings.filter(b=>b.status==="zakazano"&&(f==="__all"||b.employee===f));
@@ -1182,53 +1264,548 @@ function admHrs(){
     </div>
   </div>
   <div class="rule"><h2>Radno vreme zaposlenih</h2></div>
-  ${admEmpHours()}`;
-}
-function loadEh(){
-  if(S.ehLoading)return;S.ehLoading=true;
-  apiGet("/api/admin/emp-hours").then(d=>{S.eh=d}).catch(()=>{S.eh={week:{},dates:{},days:[],eff:{}}})
-    .finally(()=>{S.ehLoading=false;if(S.view==="admin"&&S.admTab==="hrs")render()});
-}
-function admEmpHours(){
-  if(!S.eh){loadEh();return `<div class="loading">Učitavanje rasporeda…</div>`}
-  const emps=S.employees.filter(e=>e.active!==false);
-  if(!emps.length)return `<p class="note">Nema aktivnih zaposlenih.</p>`;
-  if(!S.ehEmp||!emps.some(e=>e.id===S.ehEmp))S.ehEmp=emps[0].id;
-  const e=emps.find(x=>x.id===S.ehEmp);
-  const W=S.eh.week[S.ehEmp],H=S.hours||{};
-  const order=["1","2","3","4","5","6","0"];
-  const dl=d=>{const x=parseD(d);return DOWS_S[x.getDay()]+" "+x.getDate()+"."+(x.getMonth()+1)+"."};
-  const dates=S.eh.dates[S.ehEmp]||[];
-  return `
-  <p class="sub">Za svaku zaposlenu upišite kada radi. Klijenti online vide samo termine u njenom radnom vremenu (uvek u okviru radnog vremena salona). Dok raspored nije upisan, zaposlena radi koliko i salon.</p>
-  <div class="card" style="margin-bottom:18px">
-    <div class="step-h"><span class="n">1</span><h3>Ko radi narednih 7 dana</h3></div>
-    <div class="eh-wrap"><table class="eh-tab"><thead><tr><th></th>${S.eh.days.map(d=>`<th>${esc(dl(d))}</th>`).join("")}</tr></thead>
-    <tbody>${emps.map(x=>`<tr><th>${esc(x.name)}</th>${(S.eh.eff[x.id]||[]).map(v=>`<td class="${v?"":"off"}">${v?esc(v.replace(/:00/g,"")):"ne radi"}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
-  </div>
-  <div class="card">
-    <div class="step-h"><span class="n">2</span><h3>Raspored zaposlene</h3></div>
-    <div class="choice-row" style="margin-bottom:16px">${emps.map(x=>`<button class="chip ${x.id===S.ehEmp?"on":""}" data-ehemp="${esc(x.id)}">${esc(x.name)}</button>`).join("")}</div>
-    <p class="note" style="margin:0 0 4px"><b>Stalni raspored po danima</b>${W?"":" - još nije upisan, prikazano je radno vreme salona"}</p>
-    ${order.map(k=>{const h=W?W[k]:(H[k]&&!H[k].closed?{open:H[k].open,close:H[k].close}:{off:true});const off=!!(h&&h.off);
-      return `<div class="hours-row"><b>${DOWS[+k]}</b>
-        <input type="time" id="eh-o-${k}" value="${esc((h&&h.open)||"09:00")}" ${off?"disabled":""} aria-label="${DOWS[+k]} od">
-        <input type="time" id="eh-c-${k}" value="${esc((h&&h.close)||"17:00")}" ${off?"disabled":""} aria-label="${DOWS[+k]} do">
-        <label class="cl"><input type="checkbox" id="eh-x-${k}" ${off?"checked":""}> ne radi</label></div>`}).join("")}
-    <div style="margin:14px 0 24px;display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-gold btn-sm" id="eh-save">Sačuvaj raspored: ${esc(e.name)}</button>
-      ${W?`<button class="btn btn-ghost btn-sm" id="eh-reset">Vrati na radno vreme salona</button>`:""}
-    </div>
-    <p class="note" style="margin:0 0 8px"><b>Izmena za određeni dan</b> - slobodan dan, druga smena, bolovanje</p>
-    <div class="eh-add">
-      <input type="date" id="ehd-date" min="${dstr(new Date())}" value="${dstr(new Date())}" aria-label="Datum">
-      <input type="time" id="ehd-o" value="09:00" aria-label="Od"><input type="time" id="ehd-c" value="15:00" aria-label="Do">
-      <label class="cl"><input type="checkbox" id="ehd-x"> ne radi tog dana</label>
-      <button class="btn btn-ghost btn-sm" id="ehd-add">Dodaj izmenu</button>
-    </div>
-    ${dates.length?dates.map(x=>`<div class="eh-item"><span>${esc(fmtD(x.date))}</span><b>${x.off?"ne radi":esc(x.open+"-"+x.close)}</b><button class="btn btn-ghost btn-sm" data-ehdel="${esc(x.date)}">Obriši</button></div>`).join("")
-      :`<p class="note">Nema izmena za naredne dane.</p>`}
+  <div class="card" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+    <p class="note" style="margin:0;flex:1 1 280px;font-size:14px">Ko kada radi (smene po danima i nedeljama) upisuje se u kartici „Smene“. Klijenti online vide samo termine u smeni zaposlene.</p>
+    <button class="btn btn-gold btn-sm" data-admtab="sh">Otvori raspored smena</button>
   </div>`;
+}
+/* ---------- raspored smena: nedelja × zaposlene (kao u planeru smena) ----------
+   ćelija: upisana smena (zeleno = počinje pre 12h, plavo = posle), „ne radi“, nije upisano, salon zatvoren */
+const DOW_EVERY=["svake nedelje","svakog ponedeljka","svakog utorka","svake srede","svakog četvrtka","svakog petka","svake subote"];
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+function loadSh(ws){
+  if(S.shKey===ws)return;
+  S.shKey=ws;
+  apiGet("/api/admin/shifts?ws="+encodeURIComponent(ws)).then(d=>{if(S.shKey===ws)S.sh=d})
+    .catch(()=>{if(S.shKey===ws)S.sh={ws,err:true}})
+    .finally(()=>{if(S.shKey===ws&&S.view==="admin"&&S.admTab==="sh")rerenderAdm()});
+}
+function shReload(){S.shKey=null;loadSh(S.shWS)}
+const shKind=c=>c.src==="closed"?["sh-closed","neradno"]:c.src==="salon"?["sh-def","ceo dan"]:c.src==="none"?["sh-add","+"]
+  :c.open?[toMin(c.open)<12*60?"sh-am":"sh-pm",c.open+" - "+c.close]:["sh-off","ne radi"];
+function admSh(){
+  const ws=dstr(weekStart(S.shWS?parseD(S.shWS):new Date()));S.shWS=ws;
+  loadSh(ws);
+  const D=S.sh&&S.sh.ws===ws?S.sh:null,adm=isAdmin(),today=dstr(new Date());
+  const d0=parseD(ws),days=[];for(let i=0;i<7;i++)days.push(new Date(d0.getFullYear(),d0.getMonth(),d0.getDate()+i));
+  const lab=days[0].getDate()+"."+(days[0].getMonth()+1)+". - "+days[6].getDate()+"."+(days[6].getMonth()+1)+"."+days[6].getFullYear()+".";
+  const head=`
+  <p class="sub">${adm?"Kliknite na polje da upišete smenu: samo za taj dan ili za taj dan svake nedelje. Klik na ime otvara stalni raspored. Klijenti online vide samo termine u smeni zaposlene.":"Ko kada radi ove nedelje. Smene upisuje administrator salona."}</p>
+  <div class="sh-head">
+    <span class="sh-nav"><button class="sh-arrow" data-shnav="-7" aria-label="Prethodna nedelja">‹</button><span class="sh-title">${esc(lab)}</span><button class="sh-arrow" data-shnav="7" aria-label="Sledeća nedelja">›</button></span>
+    <button class="btn btn-ghost btn-sm" data-shnav="0">Danas</button>
+    ${adm&&dstr(days[6])>=today?`<button class="btn btn-ghost btn-sm" data-shcopy style="margin-left:auto" title="Smene upisane za pojedinačne dane prethodne nedelje upisuju se i na ovu nedelju">Kopiraj prethodnu nedelju</button>`:""}
+  </div>`;
+  if(!D)return head+`<div class="loading">Učitavanje rasporeda…</div>`;
+  if(D.err)return head+`<div class="empty">Raspored trenutno nije dostupan. Pokušajte ponovo za koji trenutak.</div>`;
+  const emps=D.emps.map((e,i)=>({e,i})).sort((a,b)=>((a.e.kind==="aparat")-(b.e.kind==="aparat"))||((a.e.active===false)-(b.e.active===false))||a.i-b.i).map(x=>x.e);
+  const cell=(e,c,i)=>{
+    const ds=D.days[i],past=ds<today,k=shKind(c),click=adm&&!past&&c.src!=="closed";
+    const rep=c.src==="week"?`<span class="sh-rep" aria-label="svake nedelje">↻</span>`:"";
+    const tip=e.name+" · "+DOWS[days[i].getDay()]+" "+days[i].getDate()+"."+(days[i].getMonth()+1)+". · "+(c.src==="salon"?"nije upisano, radi koliko i salon":c.src==="none"?"nije upisano, ne radi":k[1])+(c.src==="week"?" (svake nedelje)":"");
+    return `<td class="${past?"past":""}">${click?`<button type="button" class="sh-cell ${k[0]}" data-shcell="${esc(e.id)}|${i}" title="${esc(tip)}">${esc(k[1])}${rep}</button>`:`<span class="sh-cell ${k[0]}" title="${esc(tip)}">${esc(k[1])}${rep}</span>`}</td>`;
+  };
+  return head+`
+  <div class="sh-wrap"><table class="sh-tab">
+    <thead><tr><th class="sh-name">Raspored smena</th>${days.map((d,i)=>`<th class="${D.days[i]===today?"today":""}">${DOWS_S[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}.</th>`).join("")}</tr></thead>
+    <tbody>
+      <tr class="sh-salon"><th class="sh-name">Radno vreme salona</th>${D.salon.map(h=>`<td>${h?esc(h.open+" - "+h.close):"zatvoreno"}</td>`).join("")}</tr>
+      ${emps.map(e=>`<tr><th class="sh-name">${adm?`<button type="button" data-shweek="${esc(e.id)}" title="Stalni raspored po danima">${esc(e.name)}</button>`:esc(e.name)}${isDev(e)?"<small>tretmani na aparatu</small>":e.active===false?"<small>na odmoru</small>":""}</th>${e.cells.map((c,i)=>cell(e,c,i)).join("")}</tr>`).join("")}
+    </tbody>
+  </table></div>
+  <div class="sh-legend">
+    <span><span class="sh-cell sh-am">09:00 - 15:00</span>prepodnevna smena</span>
+    <span><span class="sh-cell sh-pm">12:00 - 17:00</span>popodnevna smena</span>
+    <span><span class="sh-cell sh-off">ne radi</span></span>
+    ${D.required?`<span><span class="sh-cell sh-add">+</span>nije upisano: ne radi</span>`:`<span><span class="sh-cell sh-def">ceo dan</span>nije upisano: radi koliko i salon</span>`}
+    <span><span class="sh-rep">↻</span>ponavlja se svake nedelje</span>
+  </div>
+  ${adm?`<div class="card" style="margin-top:18px;padding:16px 18px"><label class="sh-opt"><input type="checkbox" id="sh-req" ${D.required?"checked":""}><span><b>Bez upisane smene zaposlena ne radi</b><br><span class="note">Uključite kada upišete smene svima. Dok je isključeno, zaposlena bez upisane smene radi koliko i salon. Aparat bez upisane smene uvek radi koliko i salon.</span></span></label></div>`:""}`;
+}
+function shCellModal(empId,i){
+  const D=S.sh;if(!D||D.err)return;
+  const e=D.emps.find(x=>x.id===empId);if(!e)return;
+  const c=e.cells[i],ds=D.days[i],dd=parseD(ds),dow=dd.getDay(),sal=D.salon[i];if(!sal)return;
+  const every=DOW_EVERY[dow];
+  const pres=[];const addP=(o,cl)=>{if(o&&cl&&!pres.some(p=>p.o===o&&p.c===cl))pres.push({o,c:cl})};
+  addP(sal.open,sal.close);
+  D.emps.forEach(x=>x.cells.forEach(y=>{if((y.src==="date"||y.src==="week")&&y.open)addP(y.open,y.close)}));
+  const cur=c.open&&(c.src==="date"||c.src==="week")?c:null;
+  const now=c.src==="salon"?"nije upisano (radi koliko i salon)":c.src==="none"?"nije upisano (ne radi)"
+    :(c.open?c.open+" - "+c.close:"ne radi")+(c.src==="week"?" ("+every+")":" (samo ovaj dan)");
+  showModal(`<h3>${esc(e.name)}</h3>
+  <p class="note" style="margin:-6px 0 14px">${esc(fmtD(ds))} · salon radi ${esc(sal.open+" - "+sal.close)}<br>Trenutno: <b>${esc(now)}</b></p>
+  <div id="sh-err" class="err hidden"></div>
+  ${pres.length>1?`<div class="sh-pre">${pres.slice(0,6).map(p=>`<button type="button" class="chip" data-shpre="${esc(p.o+"|"+p.c)}">${esc(p.o+" - "+p.c)}</button>`).join("")}</div>`:""}
+  <div class="sh-times">
+    <div class="field"><label for="sh-o">Smena od</label><input type="time" id="sh-o" value="${esc(cur?cur.open:sal.open)}"></div>
+    <div class="field"><label for="sh-c">do</label><input type="time" id="sh-c" value="${esc(cur?cur.close:sal.close)}"></div>
+  </div>
+  <div class="sh-mode" role="radiogroup" aria-label="Važi">
+    <label><input type="radio" name="sh-m" value="date" checked> Samo ovaj dan (${dd.getDate()}.${dd.getMonth()+1}.)</label>
+    <label><input type="radio" name="sh-m" value="week"> ${esc(cap(every))} (stalna smena)</label>
+  </div>
+  <div class="m-actions">
+    <button class="btn btn-gold btn-sm" id="sh-save">Sačuvaj smenu</button>
+    <button class="btn btn-ghost btn-sm" id="sh-off">Ne radi</button>
+    ${c.src==="date"?`<button class="btn btn-ghost btn-sm" id="sh-deld">Obriši za ovaj dan</button>`:""}
+    ${c.hasWeek?`<button class="btn btn-ghost btn-sm" id="sh-delw">Ukloni stalnu smenu</button>`:""}
+    <button class="btn btn-ghost btn-sm" id="m-close">Odustani</button>
+  </div>
+  <p class="note" style="margin:14px 0 0">${c.src==="date"&&c.hasWeek?"Ovaj dan je izmenjen; kada obrišete izmenu, važi stalna smena. ":""}Bez upisane smene zaposlena ${D.required&&!isDev(e)?"tog dana ne radi":"radi koliko i salon"}.</p>`);
+  const err=m=>{const b=$("#sh-err");b.textContent=m;b.classList.remove("hidden")};
+  const E="/api/admin/emp-hours/"+encodeURIComponent(empId);
+  const mode=()=>{const r=document.querySelector('input[name="sh-m"]:checked');return r?r.value:"date"};
+  const run=async(fn,msg)=>{
+    const bs=[...document.querySelectorAll(".modal .m-actions button")];bs.forEach(b=>b.disabled=true);
+    try{await fn();toast(msg);closeModal();shReload()}catch(er){err(er.message);bs.forEach(b=>b.disabled=false)}
+  };
+  const put=h=>mode()==="week"
+    ?run(async()=>{await apiPost(E+"/day",Object.assign({dow},h));if(c.src==="date")await apiPost(E+"/date-del",{date:ds})},h.off?"Ne radi "+every+".":"Stalna smena je upisana ("+every+").")
+    :run(()=>apiPost(E+"/date",Object.assign({date:ds},h)),h.off?"Upisano: ne radi tog dana.":"Smena je upisana.");
+  document.querySelectorAll("[data-shpre]").forEach(b=>b.onclick=()=>{const [o,cl]=b.dataset.shpre.split("|");$("#sh-o").value=o;$("#sh-c").value=cl});
+  $("#sh-save").onclick=()=>{
+    const o=$("#sh-o").value,cl=$("#sh-c").value;
+    if(!(validHM(o)&&validHM(cl)&&o<cl))return err("Proverite vreme (početak pre kraja).");
+    if(o<sal.open||cl>sal.close)return err("Smena mora biti u okviru radnog vremena salona ("+sal.open+" - "+sal.close+").");
+    put({open:o,close:cl});
+  };
+  $("#sh-off").onclick=()=>put({off:true});
+  const dd1=$("#sh-deld");if(dd1)dd1.onclick=()=>run(()=>apiPost(E+"/date-del",{date:ds}),"Izmena za taj dan je obrisana.");
+  const dw=$("#sh-delw");if(dw)dw.onclick=()=>run(()=>apiPost(E+"/day",{dow,clear:true}),"Stalna smena je uklonjena ("+every+").");
+}
+function shWeekModal(empId){
+  const e=S.sh&&!S.sh.err&&S.sh.emps.find(x=>x.id===empId);if(!e)return;
+  showModal(`<h3>Stalni raspored: ${esc(e.name)}</h3>
+  <p class="note" style="margin:-6px 0 12px">Važi svake nedelje. Smena upisana za pojedinačan dan (u tabeli) ima prednost.</p>
+  <div id="shw-body"><div class="loading">Učitavanje…</div></div>`);
+  apiGet("/api/admin/emp-hours").then(d=>{
+    const W=(d.week||{})[empId]||{},H=S.hours||{},b=$("#shw-body");if(!b)return;
+    const order=[1,2,3,4,5,6,0];
+    b.innerHTML=`<div id="shw-err" class="err hidden"></div>
+    ${order.map(k=>{const h=W[k],sal=H[k]&&!H[k].closed?H[k]:null,st=h?(h.off?"off":"on"):"none";
+      return `<div class="sh-week-row"><b>${DOWS[k]}</b>${sal?`
+        <select data-shw="${k}" aria-label="${DOWS[k]}"><option value="none" ${st==="none"?"selected":""}>Nije upisano</option><option value="on" ${st==="on"?"selected":""}>Radi</option><option value="off" ${st==="off"?"selected":""}>Ne radi</option></select>
+        <input type="time" id="shw-o-${k}" value="${esc((h&&h.open)||sal.open)}" ${st==="on"?"":"disabled"} aria-label="${DOWS[k]} od">
+        <input type="time" id="shw-c-${k}" value="${esc((h&&h.close)||sal.close)}" ${st==="on"?"":"disabled"} aria-label="${DOWS[k]} do">`
+        :`<span class="note" style="grid-column:2/-1">salon ne radi</span>`}</div>`}).join("")}
+    <p class="note" style="margin:10px 0 14px">„Nije upisano“: zaposlena ${S.sh.required&&!isDev(e)?"tog dana ne radi":"radi koliko i salon"}.</p>
+    <div class="m-actions"><button class="btn btn-gold btn-sm" id="shw-save">Sačuvaj stalni raspored</button><button class="btn btn-ghost btn-sm" id="shw-close">Odustani</button></div>`;
+    $("#shw-close").onclick=closeModal;
+    b.querySelectorAll("[data-shw]").forEach(s=>s.onchange=()=>{const k=s.dataset.shw;["o","c"].forEach(x=>{const el=$("#shw-"+x+"-"+k);if(el)el.disabled=s.value!=="on"})});
+    $("#shw-save").onclick=async()=>{
+      const out={},er=m=>{const x=$("#shw-err");x.textContent=m;x.classList.remove("hidden")};
+      for(const k of order){
+        const s=b.querySelector(`[data-shw="${k}"]`),sal=H[k]&&!H[k].closed?H[k]:null;
+        if(!s){out[k]=W[k]||null;continue}
+        if(s.value==="none"){out[k]=null;continue}
+        if(s.value==="off"){out[k]={off:true};continue}
+        const o=$("#shw-o-"+k).value,cl=$("#shw-c-"+k).value;
+        if(!(validHM(o)&&validHM(cl)&&o<cl))return er("Proverite vreme za: "+DOWS[k]+" (početak pre kraja).");
+        if(o<sal.open||cl>sal.close)return er(DOWS[k]+": smena mora biti u okviru radnog vremena salona ("+sal.open+" - "+sal.close+").");
+        out[k]={open:o,close:cl};
+      }
+      const btn=$("#shw-save");btn.disabled=true;
+      try{await apiPost("/api/admin/emp-hours/"+encodeURIComponent(empId)+"/week",out);toast("Stalni raspored je sačuvan: "+e.name+".");closeModal();shReload()}
+      catch(x){er(x.message);btn.disabled=false}
+    };
+  }).catch(x=>{const b=$("#shw-body");if(b)b.innerHTML=`<div class="err">${esc(x.message)}</div>`});
+}
+/* ---------- klijenti: adresar, uvoz (Excel, CSV, .xlsx, kontakti .vcf), predlog u ručnom unosu ---------- */
+const CLI_PAGE=100;
+const ICON_X=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>`;
+const pl=(n,one,few,many)=>{const a=n%10,b=n%100;return n+" "+(a===1&&b!==11?one:a>=2&&a<=4&&(b<12||b>14)?few:many)};
+const digits=s=>String(s||"").replace(/\D/g,"");
+const fmtShort=s=>{const d=parseD(s);return d.getDate()+". "+MONTHS[d.getMonth()]+" "+d.getFullYear()+"."};
+function loadCli(force){
+  if(S.cliLoading||(S.clients&&!force))return;
+  S.cliLoading=true;
+  apiGet("/api/admin/clients").then(d=>{S.clients=d.clients||[]}).catch(()=>{if(!S.clients)S.clients=[]})
+    .finally(()=>{S.cliLoading=false;if(S.view==="admin"&&S.admTab==="cli")rerenderAdm()});
+}
+function cliMatch(c,q){
+  const f=fold(q).trim();if(!f)return true;
+  const d=digits(q);
+  if(d.length>=3&&!/\p{L}/u.test(q)){const cd=digits(c.tel),d0=d.replace(/^(00381|381|0)/,"");return cd.includes(d)||(d0.length>=3&&cd.includes(d0))}
+  const nm=fold(c.name),em=fold(c.email);
+  return f.split(/\s+/).every(w=>nm.includes(w)||em.includes(w));
+}
+function cliMeta(c){
+  const a=[];
+  if(c.visits)a.push(pl(c.visits,"dolazak","dolaska","dolazaka")+(c.last?" · poslednji "+fmtShort(c.last):""));
+  if(c.next)a.push("zakazan "+fmtShort(c.next));
+  return a.join(" · ")||"još bez dolazaka";
+}
+function cliRowHTML(c){
+  return `<div class="cli-row">
+    <div class="cli-nm">${esc(c.name)}<small>${esc(cliMeta(c))}</small></div>
+    <div class="cli-ct"><a href="tel:${esc(normTel(c.tel)||c.tel)}">${esc(c.tel)}</a>${c.email?`<small>${esc(c.email)}</small>`:""}${c.note?`<small>${esc(c.note)}</small>`:""}</div>
+    <div class="cli-act"><button class="btn btn-gold btn-sm" data-clibook="${esc(c.id)}">Zakaži</button><button class="btn btn-ghost btn-sm" data-cliedit="${esc(c.id)}">Izmeni</button></div>
+  </div>`;
+}
+function cliListHTML(){
+  const all=S.clients||[],q=(S.cliQ||"").trim();
+  if(!all.length)return `<div class="empty"><p style="font-weight:800">Još nema klijenata u adresaru.</p><p class="note">${isAdmin()?"Uvezite ih iz Excela ili kontakata telefona, ili dodajte ručno.":"Dodajte klijenta ručno."} Klijenti koji zakažu online ili ih upišete u kalendar dodaju se sami.</p></div>`;
+  const hits=q?all.filter(c=>cliMatch(c,q)):all,shown=hits.slice(0,S.cliLimit||CLI_PAGE);
+  if(!hits.length)return `<div class="empty">Nema klijenata za „${esc(q)}“.</div>`;
+  return `<p class="cli-sum">${q?pl(hits.length,"klijent","klijenta","klijenata")+" za „"+esc(q)+"“":"U adresaru: "+pl(all.length,"klijent","klijenta","klijenata")}</p>
+  <div class="card cli-list">${shown.map(cliRowHTML).join("")}</div>
+  ${hits.length>shown.length?`<div style="text-align:center;margin-top:14px"><button class="btn btn-ghost btn-sm" data-climore>Prikaži još (${hits.length-shown.length})</button></div>`:""}`;
+}
+function admCli(){
+  if(!S.clients){loadCli();return `<div class="loading">Učitavanje klijenata…</div>`}
+  const q=S.cliQ||"";
+  return `
+  <p class="sub">Adresar klijenata salona. Klijent se upisuje sam kada zakaže online ili kada ga unesete u kalendar${isAdmin()?"; postojeće klijente uvezite iz Excela ili iz kontakata telefona":""}.</p>
+  <div class="cli-bar">
+    <form class="search ${q.trim()?"has-q":""}" role="search">${ICON_SEARCH}<input id="cli-q" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" aria-label="Pretraga klijenata" placeholder="Pretraži po imenu ili broju…" value="${esc(q)}"><button type="button" class="clr" id="cli-q-clr" aria-label="Obriši pretragu">${ICON_X}</button></form>
+    <button class="btn btn-gold btn-sm" data-clinew>+ Novi klijent</button>
+    ${isAdmin()?`<button class="btn btn-ghost btn-sm" data-cliimp>Uvezi klijente</button><button class="btn btn-ghost btn-sm" data-cliexp title="Lista klijenata kao CSV fajl za Excel">⤓ Preuzmi listu</button>`:""}
+  </div>
+  <div id="cli-list">${cliListHTML()}</div>`;
+}
+function cliRefreshList(){const l=$("#cli-list");if(l){l.innerHTML=cliListHTML();wire(l)}}
+function cliModal(c){
+  const edit=!!(c&&c.id);
+  showModal(`<h3>${edit?"Izmena klijenta":"Novi klijent"}</h3>
+  ${edit?`<p class="note" style="margin:-6px 0 14px">${esc(cliMeta(c))}</p>`:""}
+  <div id="c-err" class="err hidden"></div>
+  <div class="field"><label for="c-name">Ime i prezime <span class="req">*</span></label><input id="c-name" value="${esc(edit?c.name:"")}" maxlength="120" autocomplete="off"></div>
+  <div class="field"><label for="c-tel">Telefon <span class="req">*</span></label><input id="c-tel" type="tel" value="${esc(edit?c.tel:"")}" placeholder="064 123 4567" maxlength="40" autocomplete="off"></div>
+  <div class="field"><label for="c-mail">E-mail (opciono)</label><input id="c-mail" type="email" value="${esc(edit?c.email:"")}" maxlength="120" autocomplete="off"></div>
+  <div class="field"><label for="c-note">Napomena (opciono)</label><input id="c-note" value="${esc(edit?c.note:"")}" maxlength="300" placeholder="npr. osetljiva koža"></div>
+  <div class="m-actions">
+    <button class="btn btn-gold btn-sm" id="c-save">${edit?"Sačuvaj izmene":"Dodaj klijenta"}</button>
+    ${edit?`<button class="btn btn-ghost btn-sm" id="c-book">Zakaži termin</button>`:""}
+    <button class="btn btn-ghost btn-sm" id="m-close">Odustani</button>
+    ${edit&&isAdmin()?`<button class="btn btn-danger btn-sm" id="c-del" style="margin-left:auto" title="Briše klijenta iz adresara; termini ostaju u kalendaru">Obriši</button>`:""}
+  </div>`);
+  const err=m=>{const b=$("#c-err");b.textContent=m;b.classList.remove("hidden")};
+  $("#c-save").onclick=async()=>{
+    const body={name:$("#c-name").value.trim(),tel:$("#c-tel").value.trim(),email:$("#c-mail").value.trim(),note:$("#c-note").value.trim()};
+    if(!body.name)return err("Unesite ime i prezime.");
+    if(!telOk(body.tel))return err("Unesite ispravan broj telefona (npr. 064 123 4567).");
+    const btn=$("#c-save");btn.disabled=true;
+    try{
+      const r=await apiPost(edit?"/api/admin/client/"+encodeURIComponent(c.id):"/api/admin/clients",body);
+      if(S.clients){
+        if(edit)Object.assign(S.clients.find(x=>x.id===c.id)||{},r.client);
+        else S.clients.push(Object.assign({visits:0,last:null,next:null},r.client));
+        S.clients.sort((a,b)=>a.name.localeCompare(b.name,"sr"));
+      }
+      toast(edit?"Klijent je sačuvan.":"Klijent je dodat u adresar.");closeModal();rerenderAdm();loadCli(true);
+    }catch(e){err(e.message);btn.disabled=false}
+  };
+  const bk=$("#c-book");if(bk)bk.onclick=()=>manualModal(null,{name:c.name,tel:c.tel,email:c.email});
+  const del=$("#c-del");
+  if(del)del.onclick=async()=>{
+    if(!del.dataset.arm){del.dataset.arm="1";del.textContent="Potvrdi brisanje";setTimeout(()=>{if(del.isConnected){delete del.dataset.arm;del.textContent="Obriši"}},4000);return}
+    del.disabled=true;
+    try{await apiPost("/api/admin/client-del/"+encodeURIComponent(c.id));S.clients=(S.clients||[]).filter(x=>x.id!==c.id);toast("Klijent je obrisan iz adresara.");closeModal();rerenderAdm()}
+    catch(e){err(e.message);del.disabled=false}
+  };
+}
+function exportClients(){
+  const rows=[["Ime i prezime","Telefon","E-mail","Napomena","Dolazaka","Poslednji dolazak","Sledeći termin"]]
+    .concat((S.clients||[]).map(c=>[c.name,c.tel,c.email,c.note,c.visits||0,c.last||"",c.next||""]));
+  /* polja koja počinju sa = + - @ Excel bi čitao kao formulu: apostrof ih ostavlja kao tekst (i čuva + u broju) */
+  const csv="\ufeff"+rows.map(r=>r.map(v=>{v=String(v==null?"":v);if(/^[=+\-@\t\r]/.test(v))v="'"+v;return /[";\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(";")).join("\r\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  a.download="klijenti-"+dstr(new Date())+".csv";document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+}
+/* --- uvoz --- */
+let IMP=null;
+function importModal(){
+  IMP={src:"paste",rows:null};
+  if(!S.clients)loadCli();
+  showModal(`<h3>Uvoz klijenata</h3>
+  <p class="note" style="margin:-6px 0 12px">Uvezite imena i brojeve telefona. Pre uvoza vidite listu i birate koga uvozite; brojevi koji su već u adresaru se preskaču.</p>
+  <div id="imp-body"></div>`,"m-wide");
+  impDraw();
+}
+function impDraw(){
+  const r=$("#imp-body");if(!r||!IMP)return;
+  if(IMP.rows){r.innerHTML=impPreviewHTML();impWirePreview(r);return}
+  const paste=IMP.src==="paste";
+  r.innerHTML=`
+  <span class="seg" role="group" aria-label="Izvor"><button type="button" class="${paste?"on":""}" data-impsrc="paste">Nalepi iz Excela</button><button type="button" class="${paste?"":"on"}" data-impsrc="file">Fajl ili kontakti telefona</button></span>
+  ${paste?`
+  <div class="imp-help"><b>Excel ili Google tabela:</b> označite kolone sa imenom i telefonom (može i e-mail), kopirajte (Ctrl+C) i nalepite ovde (Ctrl+V). Red sa naslovima kolona nije obavezan.</div>
+  <textarea class="imp-ta" id="imp-ta" spellcheck="false" placeholder="Ana Petrović&#9;064 123 4567&#10;Jelena Marković&#9;065 222 3344&#9;jelena@gmail.com"></textarea>`:`
+  <div class="imp-help"><b>Kontakti sa telefona (.vcf fajl):</b><ul>
+    <li><b>iPhone:</b> Kontakti → Liste → zadržite prst na „Svi kontakti“ → Izvezi (ili na računaru: iCloud.com → Kontakti → Izvezi vCard).</li>
+    <li><b>Android:</b> Kontakti → Popravi i upravljaj (Samsung: Upravljanje kontaktima) → Izvezi u fajl.</li>
+    <li><b>Google kontakti:</b> contacts.google.com → Izvezi → vCard ili Google CSV.</li></ul>
+    Može i <b>Excel (.xlsx)</b> ili <b>CSV</b> fajl sa kolonama ime i telefon.</div>
+  <label class="imp-file"><input type="file" id="imp-file" accept=".vcf,.vcard,.csv,.txt,.xlsx,text/vcard,text/x-vcard,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><span class="btn btn-gold btn-sm">Izaberite fajl</span><span class="note" id="imp-fname">kontakti (.vcf), Excel (.xlsx) ili CSV</span></label>`}
+  <div id="imp-err" class="err hidden" style="margin-top:12px"></div>
+  <div class="m-actions" style="margin-top:14px">
+    ${paste?`<button class="btn btn-gold btn-sm" id="imp-go">Prikaži pregled</button>`:""}
+    <button class="btn btn-ghost btn-sm" id="imp-cancel">Odustani</button>
+  </div>`;
+  r.querySelectorAll("[data-impsrc]").forEach(b=>b.onclick=()=>{IMP.src=b.dataset.impsrc;impDraw()});
+  $("#imp-cancel").onclick=closeModal;
+  const go=$("#imp-go");if(go)go.onclick=()=>impParse(()=>rowsToClients(csvRows($("#imp-ta").value)),"paste");
+  const f=$("#imp-file");if(f)f.onchange=()=>{const file=f.files&&f.files[0];if(!file)return;$("#imp-fname").textContent=file.name;impParse(()=>readImportFile(file),"file");f.value=""};
+}
+async function impParse(fn,src){
+  const box=$("#imp-err");if(box)box.classList.add("hidden");
+  try{
+    const rows=await fn();
+    if(!rows.length)throw new Error(src==="paste"?"Nalepite bar jedan red sa imenom i brojem telefona.":"U fajlu nema kontakata sa imenom i brojem telefona.");
+    const m=impMark(rows);
+    if(!m.some(r=>r.telN))throw new Error("Nismo pronašli nijedan ispravan broj telefona. Proverite da li ste uzeli i kolonu sa brojevima.");
+    IMP.rows=m;impDraw();
+  }catch(er){if(box){box.textContent=er.message;box.classList.remove("hidden")}}
+}
+function impMark(rows){
+  const have=new Set((S.clients||[]).map(c=>normTel(c.tel)).filter(Boolean)),seen=new Set();
+  return rows.slice(0,5000).map(r=>{
+    const x={name:String(r.name||"").replace(/\s+/g," ").trim().slice(0,120),tel:String(r.tel||"").trim().slice(0,40),email:String(r.email||"").trim().slice(0,120),note:String(r.note||"").trim().slice(0,300)};
+    x.telN=normTel(x.tel);
+    x.st=!x.name?"noname":!x.telN?"badtel":have.has(x.telN)?"exists":seen.has(x.telN)?"dup":"new";
+    if(x.telN)seen.add(x.telN);
+    x.on=x.st==="new";
+    return x;
+  });
+}
+const IMP_ST={new:["ok","novi"],exists:["ex","već u adresaru"],dup:["ex","dupli broj"],badtel:["bad","nema ispravan broj"],noname:["bad","nema ime"]};
+function impPreviewHTML(){
+  const R=IMP.rows,cnt=k=>R.filter(r=>r.st===k).length,bad=cnt("badtel")+cnt("noname");
+  return `
+  <p style="margin:0 0 4px"><b>Pronađeno: ${R.length}</b> · novih ${cnt("new")}${cnt("exists")?" · već u adresaru "+cnt("exists"):""}${cnt("dup")?" · dupli brojevi "+cnt("dup"):""}${bad?" · bez ispravnog broja ili imena "+bad:""}</p>
+  <p class="note" style="margin:0">Skinite kvačicu sa kontakata koji nisu klijenti (porodica, prijatelji, dobavljači).</p>
+  <div class="imp-prev"><table><thead><tr><th><input type="checkbox" id="imp-all" aria-label="Označi sve"></th><th>Ime i prezime</th><th>Telefon</th><th>E-mail</th><th>Status</th></tr></thead>
+  <tbody>${R.map((r,i)=>`<tr class="${r.on?"":"no"}"><td><input type="checkbox" data-impi="${i}" ${r.on?"checked":""} ${r.st==="new"?"":"disabled"} aria-label="Uvezi ${esc(r.name)}"></td><td>${r.name?esc(r.name):"<i>bez imena</i>"}</td><td>${esc(r.tel)}</td><td>${esc(r.email)}</td><td><span class="imp-st ${IMP_ST[r.st][0]}">${IMP_ST[r.st][1]}</span></td></tr>`).join("")}</tbody></table></div>
+  <div id="imp-err" class="err hidden"></div>
+  <div class="m-actions">
+    <button class="btn btn-gold btn-sm" id="imp-save"></button>
+    <button class="btn btn-ghost btn-sm" id="imp-back">← Nazad</button>
+    <button class="btn btn-ghost btn-sm" id="imp-cancel">Odustani</button>
+  </div>`;
+}
+function impWirePreview(r){
+  const upd=()=>{
+    const n=IMP.rows.filter(x=>x.on).length,k=IMP.rows.filter(x=>x.st==="new").length,b=$("#imp-save"),all=$("#imp-all");
+    b.disabled=!n;b.textContent=n?"Uvezi "+pl(n,"klijenta","klijenta","klijenata"):"Ništa nije označeno";
+    all.checked=!!n&&n===k;all.indeterminate=!!n&&n<k;all.disabled=!k;
+  };
+  r.querySelector("tbody").onchange=e=>{const c=e.target.closest("[data-impi]");if(!c)return;IMP.rows[+c.dataset.impi].on=c.checked;c.closest("tr").classList.toggle("no",!c.checked);upd()};
+  $("#imp-all").onchange=e=>{const on=e.target.checked;IMP.rows.forEach(x=>{if(x.st==="new")x.on=on});
+    r.querySelectorAll("[data-impi]:not([disabled])").forEach(c=>{c.checked=on;c.closest("tr").classList.toggle("no",!on)});upd()};
+  $("#imp-back").onclick=()=>{IMP.rows=null;impDraw()};
+  $("#imp-cancel").onclick=closeModal;
+  $("#imp-save").onclick=impSave;
+  upd();
+}
+async function impSave(){
+  const list=IMP.rows.filter(r=>r.on).map(r=>({name:r.name,tel:r.tel,email:r.email,note:r.note}));
+  if(!list.length)return;
+  const btn=$("#imp-save"),tot={added:0,existing:0,invalid:0};btn.disabled=true;
+  try{
+    for(let i=0;i<list.length;i+=150){
+      btn.textContent="Uvoz… "+Math.min(i+150,list.length)+" / "+list.length;
+      const x=await apiPost("/api/admin/clients-import",{rows:list.slice(i,i+150)});
+      tot.added+=x.added;tot.existing+=x.existing;tot.invalid+=x.invalid;
+    }
+    closeModal();IMP=null;
+    toast("Uvezeno: "+pl(tot.added,"novi klijent","nova klijenta","novih klijenata")+(tot.existing?" (već postoji: "+tot.existing+")":"")+".");
+    S.cliQ="";S.cliLimit=CLI_PAGE;loadCli(true);
+  }catch(e){
+    const b=$("#imp-err");if(b){b.textContent=e.message+(tot.added?" Do greške je uvezeno "+tot.added+"; ponovni uvoz preskače već uvezene.":"");b.classList.remove("hidden")}
+    btn.disabled=false;btn.textContent="Pokušaj ponovo";
+  }
+}
+/* tabela iz Excela/CSV: razdvajač tab, ; ili , (navodnici kao u CSV-u) */
+function csvRows(text){
+  text=String(text||"").replace(/^\ufeff/,"");
+  const sample=text.split(/\r\n|\r|\n/).filter(l=>l.trim()).slice(0,30);
+  if(!sample.length)return [];
+  const cnt=ch=>sample.reduce((a,l)=>a+l.split(ch).length-1,0);
+  const delim=cnt("\t")?"\t":cnt(";")&&cnt(";")>=cnt(",")?";":cnt(",")?",":"\t";
+  const rows=[];let row=[],cell="",q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){cell+='"';i++}else q=false}else cell+=ch;continue}
+    if(ch==='"'&&!cell.trim())q=true;
+    else if(ch===delim){row.push(cell);cell=""}
+    else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&text[i+1]==="\n")i++;row.push(cell);rows.push(row);row=[];cell=""}
+    else cell+=ch;
+  }
+  if(cell||row.length){row.push(cell);rows.push(row)}
+  return rows.map(r=>r.map(c=>c.trim())).filter(r=>r.some(c=>c));
+}
+/* prvi ispravan broj iz polja (npr. „064 111 2222 / 011 333 444“) */
+function pickTel(s){
+  s=String(s||"").trim();if(!s||normTel(s))return s;
+  for(const p of s.split(/:::|[,;\/|]|\s+(?:i|ili|or)\s+/))if(normTel(p))return p.trim();
+  return s;
+}
+/* jedan red bez kolona: „Ana Petrović 064 123 4567“ ili „064 123 4567 Ana Petrović“ */
+function splitNameTel(s){
+  let m=s.match(/^(.*?\p{L}.*?)[\s,;:-]+((?:\+|00)?\d[\d\s\-\/().]{5,}\d)\s*$/u);if(m)return [m[1].trim(),m[2].trim()];
+  m=s.match(/^((?:\+|00)?\d[\d\s\-\/().]{5,}\d)[\s,;:-]+(.*\p{L}.*)$/u);if(m)return [m[2].trim(),m[1].trim()];
+  return [s];
+}
+const H_FULL=/^(ime i prezime|ime i prezime klijenta|ime prezime|ime_prezime|klijent|klijentkinja|kontakt|naziv|name|full name|display name)$/;
+const H_FIRST=/^(ime|first name|given name)$/,H_LAST=/^(prezime|last name|family name|surname)$/;
+const H_TEL=/(telefon|^tel\b|^tel\.|mobil|^mob\b|broj|phone|cell|gsm)/,H_MAIL=/(e-?mail|mejl|imejl)/,H_NOTE=/^(napomena|beleska|komentar|note|notes)$/,H_SKIP=/(type|label|tip|vrsta)/;
+function rowsToClients(rows){
+  if(!rows.length)return [];
+  if(rows.every(r=>r.length===1))rows=rows.map(r=>splitNameTel(r[0]));
+  const at=(r,i)=>i==null||i<0?"":String(r[i]==null?"":r[i]).trim();
+  const firstTel=(r,cols)=>{let raw="";for(const i of cols){const v=pickTel(at(r,i));if(normTel(v))return v;if(!raw&&v)raw=v}return raw};
+  const h=rows[0].map(x=>fold(x).replace(/\s+/g," ").trim());
+  const col={tels:[],mails:[]};let hdr=false;
+  if(!rows[0].some(x=>normTel(pickTel(x)))&&!rows[0].some(x=>/@/.test(x)))h.forEach((x,i)=>{
+    if(!x)return;const sk=H_SKIP.test(x);
+    if(H_MAIL.test(x)){if(!sk){col.mails.push(i);hdr=true}}
+    else if(H_TEL.test(x)){if(!sk){col.tels.push(i);hdr=true}}
+    else if(H_FULL.test(x)){if(col.full==null)col.full=i;hdr=true}
+    else if(H_FIRST.test(x)){if(col.first==null)col.first=i;hdr=true}
+    else if(H_LAST.test(x)){if(col.last==null)col.last=i;hdr=true}
+    else if(H_NOTE.test(x)){if(col.note==null)col.note=i;hdr=true}
+  });
+  if(hdr&&col.tels.length){
+    col.tels.sort((a,b)=>/mob|cell/.test(h[b])-/mob|cell/.test(h[a]));
+    const used=new Set([...col.tels,...col.mails,col.full,col.first,col.last,col.note].filter(i=>i!=null));
+    if(col.full==null&&col.first==null&&col.last==null)col.full=h.findIndex((x,i)=>!used.has(i));
+    return rows.slice(1).map(r=>({
+      name:at(r,col.full)||[at(r,col.first),at(r,col.last)].filter(Boolean).join(" "),
+      tel:firstTel(r,col.tels),email:col.mails.map(i=>at(r,i)).find(Boolean)||"",note:at(r,col.note)}));
+  }
+  /* bez naslova: kolona sa najviše brojeva je telefon, sa @ je e-mail; ime su tekstualne kolone levo od telefona (npr. Ime | Prezime | Telefon) */
+  const n=Math.max(...rows.map(r=>r.length)),score=(i,f)=>rows.reduce((a,r)=>a+(f(at(r,i))?1:0),0);
+  let telI=-1,best=0;for(let i=0;i<n;i++){const s=score(i,v=>!!normTel(pickTel(v)));if(s>best){best=s;telI=i}}
+  let mailI=-1;best=0;for(let i=0;i<n;i++){if(i===telI)continue;const s=score(i,v=>/@/.test(v));if(s>best){best=s;mailI=i}}
+  const text=[];for(let i=0;i<n;i++)if(i!==telI&&i!==mailI&&score(i,v=>/\p{L}/u.test(v)&&!/@/.test(v))>0)text.push(i);
+  const left=text.filter(i=>i<telI).reverse();
+  let nameCols=left.length?[left[0]]:text.slice(0,1);
+  if(left.length>1&&score(left[0],v=>/\s/.test(v))<rows.length*.6)nameCols=[left[1],left[0]];
+  return rows.map(r=>({name:nameCols.map(i=>at(r,i)).filter(Boolean).join(" "),tel:telI<0?"":pickTel(at(r,telI)),email:mailI<0?"":at(r,mailI),note:""}));
+}
+/* kontakti sa telefona (vCard 2.1/3.0/4.0) */
+function qpDecode(s){
+  const b=[];for(let i=0;i<s.length;i++){if(s[i]==="="&&/^[0-9A-F]{2}$/i.test(s.substr(i+1,2))){b.push(parseInt(s.substr(i+1,2),16));i+=2}else b.push(s.charCodeAt(i)&255)}
+  const u=new Uint8Array(b);try{return new TextDecoder("utf-8",{fatal:true}).decode(u)}catch(e){return new TextDecoder("windows-1250").decode(u)}
+}
+function vSplit(s){const a=[];let c="";for(let i=0;i<s.length;i++){if(s[i]==="\\"&&i+1<s.length){c+=s[i]+s[i+1];i++}else if(s[i]===";"){a.push(c);c=""}else c+=s[i]}a.push(c);return a}
+const vUn=s=>s.replace(/\\n/gi," ").replace(/\\(.)/g,"$1").replace(/\s+/g," ").trim();
+function parseVcf(text){
+  const un=[];
+  for(const l of String(text||"").replace(/^\ufeff/,"").split(/\r\n|\r|\n/)){
+    const last=un.length?un[un.length-1]:null;
+    if(last!=null&&/^[ \t]/.test(l)){un[un.length-1]=last+l.slice(1);continue}
+    if(last!=null&&/=$/.test(last)&&/QUOTED-PRINTABLE/i.test(last.split(":")[0])){un[un.length-1]=last.slice(0,-1)+l;continue}
+    un.push(l);
+  }
+  const out=[];let cur=null;
+  for(const l of un){
+    const i=l.indexOf(":");if(i<0)continue;
+    const parts=l.slice(0,i).split(";"),prop=parts[0].replace(/^[^.]*\./,"").toUpperCase(),par=parts.slice(1).join(";").toUpperCase();
+    let v=l.slice(i+1);
+    if(prop==="BEGIN"&&/^VCARD/i.test(v.trim())){cur={fn:"",n:"",tels:[],mails:[]};continue}
+    if(prop==="END"&&/^VCARD/i.test(v.trim())){if(cur)out.push(cur);cur=null;continue}
+    if(!cur)continue;
+    if(/QUOTED-PRINTABLE/.test(par))v=qpDecode(v);
+    if(prop==="FN")cur.fn=vUn(v);
+    else if(prop==="N"){const s=vSplit(v).map(vUn);cur.n=[s[3],s[1],s[2],s[0],s[4]].filter(Boolean).join(" ")}
+    else if(prop==="TEL")cur.tels.push({v:vUn(v).replace(/^tel:/i,""),mob:/CELL|MOBILE|IPHONE/.test(par)});
+    else if(prop==="EMAIL")cur.mails.push(vUn(v).replace(/^mailto:/i,""));
+  }
+  return out.map(c=>{
+    const t=c.tels.slice().sort((a,b)=>b.mob-a.mob),ok=t.find(x=>normTel(x.v));
+    return {name:c.fn||c.n,tel:ok?ok.v:(t[0]?t[0].v:""),email:c.mails[0]||"",note:""};
+  });
+}
+/* Excel .xlsx: zip (bez biblioteke, DecompressionStream) → prvi list */
+async function unzip(buf){
+  const dv=new DataView(buf),u8=new Uint8Array(buf);let eo=-1;
+  for(let i=u8.length-22;i>=Math.max(0,u8.length-66000);i--)if(dv.getUint32(i,true)===0x06054b50){eo=i;break}
+  if(eo<0)throw new Error("Fajl nije ispravan Excel (.xlsx).");
+  const files={},n=dv.getUint16(eo+10,true);let p=dv.getUint32(eo+16,true);
+  for(let k=0;k<n&&dv.getUint32(p,true)===0x02014b50;k++){
+    const nl=dv.getUint16(p+28,true);
+    files[new TextDecoder().decode(u8.subarray(p+46,p+46+nl))]={m:dv.getUint16(p+10,true),size:dv.getUint32(p+20,true),off:dv.getUint32(p+42,true)};
+    p+=46+nl+dv.getUint16(p+30,true)+dv.getUint16(p+32,true);
+  }
+  const get=async name=>{
+    const f=files[name];if(!f)return null;
+    const s=f.off+30+dv.getUint16(f.off+26,true)+dv.getUint16(f.off+28,true),data=u8.subarray(s,s+f.size);
+    if(f.m===0)return new TextDecoder().decode(data);
+    if(f.m!==8||typeof DecompressionStream==="undefined")throw new Error("Ovaj pregledač ne može da otvori .xlsx. Kopirajte kolone iz Excela i nalepite ih u „Nalepi iz Excela“.");
+    return new TextDecoder().decode(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+  };
+  return {files,get};
+}
+async function xlsxRows(buf){
+  const z=await unzip(buf),X=s=>new DOMParser().parseFromString(s,"application/xml"),T=(el,t)=>[...el.getElementsByTagNameNS("*",t)];
+  let sheet=null;
+  try{
+    const wb=X(await z.get("xl/workbook.xml")),rels=X(await z.get("xl/_rels/workbook.xml.rels"));
+    const s0=T(wb,"sheet")[0],idA=s0&&[...s0.attributes].find(a=>a.localName==="id"),rel=idA&&T(rels,"Relationship").find(r=>r.getAttribute("Id")===idA.value);
+    if(rel){const t=rel.getAttribute("Target");sheet=t.charAt(0)==="/"?t.slice(1):"xl/"+t.replace(/^\.\//,"")}
+  }catch(e){}
+  if(!sheet||!z.files[sheet])sheet=Object.keys(z.files).filter(k=>/^xl\/worksheets\/sheet\d*\.xml$/.test(k)).sort()[0];
+  if(!sheet)throw new Error("U Excel fajlu nema tabele.");
+  const ssx=await z.get("xl/sharedStrings.xml");
+  const ss=ssx?T(X(ssx),"si").map(si=>T(si,"t").filter(t=>t.parentNode.localName!=="rPh").map(t=>t.textContent).join("")):[];
+  const rows=[];
+  for(const r of T(X(await z.get(sheet)),"row")){
+    const row=[];
+    for(const c of T(r,"c")){
+      const m=(c.getAttribute("r")||"").match(/^[A-Z]+/);let ci=row.length;
+      if(m){ci=0;for(const ch of m[0])ci=ci*26+ch.charCodeAt(0)-64;ci--}
+      const t=c.getAttribute("t"),v=T(c,"v")[0];
+      let val=t==="s"?(v?ss[+v.textContent]||"":""):t==="inlineStr"?T(c,"t").map(x=>x.textContent).join(""):(v?v.textContent:"");
+      if(!t&&/^-?\d+(\.\d+)?(E[+-]?\d+)?$/i.test(val)){const num=Number(val);if(Number.isInteger(num)&&Math.abs(num)<1e15)val=String(num)}
+      row[ci]=val;
+    }
+    rows.push(Array.from(row,x=>String(x==null?"":x).trim()));
+  }
+  return rows.filter(r=>r.some(x=>x));
+}
+async function readImportFile(file){
+  const nm=(file.name||"").toLowerCase();
+  if(file.size>15*1024*1024)throw new Error("Fajl je prevelik (najviše 15 MB).");
+  const buf=await file.arrayBuffer(),u8=new Uint8Array(buf);
+  if(u8[0]===0x50&&u8[1]===0x4B)return rowsToClients(await xlsxRows(buf));
+  if(/\.xls$/.test(nm)||(u8[0]===0xD0&&u8[1]===0xCF))throw new Error("Stari Excel format (.xls) nije podržan. U Excelu izaberite Sačuvaj kao → Excel radna sveska (.xlsx) ili CSV, ili kopirajte kolone i nalepite ih.");
+  let text;
+  if(u8[0]===0xFF&&u8[1]===0xFE)text=new TextDecoder("utf-16le").decode(u8);
+  else try{text=new TextDecoder("utf-8",{fatal:true}).decode(u8)}catch(e){text=new TextDecoder("windows-1250").decode(u8)}
+  text=text.replace(/^\ufeff/,"");
+  return /BEGIN:VCARD/i.test(text)?parseVcf(text):rowsToClients(csvRows(text));
+}
+/* predlog klijenta dok se kuca ime ili broj u ručnom unosu */
+function acAttach(inp){
+  let box=null,idx=-1,list=[];
+  const close=()=>{if(box){box.remove();box=null}idx=-1};
+  const pick=c=>{
+    M.name=c.name;M.tel=c.tel;M.email=c.email||"";
+    [["#m-name",M.name],["#m-tel",M.tel],["#m-mail",M.email]].forEach(([q,v])=>{const el=$(q);if(el)el.value=v});
+    close();
+  };
+  inp.addEventListener("input",()=>{
+    close();
+    const q=inp.value.trim();if(!S.clients||q.length<2)return;
+    list=S.clients.filter(c=>cliMatch(c,q)).slice(0,6);
+    if(!list.length||(list.length===1&&list[0].name===M.name&&normTel(list[0].tel)===normTel(M.tel)))return;
+    box=document.createElement("div");box.className="ac-list";box.setAttribute("role","listbox");
+    box.innerHTML=list.map((c,i)=>`<button type="button" role="option" data-aci="${i}">${esc(c.name)}<small>${esc(c.tel)}${c.email?" · "+esc(c.email):""}</small></button>`).join("");
+    box.onmousedown=e=>e.preventDefault();
+    box.onclick=e=>{const b=e.target.closest("[data-aci]");if(b)pick(list[+b.dataset.aci])};
+    inp.parentNode.appendChild(box);
+  });
+  inp.addEventListener("blur",()=>setTimeout(close,120));
+  inp.addEventListener("keydown",e=>{
+    if(!box)return;
+    const bs=[...box.querySelectorAll("[data-aci]")];
+    if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();idx=(idx+(e.key==="ArrowDown"?1:-1)+bs.length)%bs.length;bs.forEach((b,i)=>b.classList.toggle("on",i===idx));bs[idx].scrollIntoView({block:"nearest"})}
+    else if(e.key==="Enter"&&idx>=0){e.preventDefault();pick(list[idx])}
+    else if(e.key==="Escape"){close()}
+  });
 }
 function admSvc(){
   const groups=["lice","telo","masaze","edu"];
@@ -1346,7 +1923,7 @@ function mTot(bl){return bl.svcs.reduce((a,r)=>{a.d+=+r.duration||0;const s=S.se
 function mTotTxt(bl){const t=mTot(bl);if(!t.d||!validHM(bl.start))return"";const st=toMin(bl.start);return durTxt(t.d)+" · "+toHM(st)+"-"+toHM(st+t.d)+" · "+money(t.r,t.e)}
 const validHM=v=>/^\d{2}:\d{2}$/.test(v||"");
 let M=null;
-function manualModal(b){
+function manualModal(b,pre){
   if(b&&b.id){
     M={editId:b.id,name:b.userName||"",tel:b.userTel||"",email:b.userEmail||"",blocks:[{employee:b.employee,date:b.date,start:b.start,note:b.note||"",
       svcs:b.services.map(x=>{const s=S.services.find(y=>y.id===x.id);
@@ -1354,7 +1931,7 @@ function manualModal(b){
           :{cat:x.cat==="masaze"?"telo":(x.cat||"telo"),serviceId:"__custom",label:x.name,duration:x.duration,price:x.price}})}]};
   }else{
     const e0=S.employees.find(e=>e.active!==false);
-    M={editId:null,name:"",tel:"",email:"",blocks:[{employee:e0?e0.id:"",date:dstr(new Date()),start:"10:00",note:"",svcs:[mNewRow("lice")]}]};
+    M={editId:null,name:(pre&&pre.name)||"",tel:(pre&&pre.tel)||"",email:(pre&&pre.email)||"",blocks:[{employee:e0?e0.id:"",date:dstr(new Date()),start:"10:00",note:"",svcs:[mNewRow("lice")]}]};
   }
   const edit=!!M.editId;
   showModal(`<h3>${edit?"Izmena termina":"Ručni unos termina"}</h3>
@@ -1380,8 +1957,8 @@ function mBody(){
   const free=S.employees.filter(e=>e.active!==false&&!used.includes(e.id));
   return `
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
-    <div class="field"><label for="m-name">Ime i prezime klijenta <span class="req">*</span></label><input id="m-name" data-mk="name" value="${esc(M.name)}" autocomplete="off"></div>
-    <div class="field"><label for="m-tel">Telefon <span class="req">*</span></label><input id="m-tel" data-mk="tel" type="tel" value="${esc(M.tel)}" placeholder="064 123 4567" autocomplete="off"></div>
+    <div class="field ${M.editId?"":"ac-wrap"}"><label for="m-name">Ime i prezime klijenta <span class="req">*</span></label><input id="m-name" data-mk="name" value="${esc(M.name)}" autocomplete="off"${M.editId?"":` placeholder="Kucajte ime ili broj - predlog iz adresara"`}></div>
+    <div class="field ${M.editId?"":"ac-wrap"}"><label for="m-tel">Telefon <span class="req">*</span></label><input id="m-tel" data-mk="tel" type="tel" value="${esc(M.tel)}" placeholder="064 123 4567" autocomplete="off"></div>
   </div>
   <div class="field"><label for="m-mail">E-mail (opciono - za potvrdu)</label><input id="m-mail" data-mk="email" type="email" value="${esc(M.email)}" autocomplete="off"></div>
   ${M.blocks.map((bl,bi)=>mBlockHTML(bl,bi,emps)).join("")}
@@ -1426,6 +2003,7 @@ function mRedraw(){
   const root=$("#mm-body");if(!root||!M)return;
   root.innerHTML=mBody();
   root.querySelectorAll("[data-mk]").forEach(el=>el.oninput=()=>{M[el.dataset.mk]=el.value});
+  if(!M.editId){if(!S.clients)loadCli();["#m-name","#m-tel"].forEach(q=>{const el=root.querySelector(q);if(el)acAttach(el)})}
   root.querySelectorAll("[data-mb]").forEach(el=>{const h=()=>{M.blocks[+el.dataset.mb][el.dataset.f]=el.value;mRefreshTot()};el.oninput=h;el.onchange=h});
   root.querySelectorAll("[data-mr]").forEach(el=>{
     const [bi,ri]=el.dataset.mr.split(":").map(Number),f=el.dataset.f;
@@ -1475,7 +2053,7 @@ async function saveManual(){
   try{
     if(M.editId){await apiPost("/api/admin/booking/"+encodeURIComponent(M.editId),Object.assign({name,tel,email},blocks[0]));toast("Izmene su sačuvane.")}
     else{const r=await apiPost("/api/admin/manual",{name,tel,email,blocks});toast(r.bookings.length>1?"Upisano je "+r.bookings.length+" termina u kalendar.":"Termin je upisan u kalendar.")}
-    closeModal();M=null;S.calLoadKey=null;S.calBk=null;loadAdm();render();
+    closeModal();M=null;S.calLoadKey=null;S.calBk=null;S.clients=null;loadAdm();render();
   }catch(e){err(e.message);btn.disabled=false}
 }
 async function deleteBooking(id){
@@ -1705,34 +2283,38 @@ function wire(root){
   });
   root.querySelectorAll("[data-calbk]").forEach(el=>el.onclick=()=>{const x=findBk(el.dataset.calbk);if(!x)return;
     if(x.source==="manual")manualModal(x);else toast("Online rezervacija ("+x.userName+") - otkazuje se u kartici Rezervacije.")});
-  /* radno vreme zaposlenih */
-  const ehReload=()=>{S.eh=null;loadEh()};
-  root.querySelectorAll("[data-ehemp]").forEach(b=>b.onclick=()=>{S.ehEmp=b.dataset.ehemp;render()});
-  root.querySelectorAll('[id^="eh-x-"]').forEach(x=>x.onchange=()=>{const k=x.id.slice(5);const o=root.querySelector("#eh-o-"+k),c=root.querySelector("#eh-c-"+k);if(o)o.disabled=x.checked;if(c)c.disabled=x.checked});
-  const ehs=root.querySelector("#eh-save");
-  if(ehs)ehs.onclick=async()=>{
-    const W={};
-    for(const k of ["0","1","2","3","4","5","6"]){
-      const x=root.querySelector("#eh-x-"+k),o=root.querySelector("#eh-o-"+k),c=root.querySelector("#eh-c-"+k);
-      W[k]=x&&x.checked?{off:true}:{open:o.value,close:c.value};
-      if(!W[k].off&&!(W[k].open&&W[k].close&&W[k].open<W[k].close))return toast("Proverite vreme za: "+DOWS[+k]+" (početak pre kraja).");
-    }
-    ehs.disabled=true;
-    try{await apiPost("/api/admin/emp-hours/"+encodeURIComponent(S.ehEmp)+"/week",W);toast("Raspored je sačuvan.");ehReload()}catch(e){toast(e.message);ehs.disabled=false}
+  /* raspored smena */
+  root.querySelectorAll("[data-shnav]").forEach(b=>b.onclick=()=>{const n=+b.dataset.shnav;const d=parseD(S.shWS||dstr(weekStart(new Date())));
+    S.shWS=n===0?dstr(weekStart(new Date())):dstr(new Date(d.getFullYear(),d.getMonth(),d.getDate()+n));rerenderAdm()});
+  root.querySelectorAll("[data-shcell]").forEach(b=>b.onclick=()=>{const [id,i]=b.dataset.shcell.split("|");shCellModal(id,+i)});
+  root.querySelectorAll("[data-shweek]").forEach(b=>b.onclick=()=>shWeekModal(b.dataset.shweek));
+  const shc=root.querySelector("[data-shcopy]");
+  if(shc)shc.onclick=async()=>{
+    const today=dstr(new Date()),has=S.sh&&!S.sh.err&&S.sh.ws===S.shWS&&S.sh.emps.some(e=>e.cells.some((c,i)=>c.src==="date"&&S.sh.days[i]>=today));
+    if(has&&!shc.dataset.arm){shc.dataset.arm="1";shc.textContent="Potvrdi: prepiši smene";toast("Smene za iste dane ove nedelje biće zamenjene. Kliknite ponovo za potvrdu.");setTimeout(()=>{if(shc.isConnected){delete shc.dataset.arm;shc.textContent="Kopiraj prethodnu nedelju"}},4000);return}
+    shc.disabled=true;
+    try{const r=await apiPost("/api/admin/shifts-copy",{ws:S.shWS});toast(r.copied?"Kopirano iz prethodne nedelje: "+pl(r.copied,"smena","smene","smena")+".":"U prethodnoj nedelji nema smena upisanih za pojedinačne dane.");shReload()}
+    catch(e){toast(e.message);shc.disabled=false}
   };
-  const ehr=root.querySelector("#eh-reset");
-  if(ehr)ehr.onclick=async()=>{try{await apiPost("/api/admin/emp-hours/"+encodeURIComponent(S.ehEmp)+"/week",{reset:true});toast("Vraćeno na radno vreme salona.");ehReload()}catch(e){toast(e.message)}};
-  const ehx=root.querySelector("#ehd-x");
-  if(ehx)ehx.onchange=()=>{["#ehd-o","#ehd-c"].forEach(q=>{const el=root.querySelector(q);if(el)el.disabled=ehx.checked})};
-  const eha=root.querySelector("#ehd-add");
-  if(eha)eha.onclick=async()=>{
-    const date=root.querySelector("#ehd-date").value,off=root.querySelector("#ehd-x").checked,open=root.querySelector("#ehd-o").value,close=root.querySelector("#ehd-c").value;
-    if(!date)return toast("Izaberite datum.");
-    if(!off&&!(open&&close&&open<close))return toast("Proverite vreme (početak pre kraja).");
-    eha.disabled=true;
-    try{await apiPost("/api/admin/emp-hours/"+encodeURIComponent(S.ehEmp)+"/date",off?{date,off:true}:{date,open,close});toast("Izmena je dodata.");ehReload()}catch(e){toast(e.message);eha.disabled=false}
-  };
-  root.querySelectorAll("[data-ehdel]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{await apiPost("/api/admin/emp-hours/"+encodeURIComponent(S.ehEmp)+"/date-del",{date:b.dataset.ehdel});toast("Izmena je obrisana.");ehReload()}catch(e){toast(e.message);b.disabled=false}});
+  const shr=root.querySelector("#sh-req");
+  if(shr)shr.onchange=async()=>{shr.disabled=true;
+    try{const r=await apiPost("/api/admin/shifts-settings",{required:shr.checked});toast(r.required?"Uključeno: bez upisane smene zaposlena ne radi.":"Isključeno: bez upisane smene zaposlena radi koliko i salon.");shReload()}
+    catch(e){toast(e.message);shr.checked=!shr.checked;shr.disabled=false}};
+  /* klijenti */
+  const cq=root.querySelector("#cli-q");
+  if(cq){
+    const refresh=()=>{cliRefreshList();cq.closest(".search").classList.toggle("has-q",!!(S.cliQ||"").trim())};
+    cq.oninput=()=>{S.cliQ=cq.value;S.cliLimit=CLI_PAGE;refresh()};
+    cq.onkeydown=e=>{if(e.key==="Escape"){S.cliQ="";cq.value="";refresh()}else if(e.key==="Enter"){e.preventDefault();cq.blur()}};
+    const f=cq.closest("form");if(f)f.onsubmit=e=>{e.preventDefault();cq.blur()};
+    const c=root.querySelector("#cli-q-clr");if(c)c.onclick=()=>{S.cliQ="";cq.value="";refresh();cq.focus()};
+  }
+  root.querySelectorAll("[data-climore]").forEach(b=>b.onclick=()=>{S.cliLimit=(S.cliLimit||CLI_PAGE)+CLI_PAGE*3;cliRefreshList()});
+  root.querySelectorAll("[data-clinew]").forEach(b=>b.onclick=()=>cliModal());
+  root.querySelectorAll("[data-cliedit]").forEach(b=>b.onclick=()=>{const c=(S.clients||[]).find(x=>x.id===b.dataset.cliedit);if(c)cliModal(c)});
+  root.querySelectorAll("[data-clibook]").forEach(b=>b.onclick=()=>{const c=(S.clients||[]).find(x=>x.id===b.dataset.clibook);if(c)manualModal(null,{name:c.name,tel:c.tel,email:c.email})});
+  const cim=root.querySelector("[data-cliimp]");if(cim)cim.onclick=importModal;
+  const cex=root.querySelector("[data-cliexp]");if(cex)cex.onclick=exportClients;
   const vs=root.querySelector("#v-svc");
   if(vs)vs.onchange=()=>{const s=S.services.find(x=>x.id===vs.value);if(s){const a=root.querySelector("#v-amt");if(a)a.value=s.price}};
   const vo=root.querySelector("#v-order");if(vo)vo.onclick=orderVoucher;
@@ -1742,7 +2324,7 @@ function wire(root){
     try{await apiPost("/api/admin/vouchers/"+encodeURIComponent(v.id),{status:next});v.status=next;render()}catch(e){toast(e.message);b.disabled=false}
   });
   wireEyes(root);
-  const ar=root.querySelector("#adm-refresh");if(ar)ar.onclick=()=>{refreshPublic().then(()=>loadAdm())};
+  const ar=root.querySelector("#adm-refresh");if(ar)ar.onclick=()=>{S.clients=null;S.shKey=null;refreshPublic().then(()=>loadAdm())};
   root.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>{const t=root.querySelector(`template[data-txt="${CSS.escape(b.dataset.copy)}"]`);if(t)copyText(t.innerHTML.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'"))});
   root.querySelectorAll("[data-copymail]").forEach(b=>b.onclick=()=>copyText(b.dataset.copymail));
   root.querySelectorAll("[data-sent]").forEach(b=>b.onclick=async()=>{try{await apiPost("/api/admin/remind/"+encodeURIComponent(b.dataset.sent),{send:false});toast("Označeno kao poslato.");loadAdm()}catch(e){toast(e.message)}});
@@ -1754,7 +2336,7 @@ function wire(root){
       H[k]=x&&x.checked?{closed:true}:{open:(o&&o.value)||"09:00",close:(c&&c.value)||"21:00",closed:false};
       if(!H[k].closed&&S.hours&&S.hours[k]&&S.hours[k].appt)H[k].appt=true;
     });
-    try{const r=await apiPost("/api/admin/hours",H);S.hours=r.hours;S.eh=null;toast("Radno vreme je sačuvano.");render()}catch(e){toast(e.message)}
+    try{const r=await apiPost("/api/admin/hours",H);S.hours=r.hours;S.shKey=null;toast("Radno vreme je sačuvano.");render()}catch(e){toast(e.message)}
   };
   root.querySelectorAll("[data-svcsave]").forEach(b=>b.onclick=async()=>{
     const id=b.dataset.svcsave;

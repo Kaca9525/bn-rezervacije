@@ -128,6 +128,36 @@ const getSetting = k => { const r = db.prepare("SELECT json FROM settings WHERE 
 const setSetting = (k, v) => db.prepare("INSERT OR REPLACE INTO settings(key,json) VALUES(?,?)").run(k, JSON.stringify(v));
 const rezEmail = () => (getSetting("salon") || {}).rezEmail || "andrijanaobradovic5@gmail.com";
 
+/* ---- klijenti salona (adresar): uvoz, ručni unos, online termini; jedan klijent po broju telefona ---- */
+db.exec(`CREATE TABLE IF NOT EXISTS clients(id TEXT PRIMARY KEY, name TEXT NOT NULL, tel TEXT, telN TEXT, email TEXT, note TEXT, source TEXT, created TEXT)`);
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS clients_teln ON clients(telN) WHERE telN IS NOT NULL");
+const insClient = db.prepare("INSERT OR IGNORE INTO clients(id,name,tel,telN,email,note,source,created) VALUES(?,?,?,?,?,?,?,?)");
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_klijenti'").get()) {
+  const seen = new Map();
+  for (const r of db.prepare("SELECT userName,userTel,userEmail,created FROM bookings ORDER BY created").all()) {
+    const t = normTel(r.userTel), nm = String(r.userName || "").trim();
+    if (t && nm) seen.set(t, { name: nm, tel: String(r.userTel).trim(), email: (r.userEmail || "").toLowerCase() || null, created: r.created });
+  }
+  const staffMails = new Set([...ADMIN_EMAILS, ...STAFF_EMAILS]);
+  for (const u of db.prepare("SELECT email,ime,prezime,telefon,created FROM users").all()) {
+    const t = normTel(u.telefon);
+    if (t && !seen.has(t) && !staffMails.has(u.email))
+      seen.set(t, { name: ((u.ime || "") + " " + (u.prezime || "")).trim() || u.email, tel: String(u.telefon).trim(), email: u.email, created: u.created });
+  }
+  db.transaction(() => {
+    for (const [t, c] of seen) insClient.run(crypto.randomUUID(), c.name.slice(0, 120), c.tel.slice(0, 40), t, c.email, null, "termini", c.created || new Date().toISOString());
+    db.prepare("INSERT INTO settings(key,json) VALUES('mig_klijenti','true')").run();
+  })();
+}
+/* posle termina: zapamti klijenta ako ga nema (postojeći podaci se ne prepisuju, samo se dopuni mejl) */
+function rememberClient(name, tel, email, source) {
+  const t = normTel(tel), nm = String(name || "").trim(), mail = String(email || "").trim().toLowerCase() || null;
+  if (!t || !nm) return;
+  const ex = db.prepare("SELECT id,email FROM clients WHERE telN=?").get(t);
+  if (ex) { if (!ex.email && mail) db.prepare("UPDATE clients SET email=? WHERE id=?").run(mail, ex.id); return; }
+  insClient.run(crypto.randomUUID(), nm.slice(0, 120), String(tel).trim().slice(0, 40), t, mail, null, source, new Date().toISOString());
+}
+
 /* ---------------- e-mail (Gmail SMTP) ---------------- */
 let mailer = null;
 if (process.env.SMTP_USER && process.env.SMTP_PASS) {
@@ -260,11 +290,12 @@ function busyFor(dateStr, employee, exceptId) {
 /* radno vreme zaposlene za datum: izmena za taj datum, pa stalni raspored, pa radno vreme salona;
    uvek u okviru radnog vremena salona. null = ne radi. */
 const ehGet = db.prepare("SELECT * FROM emp_hours WHERE emp=? AND day=?");
+const shiftsRequired = () => !!(getSetting("smene") || {}).obavezne;
 function empHours(empId, dateStr) {
   const salon = dayHours(dateStr);
   if (!salon) return null;
   const r = ehGet.get(empId, dateStr) || ehGet.get(empId, "w" + parseD(dateStr).getDay());
-  if (!r) return salon;
+  if (!r) return shiftsRequired() && !isDevId(empId) ? null : salon;
   if (r.off) return null;
   const open = Math.max(salon.open, toMin(r.open)), close = Math.min(salon.close, toMin(r.close));
   return open < close ? { open, close } : null;
@@ -467,6 +498,7 @@ app.post("/api/bookings", auth, (req, res) => {
     created: new Date().toISOString(), source: "online", note: null,
   };
   insBooking(b);
+  rememberClient(b.userName, b.userTel, b.userEmail, "online");
 
   const list = b.services.map(s => "• " + s.name).join("\n");
   sendMail(b.userEmail, "Potvrda rezervacije - Beauty & Nutrition",
@@ -640,6 +672,7 @@ app.get("/api/admin/backup", auth, admin, (req, res) => {
     users: db.prepare("SELECT * FROM users").all(),
     bookings: db.prepare("SELECT * FROM bookings").all().map(bkRow),
     empHours: db.prepare("SELECT * FROM emp_hours").all(),
+    clients: db.prepare("SELECT * FROM clients").all(),
   };
   res.setHeader("Content-Disposition", 'attachment; filename="bn-kopija-' + dstr(new Date()) + '.json"');
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -745,6 +778,7 @@ app.post("/api/admin/manual", auth, staff, (req, res) => {
     totalDuration: v.dur, status: "zakazano", reminderSent: c.mail ? 0 : 1, created: now, source: "manual", note: v.note || null,
   }));
   db.transaction(() => list.forEach(insBooking))();
+  rememberClient(c.name, c.tel, c.mail, "rucni unos");
   if (c.mail) sendMail(c.mail, "Potvrda termina - Beauty & Nutrition",
 `Poštovana/i ${c.name},
 
@@ -781,6 +815,7 @@ app.post("/api/admin/booking/:id", auth, staff, (req, res) => {
     v.services.reduce((a, x) => a + (x.cur === "EUR" ? 0 : x.price), 0), v.services.reduce((a, x) => a + (x.cur === "EUR" ? x.price : 0), 0),
     v.dur, v.note || null, reminderSent, sms("sms24"), sms("smsDay"), moved ? new Date().toISOString() : (b.changed || null), b.id);
   const nb = bkRow(db.prepare("SELECT * FROM bookings WHERE id=?").get(b.id));
+  rememberClient(c.name, c.tel, c.mail, "rucni unos");
   if (changed && c.mail) sendMail(c.mail, "Izmenjen termin - Beauty & Nutrition",
 `Poštovana/i ${c.name},
 
@@ -823,12 +858,14 @@ app.post("/api/admin/emp-hours/:emp/week", auth, admin, (req, res) => {
   const e = db.prepare("SELECT * FROM employees WHERE id=?").get(req.params.emp);
   if (!e) return res.status(404).json({ error: "Zaposlena nije pronađena." });
   const W = req.body || {};
+  /* dan bez stalne smene: null (tog dana važi podrazumevano) */
   if (!W.reset) for (const k of ["0","1","2","3","4","5","6"])
-    if (!validSpan(W[k])) return res.status(400).json({ error: "Proverite vreme za: " + DOWS[+k] + " (početak pre kraja)." });
+    if (W[k] != null && !validSpan(W[k])) return res.status(400).json({ error: "Proverite vreme za: " + DOWS[+k] + " (početak pre kraja)." });
   db.transaction(() => {
     db.prepare("DELETE FROM emp_hours WHERE emp=? AND day LIKE 'w%'").run(e.id);
     if (!W.reset) for (const k of ["0","1","2","3","4","5","6"]) {
       const h = W[k];
+      if (h == null) continue;
       db.prepare("INSERT INTO emp_hours(emp,day,open,close,off) VALUES(?,?,?,?,?)").run(e.id, "w" + k, h.off ? null : h.open, h.off ? null : h.close, h.off ? 1 : 0);
     }
   })();
@@ -849,6 +886,124 @@ app.post("/api/admin/emp-hours/:emp/date-del", auth, admin, (req, res) => {
   if (!validDate(date)) return res.status(400).json({ error: "Neispravan datum." });
   db.prepare("DELETE FROM emp_hours WHERE emp=? AND day=?").run(req.params.emp, date);
   res.json({ ok: true });
+});
+
+/* ---- raspored smena: nedelja po zaposlenima ---- */
+app.get("/api/admin/shifts", auth, staff, (req, res) => {
+  const ws0 = validDate(String(req.query.ws || "")) ? parseD(String(req.query.ws)) : new Date();
+  const d0 = new Date(ws0.getFullYear(), ws0.getMonth(), ws0.getDate() - ((ws0.getDay() + 6) % 7));
+  const days = []; for (let i = 0; i < 7; i++) days.push(dstr(new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + i)));
+  const req0 = shiftsRequired();
+  const salon = days.map(d => { const h = dayHours(d); return h ? { open: toHM(h.open), close: toHM(h.close) } : null; });
+  const emps = db.prepare("SELECT * FROM employees").all().map(empRow).map(e => ({
+    id: e.id, name: e.name, kind: e.kind, active: e.active,
+    cells: days.map((d, i) => {
+      if (!salon[i]) return { src: "closed" };
+      const own = ehGet.get(e.id, d), wk = ehGet.get(e.id, "w" + parseD(d).getDay()), r = own || wk;
+      const src = own ? "date" : wk ? "week" : (req0 && e.kind !== "aparat") ? "none" : "salon";
+      const w = empHours(e.id, d);
+      return { src, off: !!(r && r.off), open: w ? toHM(w.open) : null, close: w ? toHM(w.close) : null, hasWeek: !!wk };
+    }),
+  }));
+  res.json({ ws: days[0], days, salon, required: req0, emps });
+});
+/* stalna smena za jedan dan u nedelji (dow 0-6, 0 = nedelja) */
+app.post("/api/admin/emp-hours/:emp/day", auth, admin, (req, res) => {
+  const e = db.prepare("SELECT * FROM employees WHERE id=?").get(req.params.emp);
+  if (!e) return res.status(404).json({ error: "Zaposlena nije pronađena." });
+  const { dow, open, close, off, clear } = req.body || {};
+  if (!(Number.isInteger(dow) && dow >= 0 && dow <= 6)) return res.status(400).json({ error: "Neispravan dan u nedelji." });
+  if (clear === true) { db.prepare("DELETE FROM emp_hours WHERE emp=? AND day=?").run(e.id, "w" + dow); return res.json({ ok: true }); }
+  const h = off === true ? { off: true } : { open, close };
+  if (!validSpan(h)) return res.status(400).json({ error: "Proverite vreme (početak pre kraja)." });
+  db.prepare("INSERT OR REPLACE INTO emp_hours(emp,day,open,close,off) VALUES(?,?,?,?,?)").run(e.id, "w" + dow, h.off ? null : h.open, h.off ? null : h.close, h.off ? 1 : 0);
+  res.json({ ok: true });
+});
+/* kopira smene upisane za pojedinačne dane iz prethodne nedelje (samo na današnje i buduće dane) */
+app.post("/api/admin/shifts-copy", auth, admin, (req, res) => {
+  const ws = String((req.body || {}).ws || "");
+  if (!validDate(ws)) return res.status(400).json({ error: "Neispravan datum." });
+  const w = parseD(ws), d0 = new Date(w.getFullYear(), w.getMonth(), w.getDate() - ((w.getDay() + 6) % 7)), today = dstr(new Date());
+  const at = i => dstr(new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + i));
+  let copied = 0;
+  db.transaction(() => {
+    for (let i = 0; i < 7; i++) {
+      const to = at(i);
+      if (to < today) continue;
+      for (const r of db.prepare("SELECT * FROM emp_hours WHERE day=?").all(at(i - 7))) {
+        db.prepare("INSERT OR REPLACE INTO emp_hours(emp,day,open,close,off) VALUES(?,?,?,?,?)").run(r.emp, to, r.open, r.close, r.off);
+        copied++;
+      }
+    }
+  })();
+  res.json({ copied });
+});
+app.post("/api/admin/shifts-settings", auth, admin, (req, res) => {
+  setSetting("smene", { obavezne: !!(req.body || {}).required });
+  res.json({ required: shiftsRequired() });
+});
+
+/* ---- klijenti ---- */
+const cliOut = r => ({ id: r.id, name: r.name, tel: r.tel || "", email: r.email || "", note: r.note || "", source: r.source || "", created: r.created });
+function checkCli(body, exceptId) {
+  const name = String(body.name || "").trim().slice(0, 120), tel = String(body.tel || "").trim().slice(0, 40);
+  const email = String(body.email || "").trim().toLowerCase().slice(0, 120), note = String(body.note || "").trim().slice(0, 300);
+  if (!name) return { error: "Unesite ime i prezime." };
+  const t = normTel(tel);
+  if (!t) return { error: "Unesite ispravan broj telefona (npr. 064 123 4567)." };
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "E-mail adresa nije ispravna." };
+  const dup = db.prepare("SELECT name FROM clients WHERE telN=? AND id<>?").get(t, exceptId || "");
+  if (dup) return { status: 409, error: "Klijent sa ovim brojem već postoji: " + dup.name + "." };
+  return { name, tel, telN: t, email: email || null, note: note || null };
+}
+app.get("/api/admin/clients", auth, staff, (req, res) => {
+  const today = dstr(new Date()), stat = new Map();
+  for (const b of db.prepare("SELECT userTel,date FROM bookings WHERE status<>'otkazano'").all()) {
+    const t = normTel(b.userTel); if (!t) continue;
+    const x = stat.get(t) || { visits: 0, last: null, next: null };
+    if (b.date < today) { x.visits++; if (!x.last || b.date > x.last) x.last = b.date; }
+    else if (!x.next || b.date < x.next) x.next = b.date;
+    stat.set(t, x);
+  }
+  const list = db.prepare("SELECT * FROM clients").all().map(r => ({ ...cliOut(r), ...(stat.get(r.telN) || { visits: 0, last: null, next: null }) }))
+    .sort((a, b) => a.name.localeCompare(b.name, "sr"));
+  res.json({ clients: list });
+});
+app.post("/api/admin/clients", auth, staff, (req, res) => {
+  const c = checkCli(req.body || {});
+  if (c.error) return res.status(c.status || 400).json({ error: c.error });
+  const id = crypto.randomUUID();
+  insClient.run(id, c.name, c.tel, c.telN, c.email, c.note, "rucno", new Date().toISOString());
+  res.json({ client: cliOut(db.prepare("SELECT * FROM clients WHERE id=?").get(id)) });
+});
+app.post("/api/admin/client/:id", auth, staff, (req, res) => {
+  const r = db.prepare("SELECT * FROM clients WHERE id=?").get(req.params.id);
+  if (!r) return res.status(404).json({ error: "Klijent nije pronađen." });
+  const c = checkCli(req.body || {}, r.id);
+  if (c.error) return res.status(c.status || 400).json({ error: c.error });
+  db.prepare("UPDATE clients SET name=?,tel=?,telN=?,email=?,note=? WHERE id=?").run(c.name, c.tel, c.telN, c.email, c.note, r.id);
+  res.json({ client: cliOut(db.prepare("SELECT * FROM clients WHERE id=?").get(r.id)) });
+});
+app.post("/api/admin/client-del/:id", auth, admin, (req, res) => {
+  db.prepare("DELETE FROM clients WHERE id=?").run(req.params.id);
+  res.json({ ok: true });
+});
+/* uvoz: do 500 redova po zahtevu; postojeći brojevi se preskaču (ne prepisuju) */
+app.post("/api/admin/clients-import", auth, admin, (req, res) => {
+  const rows = (req.body || {}).rows;
+  if (!Array.isArray(rows) || !rows.length || rows.length > 500) return res.status(400).json({ error: "Pošaljite od 1 do 500 redova." });
+  let added = 0, existing = 0, invalid = 0;
+  const now = new Date().toISOString();
+  db.transaction(() => {
+    for (const x of rows) {
+      const name = String((x && x.name) || "").trim().slice(0, 120), tel = String((x && x.tel) || "").trim().slice(0, 40), t = normTel(tel);
+      if (!name || !t) { invalid++; continue; }
+      const email = String((x && x.email) || "").trim().toLowerCase().slice(0, 120);
+      const r = insClient.run(crypto.randomUUID(), name, tel, t, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null, String((x && x.note) || "").trim().slice(0, 300) || null, "uvoz", now);
+      if (r.changes) added++; else existing++;
+    }
+  })();
+  res.json({ added, existing, invalid });
 });
 
 /* ---- automatski podsetnici dan pre ---- */
