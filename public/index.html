@@ -140,10 +140,10 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .search.has-q .clr{display:grid}
 .search .clr:hover{background:var(--surface2);color:var(--ink)}
 .search-sum{margin:0 0 14px;color:var(--muted);font-size:13.5px}
-.svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
+.svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px;container-type:inline-size}
 .svc{position:relative;display:flex;flex-direction:column;gap:10px;min-width:0;overflow:hidden;
   transition:transform .2s ease,box-shadow .25s ease,border-color .2s ease}
-.svc::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--gold2),var(--gold));opacity:0;transition:opacity .2s ease}
+.svc::before{content:"";position:absolute;z-index:2;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--gold2),var(--gold));opacity:0;transition:opacity .2s ease}
 .svc:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:var(--gold)}
 .svc:hover::before{opacity:1}
 .svc-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
@@ -157,6 +157,17 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc-note{font-size:11.5px;color:var(--gold-strong);font-weight:700}
 .svc.inCart{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),var(--shadow)}
 .svc.inCart::before{opacity:1}
+/* fotografija tretmana na vrhu kartice: img/usluge/<slika>.jpg je isečak 4:3, img/usluge/full/<slika>.jpg cela slika */
+.svc-img{display:block;position:relative;flex:none;margin:-22px -22px 4px;width:calc(100% + 44px);max-width:none;aspect-ratio:4/3;padding:0;
+  border-bottom:1px solid var(--line-soft);background:var(--surface2);overflow:hidden;cursor:zoom-in}
+.svc-img img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .6s ease}
+.svc-img:hover img{transform:scale(1.04)}
+.svc-img:focus-visible{outline:2px solid var(--gold);outline-offset:-5px}
+.svc-img.ph{cursor:default;display:grid;place-content:center;justify-items:center;gap:12px;
+  background:radial-gradient(120% 95% at 50% 32%,#FCF9F3 0,#F4ECDD 55%,#ECDFC7 100%)}
+.svc-img.ph svg{width:44px;height:44px;color:var(--gold);opacity:.7}
+.svc-img.ph span{font-family:var(--ff-disp);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-strong);opacity:.75}
+@container (max-width:635px){.svc-img.ph{display:none}} /* u jednoj koloni (telefon) prazno polje ne treba za poravnanje */
 .empty{border:1px dashed var(--line);border-radius:18px;padding:44px 20px;text-align:center;color:var(--muted);background:var(--surface)}
 .remind{display:flex;gap:12px;align-items:center;background:linear-gradient(135deg,var(--gold-soft),transparent 160%);border:1px solid var(--gold);color:var(--gold-strong);border-radius:14px;padding:13px 18px;margin:0 0 20px;font-weight:700;font-size:13.5px;box-shadow:var(--shadow)}
 
@@ -326,6 +337,12 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .pw-forgot .more{font-size:12.5px}
 /* ---------- ručni unos i izmena termina ---------- */
 .modal.m-wide{max-width:700px}
+/* ---------- uvećana fotografija tretmana ---------- */
+.modal.m-photo{background:none;border:0;box-shadow:none;padding:0;width:auto;max-width:none;max-height:none;overflow:visible;display:grid;justify-items:center;gap:12px}
+.photo-box{display:grid;place-items:center;width:min(calc(100vw - 36px),900px);height:min(76vh,900px);cursor:zoom-out}
+.photo-box img{display:block;max-width:min(calc(100vw - 36px),900px);max-height:min(76vh,900px);width:auto;height:auto;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.photo-cap{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px 16px;color:#fff;text-align:center}
+.photo-cap b{font-family:var(--ff-disp);font-weight:600;font-size:20px;line-height:1.2}
 .mblock{border:1px solid var(--line);border-radius:16px;padding:14px 14px 12px;margin:0 0 12px}
 .mblock-h{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px}
 .mblock-h b{font-family:var(--ff-disp);font-size:19px;font-weight:600}
@@ -801,9 +818,70 @@ function reminderBanner(){
   if(!b)return"";
   return `<div class="remind">⏰ Podsetnik: sutra u ${esc(b.start)} imate zakazano - ${esc(b.services.map(s=>s.name).join(", "))} (${esc(b.employeeName)}).</div>`;
 }
+/* fotografije tretmana: dodeljuju se po nazivu tretmana (bez obzira na kvačice i velika slova); važi prvo pravilo koje odgovara,
+   pa su konkretnija pravila iznad opštijih. Tretmani koje salon doda kasnije dobijaju sliku ako im naziv odgovara nekom pravilu. */
+const SVC_IMGS=[
+  [/14 ?u ?1/,"hidra-facial-14-u-1"],
+  [/h[iy]dra ?f[ae]cial/,"hidra-facial-7-u-1"],     // plakat „Hydrafacial Oxy" (7u1); ne hvata „hidratacija"
+  [/derma ?pen/,"derma-pen"],
+  [/oligopeptid|botox/,"botox-prah"],
+  [/divine/,"divine-face"],
+  [/colagen|collagen/,"collagen-premium-tretman"],
+  [/premium tretman lica/,"premium-tretman-lica"],
+  [/higijensk/,"higijenski-tretman-lica"],
+  [/la bomba/,"la-bomba"],
+  [/egzozom/,"egzozomi"],
+  [/instant fresh/,"instant-fresh-face-tretman-lica"],
+  [/lash.*brow|brow.*lash/,"lash-i-brow-lift"],
+  [/lash/,"lash-lift"],
+  [/brow/,"brow-lift"],
+  [/kavitacij/,"kavitacija"],
+  [/ultrazvu/,"ultrazvuk-lice-mezoporacija"],
+  [/iglicam/,"mezoterapija-iglicama"],
+  [/radio ?talas/,"radiotalasni-lifting"],
+  [/konsultacij/,"besplatna-konsultacija"],
+  [/brazilsk/,"brazilsko-podizanje-zadnjice"],
+  [/vakum/,"vakum-sonda"],
+  [/maderoterapij/,"maderoterapija-premium-mix"],
+  [/lipomodelovanj/,"lipomodelovanje-tela"],
+  [/^(?!.*neinvaziv).*lipoliz/,"lipoliza"],          // slika sa iglom ne ide uz neinvazivnu lipolizu
+  [/^(?!.*(lica|podbrat)).*endosfer/,"endosfera"],  // slika je tretman tela, ne ide uz endosferu lica i podbratka
+  [/ice body/,"ice-body-sculpting"],
+  [/rolosfer/,"rolosfera"],
+  [/\bems\b/,"els-body-tesla-aparat"],
+  [/presoterapij/,"presoterapija"],
+  [/anticelulit/,"rucna-anticelulit-masaza"],
+  [/kamenj/,"masaza-vulkanskim-kamenjem"],
+  [/antistres/,"antistress-masaza"],
+  [/terapeutsk/,"terapeutska-masaza"],
+  [/masaza lica/,"masaza-lica-vrata-i-dekoltea"],
+  [/relax/,"relax-masaza"],
+];
+const svcImgMemo={};
+function svcImgKey(s){
+  const n=fold(s&&s.name);
+  if(!(n in svcImgMemo)){const r=SVC_IMGS.find(x=>x[0].test(n));svcImgMemo[n]=r?r[1]:""}
+  return svcImgMemo[n];
+}
+const ICON_GEM=`<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true"><path d="M8 18 16 8h16l8 10-16 22z"/><path d="M8 18h32M16 8l4 10 4-10 4 10 4-10M20 18l4 22 4-22"/></svg>`;
+function svcImgHtml(s){
+  const k=svcImgKey(s);
+  if(!k)return s.cat==="edu"?"":`<div class="svc-img ph" aria-hidden="true">${ICON_GEM}<span>Beauty &amp; Nutrition</span></div>`;
+  return `<button type="button" class="svc-img" data-zoom="${esc(s.id)}" aria-label="Uvećaj fotografiju: ${esc(s.name)}"><img src="/img/usluge/${k}.jpg" alt="" width="800" height="600" loading="lazy" decoding="async"></button>`;
+}
+function photoModal(id){
+  const s=S.services.find(x=>x.id===id),k=s&&svcImgKey(s);if(!k)return;
+  showModal(`<div class="photo-box" id="m-photo"><img src="/img/usluge/full/${k}.jpg" alt="${esc(s.name)}"></div>
+    <div class="photo-cap"><b>${esc(s.name)}</b><button class="btn btn-ghost btn-sm" id="m-close">Zatvori</button></div>`,"m-photo");
+  $("#m-photo").onclick=closeModal;
+  const onKey=e=>{if(!$("#m-photo"))return document.removeEventListener("keydown",onKey);
+    if(e.key==="Escape"){closeModal();document.removeEventListener("keydown",onKey)}};
+  document.addEventListener("keydown",onKey);
+}
 function svcCard(s){
   if(s.cat==="edu"){
     return `<div class="card svc">
+      ${svcImgHtml(s)}
       <h3>${esc(s.name)}</h3>
       <div class="svc-meta"><span>⏱ Termini po dogovoru</span><span class="price">Cena: na upit</span></div>
       <p class="clamp" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
@@ -817,6 +895,7 @@ function svcCard(s){
   const inCart=S.cart.some(c=>c.id===s.id);
   const off=+s.oldPrice>+s.price?`<span class="pill pill-off">AKCIJA −${Math.round((1-s.price/s.oldPrice)*100)}%</span>`:"";
   return `<div class="card svc ${inCart?"inCart":""}">
+    ${svcImgHtml(s)}
     ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}
     <div class="svc-meta"><span>⏱ ${durTxt(+s.duration)}</span>${+s.oldPrice>+s.price?`<span style="text-decoration:line-through;opacity:.6">${priceTxt(s,+s.oldPrice)}</span>`:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></div>
     <p class="clamp" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
@@ -1649,6 +1728,7 @@ function wire(root){
   root.querySelectorAll("[data-emp]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bEmp=b.dataset.emp;S.bSlot=null;render()});
   root.querySelectorAll("[data-date-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bOff=+b.dataset.dateOff;render()});
   root.querySelectorAll("[data-cal]").forEach(b=>b.onclick=()=>calModal(b.dataset.cal));
+  root.querySelectorAll("[data-zoom]").forEach(b=>b.onclick=()=>photoModal(b.dataset.zoom));
   root.querySelectorAll("[data-date]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bDate=b.dataset.date;S.bSlot=null;render()});
   root.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{S.cart=S.cart.filter(c=>c.id!==b.dataset.rm);if(!S.cart.length){S.view="catalog"}S.bSlot=null;render()});
   const bc=root.querySelector("#bk-confirm");if(bc)bc.onclick=confirmBooking;
