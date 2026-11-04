@@ -250,7 +250,7 @@ const performs = (e, s) => s.aparat ? isDev(e) : !isDev(e) && (Array.isArray(s.e
 const isDevId = id => !!db.prepare("SELECT 1 FROM employees WHERE id=? AND kind='aparat'").get(String(id || ""));
 /* red o zaposlenoj u mejlovima; za aparat piše „Tretman na aparatu" */
 const empLine = (b, short) => isDevId(b.employee)
-  ? "✨ Tretman na aparatu" + (/^aparat$/i.test(b.employeeName || "") ? "" : ": " + b.employeeName)
+  ? "⚙️ Tretman na aparatu" + (/^aparat$/i.test(b.employeeName || "") ? "" : ": " + b.employeeName)
   : "👩 " + (short ? "" : "Kozmetičarka: ") + b.employeeName;
 
 function dayHours(dateStr) {

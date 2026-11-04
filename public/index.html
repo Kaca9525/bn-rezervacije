@@ -160,7 +160,8 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc-acts{display:flex;flex-direction:column;align-items:stretch;gap:8px;flex:none;min-width:136px}
 .svc .more+.svc-foot{margin-top:0} /* „Prikaži više" stoji u desnom uglu iznad Dodaj/Kalendar, linije kartica u redu ostaju poravnate */
 .svc-acts .btn svg{flex:none}
-.svc-note{font-size:11.5px;color:var(--gold-strong);font-weight:700}
+.svc-note{display:flex;align-items:flex-start;gap:7px;font-size:11.5px;line-height:1.45;color:var(--gold-strong);font-weight:700}
+.svc-note svg{flex:none;margin-top:-0.5px}
 .svc.inCart{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),var(--shadow)}
 .svc.inCart::before{opacity:1}
 /* fotografija preko cele kartice (img/usluge/<slika>.jpg, uspravni isečak 2:3; img/usluge/full/<slika>.jpg cela slika):
@@ -264,6 +265,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .bk .when .t{font-weight:800;font-size:15px;margin-top:6px;font-variant-numeric:tabular-nums;color:var(--gold-strong)}
 .bk .mid{flex:1;min-width:220px}
 .bk .mid .who{font-weight:800;font-size:15px}
+.ico-inl{display:inline-flex;vertical-align:-2px;margin-right:7px;color:var(--gold-strong)}
 .bk .mid .list{color:var(--muted);font-size:13px;margin-top:3px}
 .bk .mid .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
 .bk .side{display:flex;flex-direction:column;gap:9px;align-items:flex-end;margin-left:auto}
@@ -508,6 +510,9 @@ const CATS={lice:"Tretmani lica",telo:"Tretmani tela",masaze:"Masaže",akcije:"A
 const TABS={lice:"Tretmani lica",telo:"Tretmani tela",akcije:"Akcije",vauceri:"Poklon vaučeri",edu:"Edukacije i obuke"};
 const tabCats=t=>t==="telo"?["telo","masaze"]:[t];
 const ICON_SEARCH=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>`;
+/* valjak za masažu (madero oklagija) stoji ispred napomene o paketu; poklon kod vaučera */
+const ICON_ROLL=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate(-35 12 12)"><rect x="6.5" y="8" width="11" height="8" rx="2.4"/><rect x="1.5" y="10.6" width="5" height="2.8" rx="1.4"/><rect x="17.5" y="10.6" width="5" height="2.8" rx="1.4"/><path d="M10.2 8v8M13.8 8v8"/></g></svg>`;
+const ICON_GIFT=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="8" width="17" height="4.5" rx="1"/><path d="M5 12.5v7.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7.5M12 8v13"/><path d="M12 8c-1.4-3.4-5.6-3.9-5.6-1.4C6.4 8 9.2 8 12 8zM12 8c1.4-3.4 5.6-3.9 5.6-1.4C17.6 8 14.8 8 12 8z"/></svg>`;
 
 /* ================= boot & data ================= */
 (async function boot(){
@@ -941,7 +946,7 @@ function svcCard(s){
       ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}
       <div class="svc-meta"><span>⏱ ${durTxt(+s.duration)}</span>${+s.oldPrice>+s.price?`<span style="text-decoration:line-through;opacity:.6">${priceTxt(s,+s.oldPrice)}</span>`:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></div>
       ${svcDesc(s)}
-      ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
+      ${s.note?`<div class="svc-note">${ICON_ROLL}<span>${esc(s.note)}</span></div>`:""}
       ${svcMore(s)}
       <div class="svc-foot">
         <span class="note">${s.aparat?"Tretman na aparatu":svcEmps(s).map(e=>e.name).join(" · ")}</span>
@@ -1674,7 +1679,7 @@ function tplVoucher(){
   return `
   <div class="book-grid">
     <div class="card" style="min-width:0">
-      <div class="step-h"><span class="n">\u2726</span><h3>Poručite poklon vaučer</h3></div>
+      <div class="step-h"><span class="n">${ICON_GIFT}</span><h3>Poručite poklon vaučer</h3></div>
       <div id="v-err" class="err hidden"></div>
       <div class="field"><label for="v-rec">Ime i prezime osobe kojoj poklanjate</label><input id="v-rec" placeholder="npr. Petar Petrović"></div>
       <div class="field"><label for="v-svc">Vaučer glasi na</label>
@@ -1704,7 +1709,7 @@ function admVcr(){
   <div class="bk-list">${list.map(v=>`
     <div class="card bk">
       <div class="mid" style="min-width:240px">
-        <div class="who">\u2726 ${esc(v.recipient)} - <span style="color:var(--gold-strong)">${RSD(+v.amount)}</span></div>
+        <div class="who"><span class="ico-inl">${ICON_GIFT}</span>${esc(v.recipient)} - <span style="color:var(--gold-strong)">${RSD(+v.amount)}</span></div>
         <div class="note">${v.serviceName?("Usluga: "+esc(v.serviceName)):"Iznos po želji"} · Kupac: ${esc(v.buyerName)} (${esc(v.buyerEmail)}${v.buyerTel?", "+esc(v.buyerTel):""})</div>
         ${v.message?`<div class="list" style="font-style:italic">„${esc(v.message)}“</div>`:""}
         <div class="tags"><span class="pill ${v.status==="obrađen"?"pill-ok":"pill-cat"}">${esc(v.status)}</span><span class="note">${esc(String(v.created||v.createdAt||"").slice(0,10))}</span></div>
@@ -1725,7 +1730,7 @@ async function orderVoucher(){
   try{
     await apiPost("/api/vouchers",{recipient:rec,serviceId:svc||null,amount:amt,message:msg});
     S.vcrKey=null;S.admVouchers=null;
-    showModal(`<h3>Vaučer je poručen \u2726</h3><p class="note">Hvala! ${S.mailEnabled?"Potvrda je poslata na vaš e-mail, a salon":"Salon"} vas kontaktira u najkraćem roku radi uplate i preuzimanja vaučera za <b>${esc(rec)}</b> (${RSD(amt)}).</p><div style="margin-top:14px"><button class="btn btn-gold btn-sm" id="m-close">U redu</button></div>`);
+    showModal(`<h3>Vaučer je poručen</h3><p class="note">Hvala! ${S.mailEnabled?"Potvrda je poslata na vaš e-mail, a salon":"Salon"} vas kontaktira u najkraćem roku radi uplate i preuzimanja vaučera za <b>${esc(rec)}</b> (${RSD(amt)}).</p><div style="margin-top:14px"><button class="btn btn-gold btn-sm" id="m-close">U redu</button></div>`);
   }catch(e){err(e.message)}
   btn.disabled=false;
 }
