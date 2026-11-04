@@ -1,0 +1,14 @@
+{
+ "cat": "akcije",
+ "name": "Neinvazivna lipoliza - akcijski paket",
+ "duration": 120,
+ "price": 36000,
+ "desc": "",
+ "active": true,
+ "emps": [
+  "andrijana",
+  "jelena",
+  "maja",
+  "milica"
+ ]
+}

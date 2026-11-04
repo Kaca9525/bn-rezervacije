@@ -1,0 +1,14 @@
+{
+ "cat": "akcije",
+ "name": "Presoterapija + Vacuslim 48 - paket 5+5",
+ "duration": 30,
+ "price": 17500,
+ "desc": "",
+ "active": true,
+ "emps": [
+  "andrijana",
+  "jelena",
+  "maja",
+  "milica"
+ ]
+}

@@ -1,0 +1,11 @@
+{
+ "cat": "telo",
+ "name": "Lipoliza - noge, po regiji (dr Ivana)",
+ "duration": 10,
+ "price": 12000,
+ "desc": "",
+ "active": true,
+ "emps": [
+  "ivana"
+ ]
+}
