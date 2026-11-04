@@ -4,5 +4,8 @@
  "duration": 20,
  "price": 0,
  "desc": "Zakažite besplatnu konsultaciju: Andrijana vam detaljno objašnjava i predlaže individualni tretman lica ili tela koji je baš za vas.",
- "active": true
+ "active": true,
+ "emps": [
+  "andrijana"
+ ]
 }

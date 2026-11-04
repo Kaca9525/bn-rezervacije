@@ -146,10 +146,10 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .search.has-q .clr{display:grid}
 .search .clr:hover{background:var(--surface2);color:var(--ink)}
 .search-sum{margin:0 0 14px;color:var(--muted);font-size:13.5px}
-.svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
+.svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px;container-type:inline-size}
 .svc{position:relative;display:flex;flex-direction:column;gap:10px;min-width:0;overflow:hidden;
   transition:transform .2s ease,box-shadow .25s ease,border-color .2s ease}
-.svc::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--gold2),var(--gold));opacity:0;transition:opacity .2s ease}
+.svc::before{content:"";position:absolute;z-index:2;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--gold2),var(--gold));opacity:0;transition:opacity .2s ease}
 .svc:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:var(--gold)}
 .svc:hover::before{opacity:1}
 .svc-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
@@ -157,12 +157,50 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc-meta{display:flex;gap:16px;align-items:baseline;font-size:12.5px;color:var(--muted);letter-spacing:.03em}
 .svc-meta .price{font-weight:800;color:var(--gold-strong);font-size:16px;font-variant-numeric:tabular-nums;letter-spacing:0}
 .svc p{margin:0;color:var(--muted);font-size:13.5px}
-.svc p.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.svc .more{align-self:flex-start;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-strong)}
-.svc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:auto;padding-top:8px;border-top:1px solid var(--line-soft)}
-.svc-note{font-size:11.5px;color:var(--gold-strong);font-weight:700}
+/* opis tretmana je sakriven dok se ne klikne „Prikaži više" */
+.svc p.desc{display:none}
+.svc.open p.desc{display:block}
+.svc .more{align-self:flex-end;margin-top:auto;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-strong)}
+.svc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px 14px;margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)}
+.svc-foot .note{min-width:0}
+.svc-acts{display:flex;flex-direction:column;align-items:stretch;gap:8px;flex:none;min-width:136px}
+.svc .more+.svc-foot{margin-top:0} /* „Prikaži više" stoji u desnom uglu iznad Dodaj/Kalendar, linije kartica u redu ostaju poravnate */
+.svc-acts .btn svg{flex:none}
+.svc-note{display:flex;align-items:flex-start;gap:7px;font-size:11.5px;line-height:1.45;color:var(--gold-strong);font-weight:700}
+.svc-note svg{flex:none;margin-top:-0.5px}
 .svc.inCart{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),var(--shadow)}
 .svc.inCart::before{opacity:1}
+/* fotografija preko cele kartice (img/usluge/<slika>.jpg, uspravni isečak 2:3; img/usluge/full/<slika>.jpg cela slika):
+   naziv, cena i dugmad stoje pri dnu na tamnom prelivu, klik na fotografiju je uvećava */
+.svc.photo{padding:0;gap:0;min-height:540px;justify-content:flex-end;isolation:isolate;background:var(--band);border-color:#2B2219}
+.svc.photo:hover,.svc.photo.inCart{border-color:var(--gold)}
+.svc-img{position:absolute;inset:0;z-index:0;display:block;width:100%;height:100%;margin:0;padding:0;border:0;border-radius:inherit;
+  background:var(--band);overflow:hidden;cursor:zoom-in}
+.svc-img img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 30%;transition:transform .6s ease}
+.svc.photo:hover .svc-img img{transform:scale(1.04)}
+.svc-img:focus-visible{outline:2px solid var(--gold);outline-offset:-5px}
+.svc-body{position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;padding:120px 22px 22px;pointer-events:none;
+  background:linear-gradient(180deg,rgba(23,18,14,0) 0,rgba(23,18,14,.5) 56px,rgba(23,18,14,.8) 118px,rgba(23,18,14,.9) 100%)}
+.svc-body :is(button,a,input,p.desc){pointer-events:auto}
+.svc.photo h3{color:#FFF}
+.svc.photo .svc-meta{color:var(--band-mut)}
+.svc.photo .svc-meta .price{color:var(--band-gold)}
+.svc.photo p{color:rgba(243,235,219,.9)}
+.svc.photo .svc-note,.svc.photo .more{color:var(--band-gold)}
+.svc.photo .svc-foot{border-top-color:rgba(243,235,219,.18)}
+.svc.photo .svc-foot .note{color:var(--band-mut)}
+.svc.photo .btn-ghost{background:rgba(23,18,14,.35);border-color:rgba(243,235,219,.42);color:var(--band-ink)}
+.svc.photo .btn-ghost:hover{background:rgba(243,235,219,.14);border-color:var(--band-gold)}
+/* tretman bez fotografije: znak salona na tamnoj pozadini, na telefonu (jedna kolona) samo tekst */
+.svc-img.ph{cursor:default;display:grid;align-content:start;justify-items:center;gap:12px;padding-top:15%;
+  background:radial-gradient(110% 70% at 50% 22%,#3A2E22 0,#211A14 55%,var(--band) 100%)}
+.svc-img.ph svg{width:46px;height:46px;color:var(--band-gold);opacity:.8}
+.svc-img.ph span{font-family:var(--ff-disp);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--band-gold);opacity:.8}
+@container (max-width:635px){
+  .svc.photo.noimg{min-height:0}
+  .svc.photo.noimg .svc-img{display:none}
+  .svc.photo.noimg .svc-body{padding-top:22px;background:var(--band)}
+}
 .empty{border:1px dashed var(--line);border-radius:18px;padding:44px 20px;text-align:center;color:var(--muted);background:var(--surface)}
 .remind{display:flex;gap:12px;align-items:center;background:linear-gradient(135deg,var(--gold-soft),transparent 160%);border:1px solid var(--gold);color:var(--gold-strong);border-radius:14px;padding:13px 18px;margin:0 0 20px;font-weight:700;font-size:13.5px;box-shadow:var(--shadow)}
 
@@ -208,9 +246,6 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .mcal-day.on{background:var(--band);border-color:var(--band);color:var(--band-gold);box-shadow:var(--shadow)}
 .mcal-foot{font-size:11.5px;color:var(--muted);margin-top:8px}
 .modal.cal-modal{max-width:420px}
-.svc-cal{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:8px;border-top:1px dashed var(--line-soft)}
-.svc-cal .lbl{font-size:10.5px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:var(--gold-strong)}
-.svc-cal .btn svg{flex:none}
 .icon-btn{width:36px;height:36px;border-radius:50%;display:inline-grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--danger);transition:all .15s ease}
 .icon-btn:hover{border-color:var(--danger);background:var(--danger-bg)}
 .icon-btn.arm{background:var(--danger);border-color:var(--danger);color:#fff}
@@ -239,6 +274,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .bk .when .t{font-weight:800;font-size:15px;margin-top:6px;font-variant-numeric:tabular-nums;color:var(--gold-strong)}
 .bk .mid{flex:1;min-width:220px}
 .bk .mid .who{font-weight:800;font-size:15px}
+.ico-inl{display:inline-flex;vertical-align:-2px;margin-right:7px;color:var(--gold-strong)}
 .bk .mid .list{color:var(--muted);font-size:13px;margin-top:3px}
 .bk .mid .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
 .bk .side{display:flex;flex-direction:column;gap:9px;align-items:flex-end;margin-left:auto}
@@ -338,6 +374,12 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .pw-forgot .more{font-size:12.5px}
 /* ---------- ručni unos i izmena termina ---------- */
 .modal.m-wide{max-width:700px}
+/* ---------- uvećana fotografija tretmana ---------- */
+.modal.m-photo{background:none;border:0;box-shadow:none;padding:0;width:auto;max-width:none;max-height:none;overflow:visible;display:grid;justify-items:center;gap:12px}
+.photo-box{display:grid;place-items:center;width:min(calc(100vw - 36px),900px);height:min(76vh,900px);cursor:zoom-out}
+.photo-box img{display:block;max-width:min(calc(100vw - 36px),900px);max-height:min(76vh,900px);width:auto;height:auto;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.photo-cap{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px 16px;color:#fff;text-align:center}
+.photo-cap b{font-family:var(--ff-disp);font-weight:600;font-size:20px;line-height:1.2}
 .mblock{border:1px solid var(--line);border-radius:16px;padding:14px 14px 12px;margin:0 0 12px}
 .mblock-h{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px}
 .mblock-h b{font-family:var(--ff-disp);font-size:19px;font-weight:600}
@@ -483,6 +525,9 @@ const CATS={lice:"Tretmani lica",telo:"Tretmani tela",masaze:"Masaže",akcije:"A
 const TABS={lice:"Tretmani lica",telo:"Tretmani tela",akcije:"Akcije",vauceri:"Poklon vaučeri",edu:"Edukacije i obuke"};
 const tabCats=t=>t==="telo"?["telo","masaze"]:[t];
 const ICON_SEARCH=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>`;
+/* valjak za masažu (madero oklagija) stoji ispred napomene o paketu; poklon kod vaučera */
+const ICON_ROLL=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate(-35 12 12)"><rect x="6.5" y="8" width="11" height="8" rx="2.4"/><rect x="1.5" y="10.6" width="5" height="2.8" rx="1.4"/><rect x="17.5" y="10.6" width="5" height="2.8" rx="1.4"/><path d="M10.2 8v8M13.8 8v8"/></g></svg>`;
+const ICON_GIFT=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="8" width="17" height="4.5" rx="1"/><path d="M5 12.5v7.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7.5M12 8v13"/><path d="M12 8c-1.4-3.4-5.6-3.9-5.6-1.4C6.4 8 9.2 8 12 8zM12 8c1.4-3.4 5.6-3.9 5.6-1.4C17.6 8 14.8 8 12 8z"/></svg>`;
 
 /* ================= boot & data ================= */
 (async function boot(){
@@ -824,32 +869,116 @@ function reminderBanner(){
   if(!b)return"";
   return `<div class="remind">⏰ Podsetnik: sutra u ${esc(b.start)} imate zakazano - ${esc(b.services.map(s=>s.name).join(", "))} (${esc(b.employeeName)}).</div>`;
 }
+/* fotografije tretmana: dodeljuju se po nazivu tretmana (bez obzira na kvačice i velika slova); važi prvo pravilo koje odgovara,
+   pa su konkretnija pravila iznad opštijih. Tretmani koje salon doda kasnije dobijaju sliku ako im naziv odgovara nekom pravilu. */
+const SVC_IMGS=[
+  [/eliminacij\w* celulit|anticelulit paket/,"paket-eliminacije-celulita"],  // tri slike: maderoterapija, brazilsko podizanje, vakum sonda
+  [/14 ?u ?1/,"hidra-facial-14-u-1"],
+  [/h[iy]dra ?f[ae]cial/,"hidra-facial-7-u-1"],     // plakat „Hydrafacial Oxy" (7u1); ne hvata „hidratacija"
+  [/darsonval|vlasist/,""],                        // tretman kose: slika lica sa dermapenom ne odgovara
+  [/derma ?pen/,"derma-pen"],
+  [/oligopeptid|botox|botoks/,"botox-prah"],
+  [/divine/,"divine-face"],
+  [/colagen|collagen/,"collagen-premium-tretman"],
+  [/premium tretman lica/,"premium-tretman-lica"],
+  [/higijensk/,"higijenski-tretman-lica"],
+  [/la bomba/,"la-bomba"],
+  [/egzozom/,"egzozomi"],
+  [/instant fresh/,"instant-fresh-face-tretman-lica"],
+  [/lash.*brow|brow.*lash/,"lash-i-brow-lift"],
+  [/lash/,"lash-lift"],
+  [/brow/,"brow-lift"],
+  [/kavitacij\w* i lipolaser/,"lipolaseri"],
+  [/kavitacij/,"kavitacija"],
+  [/spatul/,"masaza-lica-vrata-i-dekoltea"],       // „Ultrazvučna špatula - masaža lica..." nije mezoporacija
+  [/ultrazvu/,"ultrazvuk-lice-mezoporacija"],
+  [/iglicam/,"mezoterapija-iglicama"],
+  [/radio ?talas/,"radiotalasni-lifting"],
+  [/konsultacij/,"besplatna-konsultacija"],
+  [/brazilsk/,"brazilsko-podizanje-zadnjice"],
+  [/va[ck]u ?slim/,"vacuslim-48"],                  // pre limfne drenaže: „Vacuslim 48 sa limfnom drenažom"
+  [/trudnic/,"limfna-drenaza-za-trudnice"],
+  [/limfn\w* drenaz/,"limfna-drenaza"],
+  [/vakum/,"vakum-sonda"],
+  [/maderoterapij/,"maderoterapija-premium-mix"],
+  [/lipomodelovanj/,"lipomodelovanje-tela"],
+  [/neinvaziv.*lipoliz/,"neinvazivna-lipoliza"],
+  [/^(?!.*neinvaziv).*lipoliz/,"lipoliza"],          // slika sa iglom ne ide uz neinvazivnu lipolizu
+  [/lipolaser/,"lipolaseri"],
+  [/termo/,"termo-cebe"],
+  [/inari|fitnes masaz/,"inarie"],                 // „Inari anticelulit masaža", pre opšteg pravila za anticelulit
+  [/sportsk/,"sportska-masaza"],
+  [/^(?!.*(lica|podbrat)).*endosfer/,"endosfera"],  // slika je tretman tela, ne ide uz endosferu lica i podbratka
+  [/ice body/,"ice-body-sculpting"],
+  [/rolosfer/,"rolosfera"],
+  [/\bems\b/,"els-body-tesla-aparat"],
+  [/presoterapij/,"presoterapija"],
+  [/anticelulit/,"rucna-anticelulit-masaza"],
+  [/kamenj/,"masaza-vulkanskim-kamenjem"],
+  [/antistres/,"antistress-masaza"],
+  [/terapeutsk/,"terapeutska-masaza"],
+  [/masaza lica/,"masaza-lica-vrata-i-dekoltea"],
+  [/relax/,"relax-masaza"],
+];
+const svcImgMemo={};
+function svcImgKey(s){
+  const n=fold(s&&s.name);
+  if(!(n in svcImgMemo)){const r=SVC_IMGS.find(x=>x[0].test(n));svcImgMemo[n]=r?r[1]:""}
+  return svcImgMemo[n];
+}
+const ICON_GEM=`<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true"><path d="M8 18 16 8h16l8 10-16 22z"/><path d="M8 18h32M16 8l4 10 4-10 4 10 4-10M20 18l4 22 4-22"/></svg>`;
+function svcImgHtml(s){
+  const k=svcImgKey(s);
+  if(!k)return`<div class="svc-img ph" aria-hidden="true">${ICON_GEM}<span>Beauty &amp; Nutrition</span></div>`;
+  return `<button type="button" class="svc-img" data-zoom="${esc(s.id)}" aria-label="Uvećaj fotografiju: ${esc(s.name)}"><img src="/img/usluge/${k}.jpg" alt="" width="600" height="900" loading="lazy" decoding="async"></button>`;
+}
+function photoModal(id){
+  const s=S.services.find(x=>x.id===id),k=s&&svcImgKey(s);if(!k)return;
+  showModal(`<div class="photo-box" id="m-photo"><img src="/img/usluge/full/${k}.jpg" alt="${esc(s.name)}"></div>
+    <div class="photo-cap"><b>${esc(s.name)}</b><button class="btn btn-ghost btn-sm" id="m-close">Zatvori</button></div>`,"m-photo");
+  $("#m-photo").onclick=closeModal;
+  const onKey=e=>{if(!$("#m-photo"))return document.removeEventListener("keydown",onKey);
+    if(e.key==="Escape"){closeModal();document.removeEventListener("keydown",onKey)}};
+  document.addEventListener("keydown",onKey);
+}
+/* opis je skriven dok se ne klikne „Prikaži više"; otvoreni opisi ostaju otvoreni i posle Dodaj/Ukloni */
+const openDesc=new Set();
+const svcMore=s=>(s.desc||"").trim()?`<button class="more" data-more="${esc(s.id)}" aria-expanded="${openDesc.has(s.id)}" aria-controls="d-${esc(s.id)}">${openDesc.has(s.id)?"Prikaži manje":"Prikaži više"}</button>`:"";
+const svcDesc=s=>(s.desc||"").trim()?`<p class="desc" id="d-${esc(s.id)}">${esc(s.desc)}</p>`:"";
 function svcCard(s){
+  const open=openDesc.has(s.id)?" open":"";
   if(s.cat==="edu"){
-    return `<div class="card svc">
+    return `<div class="card svc${open}">
       <h3>${esc(s.name)}</h3>
-      <div class="svc-meta"><span>⏱ Termini po dogovoru</span><span class="price">Cena: na upit</span></div>
-      <p class="clamp" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
-      ${(s.desc||"").length>140?`<button class="more" data-more="${esc(s.id)}">Prikaži više</button>`:""}
+      <div class="svc-meta"><span>Termini po dogovoru</span><span class="price">Cena: na upit</span></div>
+      ${svcDesc(s)}
+      ${svcMore(s)}
       <div class="svc-foot">
         <span class="note">Edukator: Andrijana</span>
-        <button class="btn btn-gold btn-sm" data-inq="${esc(s.id)}">Pošalji upit</button>
+        <div class="svc-acts">
+          <button class="btn btn-gold btn-sm" data-inq="${esc(s.id)}">Pošalji upit</button>
+        </div>
       </div>
     </div>`;
   }
   const inCart=S.cart.some(c=>c.id===s.id);
   const off=+s.oldPrice>+s.price?`<span class="pill pill-off">AKCIJA −${Math.round((1-s.price/s.oldPrice)*100)}%</span>`:"";
-  return `<div class="card svc ${inCart?"inCart":""}">
-    ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}
-    <div class="svc-meta"><span>⏱ ${durTxt(+s.duration)}</span>${+s.oldPrice>+s.price?`<span style="text-decoration:line-through;opacity:.6">${priceTxt(s,+s.oldPrice)}</span>`:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></div>
-    <p class="clamp" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
-    ${(s.desc||"").length>140?`<button class="more" data-more="${esc(s.id)}">Prikaži više</button>`:""}
-    ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
-    <div class="svc-foot">
-      <span class="note">${s.aparat?"Tretman na aparatu":svcEmps(s).map(e=>e.name).join(" · ")}</span>
-      <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
+  return `<div class="card svc photo${svcImgKey(s)?"":" noimg"}${inCart?" inCart":""}${open}">
+    ${svcImgHtml(s)}
+    <div class="svc-body">
+      ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}
+      <div class="svc-meta"><span>⏱ ${durTxt(+s.duration)}</span>${+s.oldPrice>+s.price?`<span style="text-decoration:line-through;opacity:.6">${priceTxt(s,+s.oldPrice)}</span>`:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></div>
+      ${svcDesc(s)}
+      ${s.note?`<div class="svc-note">${ICON_ROLL}<span>${esc(s.note)}</span></div>`:""}
+      ${svcMore(s)}
+      <div class="svc-foot">
+        <span class="note">${s.aparat?"Tretman na aparatu":svcEmps(s).map(e=>e.name).join(" · ")}</span>
+        <div class="svc-acts">
+          <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
+          ${+s.duration>0?`<button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}">${ICON_CAL}Kalendar</button>`:""}
+        </div>
+      </div>
     </div>
-    ${+s.duration>0?`<div class="svc-cal"><span class="lbl">Slobodni termini</span><button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}">${ICON_CAL}Kalendar</button></div>`:""}
   </div>`;
 }
 const byName=(a,b)=>a.name.localeCompare(b.name,"sr");
@@ -1574,7 +1703,7 @@ function tplVoucher(){
   return `
   <div class="book-grid">
     <div class="card" style="min-width:0">
-      <div class="step-h"><span class="n">\u2726</span><h3>Poručite poklon vaučer</h3></div>
+      <div class="step-h"><span class="n">${ICON_GIFT}</span><h3>Poručite poklon vaučer</h3></div>
       <div id="v-err" class="err hidden"></div>
       <div class="field"><label for="v-rec">Ime i prezime osobe kojoj poklanjate</label><input id="v-rec" placeholder="npr. Petar Petrović"></div>
       <div class="field"><label for="v-svc">Vaučer glasi na</label>
@@ -1604,7 +1733,7 @@ function admVcr(){
   <div class="bk-list">${list.map(v=>`
     <div class="card bk">
       <div class="mid" style="min-width:240px">
-        <div class="who">\u2726 ${esc(v.recipient)} - <span style="color:var(--gold-strong)">${RSD(+v.amount)}</span></div>
+        <div class="who"><span class="ico-inl">${ICON_GIFT}</span>${esc(v.recipient)} - <span style="color:var(--gold-strong)">${RSD(+v.amount)}</span></div>
         <div class="note">${v.serviceName?("Usluga: "+esc(v.serviceName)):"Iznos po želji"} · Kupac: ${esc(v.buyerName)} (${esc(v.buyerEmail)}${v.buyerTel?", "+esc(v.buyerTel):""})</div>
         ${v.message?`<div class="list" style="font-style:italic">„${esc(v.message)}“</div>`:""}
         <div class="tags"><span class="pill ${v.status==="obrađen"?"pill-ok":"pill-cat"}">${esc(v.status)}</span><span class="note">${esc(String(v.created||v.createdAt||"").slice(0,10))}</span></div>
@@ -1625,7 +1754,7 @@ async function orderVoucher(){
   try{
     await apiPost("/api/vouchers",{recipient:rec,serviceId:svc||null,amount:amt,message:msg});
     S.vcrKey=null;S.admVouchers=null;
-    showModal(`<h3>Vaučer je poručen \u2726</h3><p class="note">Hvala! ${S.mailEnabled?"Potvrda je poslata na vaš e-mail, a salon":"Salon"} vas kontaktira u najkraćem roku radi uplate i preuzimanja vaučera za <b>${esc(rec)}</b> (${RSD(amt)}).</p><div style="margin-top:14px"><button class="btn btn-gold btn-sm" id="m-close">U redu</button></div>`);
+    showModal(`<h3>Vaučer je poručen</h3><p class="note">Hvala! ${S.mailEnabled?"Potvrda je poslata na vaš e-mail, a salon":"Salon"} vas kontaktira u najkraćem roku radi uplate i preuzimanja vaučera za <b>${esc(rec)}</b> (${RSD(amt)}).</p><div style="margin-top:14px"><button class="btn btn-gold btn-sm" id="m-close">U redu</button></div>`);
   }catch(e){err(e.message)}
   btn.disabled=false;
 }
@@ -1669,13 +1798,18 @@ function wire(root){
   root.querySelectorAll("[data-inq]").forEach(b=>b.onclick=()=>{const s=S.services.find(x=>x.id===b.dataset.inq);if(s)inquiryModal(s)});
   root.querySelectorAll("[data-policy]").forEach(b=>b.onclick=e=>{e.preventDefault();policyModal()});
   root.querySelectorAll("[data-terms]").forEach(b=>b.onclick=e=>{e.preventDefault();termsModal()});
-  root.querySelectorAll("[data-more]").forEach(b=>b.onclick=()=>{const p=root.querySelector("#d-"+CSS.escape(b.dataset.more));if(!p)return;const c=p.classList.toggle("clamp");b.textContent=c?"Prikaži više":"Prikaži manje"});
+  root.querySelectorAll("[data-more]").forEach(b=>b.onclick=()=>{
+    const card=b.closest(".svc"),id=b.dataset.more;if(!card)return;
+    const o=card.classList.toggle("open");if(o)openDesc.add(id);else openDesc.delete(id);
+    b.setAttribute("aria-expanded",String(o));b.textContent=o?"Prikaži manje":"Prikaži više";
+  });
   root.querySelectorAll("[data-emp]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bEmp=b.dataset.emp;S.bSlot=null;render()});
   /* promena meseca zadržava položaj stranice (render inače skroluje na vrh) */
   const keepY=()=>{const y=window.scrollY;render();window.scrollTo({top:y})};
   root.querySelectorAll("[data-date-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bOff=+b.dataset.dateOff;keepY()});
   root.querySelectorAll("[data-date-sel]").forEach(s=>s.onchange=()=>{S.bOff=+s.value;keepY();const x=$("[data-date-sel]");if(x)x.focus({preventScroll:true})});
   root.querySelectorAll("[data-cal]").forEach(b=>b.onclick=()=>calModal(b.dataset.cal));
+  root.querySelectorAll("[data-zoom]").forEach(b=>b.onclick=()=>photoModal(b.dataset.zoom));
   root.querySelectorAll("[data-date]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bDate=b.dataset.date;S.bSlot=null;render()});
   root.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{S.cart=S.cart.filter(c=>c.id!==b.dataset.rm);if(!S.cart.length){S.view="catalog"}S.bSlot=null;render()});
   const bc=root.querySelector("#bk-confirm");if(bc)bc.onclick=confirmBooking;

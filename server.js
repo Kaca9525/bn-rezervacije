@@ -119,6 +119,12 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_aparat'").get()) {
   db.prepare("UPDATE services SET aparat=1 WHERE id IN ('presoterapija','ems-body','termo-cebe')").run();
   db.prepare("INSERT INTO settings(key,json) VALUES('mig_aparat','true')").run();
 }
+/* jednokratno: besplatnu konsultaciju radi samo Andrijana */
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_konsultacija_andrijana'").get()) {
+  if (db.prepare("SELECT 1 FROM employees WHERE id='andrijana'").get())
+    db.prepare(`UPDATE services SET emps='["andrijana"]' WHERE cat<>'edu' AND (id='konsultacija' OR lower(name) LIKE '%konsultacij%')`).run();
+  db.prepare("INSERT INTO settings(key,json) VALUES('mig_konsultacija_andrijana','true')").run();
+}
 if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_crte_zaposlene'").get()) {
   db.prepare("UPDATE employees SET title=replace(replace(title,' \u2014 ',' - '),'\u2014','-')").run();
   db.prepare("INSERT INTO settings(key,json) VALUES('mig_crte_zaposlene','true')").run();
@@ -290,7 +296,7 @@ const performs = (e, s) => s.aparat ? isDev(e) : !isDev(e) && (Array.isArray(s.e
 const isDevId = id => !!db.prepare("SELECT 1 FROM employees WHERE id=? AND kind='aparat'").get(String(id || ""));
 /* red o zaposlenoj u mejlovima; za aparat piše „Tretman na aparatu" */
 const empLine = (b, short) => isDevId(b.employee)
-  ? "✨ Tretman na aparatu" + (/^aparat$/i.test(b.employeeName || "") ? "" : ": " + b.employeeName)
+  ? "⚙️ Tretman na aparatu" + (/^aparat$/i.test(b.employeeName || "") ? "" : ": " + b.employeeName)
   : "👩 " + (short ? "" : "Kozmetičarka: ") + b.employeeName;
 
 function dayHours(dateStr) {
