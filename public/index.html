@@ -151,7 +151,9 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc-meta{display:flex;gap:16px;align-items:baseline;font-size:12.5px;color:var(--muted);letter-spacing:.03em}
 .svc-meta .price{font-weight:800;color:var(--gold-strong);font-size:16px;font-variant-numeric:tabular-nums;letter-spacing:0}
 .svc p{margin:0;color:var(--muted);font-size:13.5px}
-.svc p.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+/* opis tretmana je sakriven dok se ne klikne „Prikaži više" */
+.svc p.desc{display:none}
+.svc.open p.desc{display:block}
 .svc .more{align-self:flex-end;margin-top:auto;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-strong)}
 .svc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px 14px;margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)}
 .svc-foot .note{min-width:0}
@@ -161,17 +163,37 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc-note{font-size:11.5px;color:var(--gold-strong);font-weight:700}
 .svc.inCart{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),var(--shadow)}
 .svc.inCart::before{opacity:1}
-/* fotografija tretmana na vrhu kartice: img/usluge/<slika>.jpg je isečak 4:3, img/usluge/full/<slika>.jpg cela slika */
-.svc-img{display:block;position:relative;flex:none;margin:-22px -22px 4px;width:calc(100% + 44px);max-width:none;aspect-ratio:4/3;padding:0;
-  border-bottom:1px solid var(--line-soft);background:var(--surface2);overflow:hidden;cursor:zoom-in}
-.svc-img img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .6s ease}
-.svc-img:hover img{transform:scale(1.04)}
+/* fotografija preko cele kartice (img/usluge/<slika>.jpg, uspravni isečak 2:3; img/usluge/full/<slika>.jpg cela slika):
+   naziv, cena i dugmad stoje pri dnu na tamnom prelivu, klik na fotografiju je uvećava */
+.svc.photo{padding:0;gap:0;min-height:540px;justify-content:flex-end;isolation:isolate;background:var(--band);border-color:#2B2219}
+.svc.photo:hover,.svc.photo.inCart{border-color:var(--gold)}
+.svc-img{position:absolute;inset:0;z-index:0;display:block;width:100%;height:100%;margin:0;padding:0;border:0;border-radius:inherit;
+  background:var(--band);overflow:hidden;cursor:zoom-in}
+.svc-img img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 30%;transition:transform .6s ease}
+.svc.photo:hover .svc-img img{transform:scale(1.04)}
 .svc-img:focus-visible{outline:2px solid var(--gold);outline-offset:-5px}
-.svc-img.ph{cursor:default;display:grid;place-content:center;justify-items:center;gap:12px;
-  background:radial-gradient(120% 95% at 50% 32%,#FCF9F3 0,#F4ECDD 55%,#ECDFC7 100%)}
-.svc-img.ph svg{width:44px;height:44px;color:var(--gold);opacity:.7}
-.svc-img.ph span{font-family:var(--ff-disp);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-strong);opacity:.75}
-@container (max-width:635px){.svc-img.ph{display:none}} /* u jednoj koloni (telefon) prazno polje ne treba za poravnanje */
+.svc-body{position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;padding:120px 22px 22px;pointer-events:none;
+  background:linear-gradient(180deg,rgba(23,18,14,0) 0,rgba(23,18,14,.5) 56px,rgba(23,18,14,.8) 118px,rgba(23,18,14,.9) 100%)}
+.svc-body :is(button,a,input,p.desc){pointer-events:auto}
+.svc.photo h3{color:#FFF}
+.svc.photo .svc-meta{color:var(--band-mut)}
+.svc.photo .svc-meta .price{color:var(--band-gold)}
+.svc.photo p{color:rgba(243,235,219,.9)}
+.svc.photo .svc-note,.svc.photo .more{color:var(--band-gold)}
+.svc.photo .svc-foot{border-top-color:rgba(243,235,219,.18)}
+.svc.photo .svc-foot .note{color:var(--band-mut)}
+.svc.photo .btn-ghost{background:rgba(23,18,14,.35);border-color:rgba(243,235,219,.42);color:var(--band-ink)}
+.svc.photo .btn-ghost:hover{background:rgba(243,235,219,.14);border-color:var(--band-gold)}
+/* tretman bez fotografije: znak salona na tamnoj pozadini, na telefonu (jedna kolona) samo tekst */
+.svc-img.ph{cursor:default;display:grid;align-content:start;justify-items:center;gap:12px;padding-top:15%;
+  background:radial-gradient(110% 70% at 50% 22%,#3A2E22 0,#211A14 55%,var(--band) 100%)}
+.svc-img.ph svg{width:46px;height:46px;color:var(--band-gold);opacity:.8}
+.svc-img.ph span{font-family:var(--ff-disp);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--band-gold);opacity:.8}
+@container (max-width:635px){
+  .svc.photo.noimg{min-height:0}
+  .svc.photo.noimg .svc-img{display:none}
+  .svc.photo.noimg .svc-body{padding-top:22px;background:var(--band)}
+}
 .empty{border:1px dashed var(--line);border-radius:18px;padding:44px 20px;text-align:center;color:var(--muted);background:var(--surface)}
 .remind{display:flex;gap:12px;align-items:center;background:linear-gradient(135deg,var(--gold-soft),transparent 160%);border:1px solid var(--gold);color:var(--gold-strong);border-radius:14px;padding:13px 18px;margin:0 0 20px;font-weight:700;font-size:13.5px;box-shadow:var(--shadow)}
 
@@ -822,10 +844,12 @@ function reminderBanner(){
 /* fotografije tretmana: dodeljuju se po nazivu tretmana (bez obzira na kvačice i velika slova); važi prvo pravilo koje odgovara,
    pa su konkretnija pravila iznad opštijih. Tretmani koje salon doda kasnije dobijaju sliku ako im naziv odgovara nekom pravilu. */
 const SVC_IMGS=[
+  [/eliminacij\w* celulit|anticelulit paket/,"paket-eliminacije-celulita"],  // tri slike: maderoterapija, brazilsko podizanje, vakum sonda
   [/14 ?u ?1/,"hidra-facial-14-u-1"],
   [/h[iy]dra ?f[ae]cial/,"hidra-facial-7-u-1"],     // plakat „Hydrafacial Oxy" (7u1); ne hvata „hidratacija"
+  [/darsonval|vlasist/,""],                        // tretman kose: slika lica sa dermapenom ne odgovara
   [/derma ?pen/,"derma-pen"],
-  [/oligopeptid|botox/,"botox-prah"],
+  [/oligopeptid|botox|botoks/,"botox-prah"],
   [/divine/,"divine-face"],
   [/colagen|collagen/,"collagen-premium-tretman"],
   [/premium tretman lica/,"premium-tretman-lica"],
@@ -836,7 +860,9 @@ const SVC_IMGS=[
   [/lash.*brow|brow.*lash/,"lash-i-brow-lift"],
   [/lash/,"lash-lift"],
   [/brow/,"brow-lift"],
+  [/kavitacij\w* i lipolaser/,"lipolaseri"],
   [/kavitacij/,"kavitacija"],
+  [/spatul/,"masaza-lica-vrata-i-dekoltea"],       // „Ultrazvučna špatula - masaža lica..." nije mezoporacija
   [/ultrazvu/,"ultrazvuk-lice-mezoporacija"],
   [/iglicam/,"mezoterapija-iglicama"],
   [/radio ?talas/,"radiotalasni-lifting"],
@@ -852,7 +878,7 @@ const SVC_IMGS=[
   [/^(?!.*neinvaziv).*lipoliz/,"lipoliza"],          // slika sa iglom ne ide uz neinvazivnu lipolizu
   [/lipolaser/,"lipolaseri"],
   [/termo/,"termo-cebe"],
-  [/inarie|fitnes masaz/,"inarie"],
+  [/inari|fitnes masaz/,"inarie"],                 // „Inari anticelulit masaža", pre opšteg pravila za anticelulit
   [/sportsk/,"sportska-masaza"],
   [/^(?!.*(lica|podbrat)).*endosfer/,"endosfera"],  // slika je tretman tela, ne ide uz endosferu lica i podbratka
   [/ice body/,"ice-body-sculpting"],
@@ -875,8 +901,8 @@ function svcImgKey(s){
 const ICON_GEM=`<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true"><path d="M8 18 16 8h16l8 10-16 22z"/><path d="M8 18h32M16 8l4 10 4-10 4 10 4-10M20 18l4 22 4-22"/></svg>`;
 function svcImgHtml(s){
   const k=svcImgKey(s);
-  if(!k)return s.cat==="edu"?"":`<div class="svc-img ph" aria-hidden="true">${ICON_GEM}<span>Beauty &amp; Nutrition</span></div>`;
-  return `<button type="button" class="svc-img" data-zoom="${esc(s.id)}" aria-label="Uvećaj fotografiju: ${esc(s.name)}"><img src="/img/usluge/${k}.jpg" alt="" width="800" height="600" loading="lazy" decoding="async"></button>`;
+  if(!k)return`<div class="svc-img ph" aria-hidden="true">${ICON_GEM}<span>Beauty &amp; Nutrition</span></div>`;
+  return `<button type="button" class="svc-img" data-zoom="${esc(s.id)}" aria-label="Uvećaj fotografiju: ${esc(s.name)}"><img src="/img/usluge/${k}.jpg" alt="" width="600" height="900" loading="lazy" decoding="async"></button>`;
 }
 function photoModal(id){
   const s=S.services.find(x=>x.id===id),k=s&&svcImgKey(s);if(!k)return;
@@ -887,14 +913,17 @@ function photoModal(id){
     if(e.key==="Escape"){closeModal();document.removeEventListener("keydown",onKey)}};
   document.addEventListener("keydown",onKey);
 }
-const svcMore=s=>(s.desc||"").length>140?`<button class="more" data-more="${esc(s.id)}">Prikaži više</button>`:"";
+/* opis je skriven dok se ne klikne „Prikaži više"; otvoreni opisi ostaju otvoreni i posle Dodaj/Ukloni */
+const openDesc=new Set();
+const svcMore=s=>(s.desc||"").trim()?`<button class="more" data-more="${esc(s.id)}" aria-expanded="${openDesc.has(s.id)}" aria-controls="d-${esc(s.id)}">${openDesc.has(s.id)?"Prikaži manje":"Prikaži više"}</button>`:"";
+const svcDesc=s=>(s.desc||"").trim()?`<p class="desc" id="d-${esc(s.id)}">${esc(s.desc)}</p>`:"";
 function svcCard(s){
+  const open=openDesc.has(s.id)?" open":"";
   if(s.cat==="edu"){
-    return `<div class="card svc">
-      ${svcImgHtml(s)}
+    return `<div class="card svc${open}">
       <h3>${esc(s.name)}</h3>
       <div class="svc-meta"><span>Termini po dogovoru</span><span class="price">Cena: na upit</span></div>
-      <p class="clamp" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
+      ${svcDesc(s)}
       ${svcMore(s)}
       <div class="svc-foot">
         <span class="note">Edukator: Andrijana</span>
@@ -906,18 +935,20 @@ function svcCard(s){
   }
   const inCart=S.cart.some(c=>c.id===s.id);
   const off=+s.oldPrice>+s.price?`<span class="pill pill-off">AKCIJA −${Math.round((1-s.price/s.oldPrice)*100)}%</span>`:"";
-  return `<div class="card svc ${inCart?"inCart":""}">
+  return `<div class="card svc photo${svcImgKey(s)?"":" noimg"}${inCart?" inCart":""}${open}">
     ${svcImgHtml(s)}
-    ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}
-    <div class="svc-meta"><span>⏱ ${durTxt(+s.duration)}</span>${+s.oldPrice>+s.price?`<span style="text-decoration:line-through;opacity:.6">${priceTxt(s,+s.oldPrice)}</span>`:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></div>
-    <p class="clamp" id="d-${esc(s.id)}">${esc(s.desc||"")}</p>
-    ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
-    ${svcMore(s)}
-    <div class="svc-foot">
-      <span class="note">${s.aparat?"Tretman na aparatu":svcEmps(s).map(e=>e.name).join(" · ")}</span>
-      <div class="svc-acts">
-        <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
-        ${+s.duration>0?`<button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}">${ICON_CAL}Kalendar</button>`:""}
+    <div class="svc-body">
+      ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}
+      <div class="svc-meta"><span>⏱ ${durTxt(+s.duration)}</span>${+s.oldPrice>+s.price?`<span style="text-decoration:line-through;opacity:.6">${priceTxt(s,+s.oldPrice)}</span>`:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></div>
+      ${svcDesc(s)}
+      ${s.note?`<div class="svc-note">✦ ${esc(s.note)}</div>`:""}
+      ${svcMore(s)}
+      <div class="svc-foot">
+        <span class="note">${s.aparat?"Tretman na aparatu":svcEmps(s).map(e=>e.name).join(" · ")}</span>
+        <div class="svc-acts">
+          <button class="btn ${inCart?"btn-ghost":"btn-gold"} btn-sm" data-add="${esc(s.id)}">${inCart?"Ukloni":"+ Dodaj"}</button>
+          ${+s.duration>0?`<button class="btn btn-ghost btn-sm" data-cal="${esc(s.id)}">${ICON_CAL}Kalendar</button>`:""}
+        </div>
       </div>
     </div>
   </div>`;
@@ -1738,7 +1769,11 @@ function wire(root){
   root.querySelectorAll("[data-inq]").forEach(b=>b.onclick=()=>{const s=S.services.find(x=>x.id===b.dataset.inq);if(s)inquiryModal(s)});
   root.querySelectorAll("[data-policy]").forEach(b=>b.onclick=e=>{e.preventDefault();policyModal()});
   root.querySelectorAll("[data-terms]").forEach(b=>b.onclick=e=>{e.preventDefault();termsModal()});
-  root.querySelectorAll("[data-more]").forEach(b=>b.onclick=()=>{const p=root.querySelector("#d-"+CSS.escape(b.dataset.more));if(!p)return;const c=p.classList.toggle("clamp");b.textContent=c?"Prikaži više":"Prikaži manje"});
+  root.querySelectorAll("[data-more]").forEach(b=>b.onclick=()=>{
+    const card=b.closest(".svc"),id=b.dataset.more;if(!card)return;
+    const o=card.classList.toggle("open");if(o)openDesc.add(id);else openDesc.delete(id);
+    b.setAttribute("aria-expanded",String(o));b.textContent=o?"Prikaži manje":"Prikaži više";
+  });
   root.querySelectorAll("[data-emp]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bEmp=b.dataset.emp;S.bSlot=null;render()});
   root.querySelectorAll("[data-date-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bOff=+b.dataset.dateOff;render()});
   root.querySelectorAll("[data-cal]").forEach(b=>b.onclick=()=>calModal(b.dataset.cal));
