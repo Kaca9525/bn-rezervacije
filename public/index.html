@@ -64,6 +64,8 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .userchip{display:flex;align-items:center;gap:10px;margin-left:10px;padding:5px 6px 5px 14px;border:1px solid rgba(227,199,132,.4);border-radius:999px;font-size:13px;color:var(--band-ink)}
 .userchip .out{padding:6px 12px;border-radius:999px;background:rgba(227,199,132,.16);color:var(--band-gold);font-weight:800;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
 .userchip .out:hover{background:rgba(227,199,132,.28)}
+.nav .ig{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;margin-left:8px;border-radius:50%;border:1px solid rgba(227,199,132,.4);color:var(--band-gold);transition:background .18s ease}
+.nav .ig:hover{background:rgba(227,199,132,.16)}
 
 /* ---------- shell & typography ---------- */
 .wrap{max-width:1100px;margin:0 auto;padding-block:34px 140px;
@@ -264,6 +266,15 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .bk-sum .tot{display:flex;justify-content:space-between;font-weight:800;font-size:15px;margin:9px 0 2px}
 .bk-sum .tot span{font-variant-numeric:tabular-nums}
 .ok-box{background:var(--ok-bg);color:var(--ok);border-radius:14px;padding:15px 17px;font-weight:700;margin-top:14px}
+.ok-ico{width:60px;height:60px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold2),var(--gold));color:var(--on-gold);box-shadow:0 6px 18px rgba(176,137,64,.28)}
+.spam-box{margin-top:14px;padding:14px 16px;border-radius:14px;border:1px solid var(--gold);background:var(--gold-soft);color:var(--ink);font-size:13.5px;line-height:1.5;text-align:left}
+.spam-box b{color:var(--ink)}
+.done-pop{text-align:center}
+.done-pop h3{margin:0 0 6px}
+.done-pop .note{margin:0 0 4px;font-size:14px}
+.done-pop .spam-box{margin:16px 0 18px}
+.done-pop .btn{margin-top:16px}
+.done-pop .spam-box+.btn{margin-top:0}
 
 /* ---------- my bookings & admin ---------- */
 .bk-list{display:grid;gap:14px}
@@ -311,6 +322,9 @@ input,select,textarea{font:inherit;color:var(--ink)}
 @keyframes sp{to{transform:rotate(360deg)}}
 .footer{margin-top:56px;border-top:1px solid var(--line);padding-top:22px;display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between;color:var(--muted);font-size:12.5px}
 .footer b{color:var(--ink)}
+.footer .ig-link{display:inline-flex;align-items:center;gap:7px;color:inherit;text-decoration:none}
+.footer .ig-link svg{color:var(--gold-strong);flex:none}
+.footer .ig-link:hover b{color:var(--gold-strong)}
 .policy h4{font-family:var(--ff-disp);font-size:17.5px;font-weight:600;margin:14px 0 4px;color:var(--ink)}
 .policy p{margin:0 0 8px;font-size:13px;color:var(--muted)}
 .policy b{color:var(--ink)}
@@ -493,6 +507,10 @@ const fmtD=s=>{const d=parseD(s);return DOWS[d.getDay()]+", "+d.getDate()+". "+M
 const durTxt=m=>m>=60?(Math.floor(m/60)+"h"+(m%60?" "+(m%60)+"min":"")):(m+" min");
 let toastT=null;
 function toast(msg){const r=$("#toast-root");r.innerHTML=`<div class="toast">${esc(msg)}</div>`;clearTimeout(toastT);toastT=setTimeout(()=>r.innerHTML="",3200)}
+/* Instagram salona (zaglavlje i podnožje) i znak potvrde posle rezervacije; definisano pre boot()-a jer prvi render() crta zaglavlje */
+const IG_URL="https://www.instagram.com/beauty_and_nutrition_",IG_NAME="@beauty_and_nutrition_";
+const ICON_IG=`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1" fill="currentColor" stroke="none"/></svg>`;
+const ICON_OK=`<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5.5 12.5 4.2 4.2 8.8-9.4"/></svg>`;
 function copyText(t){ (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast("Kopirano ✓")).catch(()=>{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Kopirano ✓")}catch(e){toast("Označite tekst i kopirajte ručno")}ta.remove()}) }
 
 async function api(path,opts){
@@ -753,7 +771,7 @@ async function confirmBooking(){
   try{
     const r=await apiPost("/api/bookings",{services:S.cart.map(s=>s.id),employee:S.bEmp,date:S.bDate,start:toHM(S.bSlot)});
     S.cart=[];S.bSlot=null;S.bDate=null;S.bOff=null;S.bEmp="__any";
-    S.lastBooking=r.booking;S.view="done";render();loadMy();
+    S.lastBooking=r.booking;S.view="done";render();loadMy();doneModal(r.booking);
   }catch(e){
     if(btn)btn.disabled=false;
     if(e.data&&e.data.code==="phone")return phoneModal(confirmBooking);
@@ -793,6 +811,7 @@ function renderNav(){
   html+=S.me
     ?`<span class="userchip"><span>${esc(S.me.ime)} ${esc(S.me.prezime)}</span><button class="out" data-nav="logout">Odjava</button></span>`
     :`<button data-nav="auth" class="${S.view==="auth"?"on":""}">Prijava</button>`;
+  html+=`<a class="ig" href="${IG_URL}" target="_blank" rel="noopener" title="Instagram ${IG_NAME}" aria-label="Instagram ${IG_NAME} (otvara se u novom prozoru)">${ICON_IG}</a>`;
   n.innerHTML=html;
   n.querySelectorAll("[data-nav]").forEach(el=>el.onclick=()=>{
     const t=el.dataset.nav;
@@ -1199,15 +1218,29 @@ async function renderSlots(){
     });
   }catch(e){area.innerHTML=`<p class="note">Termine trenutno nije moguće učitati. Pokušajte ponovo.</p>`}
 }
+/* posle rezervacije: strana sa potvrdom i iskačući prozor „Vaš termin je zakazan"; mejl ume da završi u Spam/Junk folderu, pa to piše na oba mesta */
+const spamNote=b=>S.mailEnabled&&b.userEmail?`<div class="spam-box" role="note"><b>Proverite e-mail.</b> Potvrda je poslata na <b>${esc(b.userEmail)}</b>. Ako je ne vidite u prijemnom sandučetu, pogledajte folder <b>Spam</b> ili <b>Junk</b> (neželjena pošta), kao i karticu Promocije. Označite poruku sa „Nije spam" da vam podsetnici stižu redovno.</div>`:"";
+function doneModal(b){
+  if(!b)return;
+  showModal(`<div class="done-pop">
+    <div class="ok-ico">${ICON_OK}</div>
+    <h3>Vaš termin je zakazan!</h3>
+    <p class="note"><b>${esc(fmtD(b.date))} u ${esc(b.start)}</b>${b.employeeName?" · "+esc(b.employeeName):""}</p>
+    ${spamNote(b)}
+    <button class="btn btn-gold" id="m-close" style="width:100%">U redu</button>
+  </div>`,"done-modal");
+}
 function tplDone(){
   const b=S.lastBooking;if(!b)return tplCatalog();
   return `
   <div class="card" style="max-width:640px;margin:30px auto;text-align:center;padding:38px 28px">
+    <div class="ok-ico">${ICON_OK}</div>
     <div class="eyebrow" style="justify-content:center">Rezervacija potvrđena</div>
-    <h1 class="h-page" style="margin-top:12px">Vidimo se ${esc(fmtD(b.date))}</h1>
-    <p class="sub" style="margin:10px auto 18px">u ${esc(b.start)} · ${esc(b.employeeName)} · ${esc(durTxt(b.totalDuration))} · ${money(b.totalPrice||0,b.totalPriceEur||0)}</p>
+    <h1 class="h-page" style="margin-top:12px">Vaš termin je zakazan</h1>
+    <p class="sub" style="margin:10px auto 18px"><b>${esc(fmtD(b.date))} u ${esc(b.start)}</b> · ${esc(b.employeeName)} · ${esc(durTxt(b.totalDuration))} · ${money(b.totalPrice||0,b.totalPriceEur||0)}</p>
     <div class="ok-box" style="text-align:left">${b.services.map(s=>"• "+esc(s.name)).join("<br>")}</div>
-    <p class="note" style="margin:16px 0 20px">${S.mailEnabled?"Potvrda je poslata na "+esc(b.userEmail)+", a podsetnik stiže dan pre termina"+(S.smsEnabled?" i SMS-om.":"."):S.smsEnabled?"Podsetnik vam stiže SMS-om dan pre i na dan termina.":"Podsetnik vam stiže dan pre termina."} Za izmene pišite na <b>${esc(rezEmail())}</b> ili otkažite u „Moje rezervacije".</p>
+    ${spamNote(b)}
+    <p class="note" style="margin:16px 0 20px">${S.mailEnabled?"Podsetnik vam stiže dan pre termina na e-mail"+(S.smsEnabled?" i SMS-om.":"."):S.smsEnabled?"Podsetnik vam stiže SMS-om dan pre i na dan termina.":"Podsetnik vam stiže dan pre termina."} Za izmene pišite na <b>${esc(rezEmail())}</b> ili otkažite u „Moje rezervacije".</p>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-gold" data-nav2="my">Moje rezervacije</button>
       <button class="btn btn-ghost" data-nav2="catalog">Nazad na usluge</button>
@@ -1762,6 +1795,7 @@ function footer(){
   return `<div class="footer">
     <div><b>Beauty &amp; Nutrition</b> · Živojina Žujovića 25, Zvezdara, Beograd</div>
     <div>Rezervacije: <b>${esc(rezEmail())}</b> · +381 64 93 55 003</div>
+    <a class="ig-link" href="${IG_URL}" target="_blank" rel="noopener">${ICON_IG}<span>Instagram <b>${IG_NAME}</b></span></a>
     <div style="display:flex;gap:16px;flex-wrap:wrap"><button type="button" class="more" data-policy style="padding:0">Politika Privatnosti</button><button type="button" class="more" data-terms style="padding:0">Uslovi korišćenja</button></div>
     <div style="width:100%;text-align:center;font-size:12px;color:var(--muted);border-top:1px dashed var(--line);margin-top:6px;padding-top:12px">© 2026 - designed by <b style="color:var(--gold-strong)">Catis Team</b></div>
   </div>`;
