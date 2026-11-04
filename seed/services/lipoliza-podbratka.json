@@ -1,0 +1,11 @@
+{
+ "cat": "lice",
+ "name": "Lipoliza podbratka (dr Ivana)",
+ "duration": 10,
+ "price": 6000,
+ "desc": "",
+ "active": true,
+ "emps": [
+  "ivana"
+ ]
+}

@@ -1,0 +1,12 @@
+{
+ "cat": "telo",
+ "name": "Lipomodelovanje donjeg dela tela + EMS nogu 3+3",
+ "duration": 80,
+ "price": 35000,
+ "desc": "",
+ "active": true,
+ "emps": [
+  "andrijana",
+  "milica"
+ ]
+}

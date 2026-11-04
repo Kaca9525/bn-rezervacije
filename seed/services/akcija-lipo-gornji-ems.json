@@ -1,0 +1,12 @@
+{
+ "cat": "akcije",
+ "name": "Lipomodelovanje gornjeg dela tela + EMS 3+3 - akcija",
+ "duration": 80,
+ "price": 25000,
+ "desc": "",
+ "active": true,
+ "emps": [
+  "andrijana",
+  "milica"
+ ]
+}

@@ -123,6 +123,52 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_crte_zaposlene'").get()) 
   db.prepare("UPDATE employees SET title=replace(replace(title,' \u2014 ',' - '),'\u2014','-')").run();
   db.prepare("INSERT INTO settings(key,json) VALUES('mig_crte_zaposlene','true')").run();
 }
+/* jednokratno (novembar 2026): cenovnik uskla\u0111en sa SrediMe. Vrednosti se \u010ditaju iz seed/services/<id>.json.
+   Menjaju se samo navedena polja postoje\u0107ih tretmana; tretmani koji su falili se dodaju (ako ve\u0107 ne postoji
+   tretman sa istim id-jem ili nazivom); ni\u0161ta se ne bri\u0161e. Ve\u0107 zakazani termini zadr\u017eavaju svoju cenu i trajanje. */
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_sredime_2026_11'").get()) {
+  const seedSvc = id => JSON.parse(fs.readFileSync(path.join(__dirname, "seed", "services", id + ".json"), "utf8"));
+  const foldName = s => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\u0111/g, "dj").replace(/\s+/g, " ").trim();
+  const SET = {
+    "paket-celulit": ["duration"],
+    "akcija-hydra-14u1": ["price", "cur", "oldPrice"],
+    "akcija-hydra-oxy": ["price", "cur", "oldPrice"],
+    "la-bomba": ["price", "duration"],
+    "endosfera-lica": ["price", "duration"],
+    "hydrafacial-7u1": ["price"],
+    "egzozomi": ["price"],
+    "instant-fresh": ["price", "duration"],
+    "ems-body": ["price"],
+    "endosfera-telo": ["price", "note"],
+    "maderoterapija": ["note"],
+    "presoterapija": ["note"],
+    "antistres-60": ["price"],
+  };
+  const NEW = ["botoks-maska", "bubble-pen", "darsonvalizacija", "derma-evolution", "lipoliza-podbratka",
+    "mikrodermoabrazija-mezoporacija", "sminkanje-trepavice", "rf-mio-lift", "rf-lifting-vrat", "vocne-kiseline",
+    "kolagen-niti-lice", "kolagen-niti-lice-vrat", "uz-spatula-masaza", "mikrodermoabrazija-masaza",
+    "ems-endosfera", "inari-masaza", "kavitacija-lipolaseri", "lipoliza-noge", "lipomodelovanje-donji-ems",
+    "lipomodelovanje-lipoliza-donji", "madero-preso-5-5", "body-sculpt", "paket-mrsavljenje", "vakum-brazilsko-5-5",
+    "akcija-ems-tesla", "akcija-lipo-donji-ems", "akcija-lipo-gornji-ems", "akcija-neinvazivna-lipoliza", "akcija-preso-vacuslim"];
+  db.transaction(() => {
+    for (const [id, fields] of Object.entries(SET)) {
+      const s = seedSvc(id);
+      for (const f of fields) db.prepare(`UPDATE services SET ${f}=? WHERE id=?`).run(s[f] == null || s[f] === "" ? null : s[f], id);
+    }
+    const names = new Set(db.prepare("SELECT name FROM services").all().map(r => foldName(r.name)));
+    for (const id of NEW) {
+      const s = seedSvc(id);
+      if (!db.prepare("SELECT 1 FROM services WHERE id=?").get(id) && !names.has(foldName(s.name))) {
+        db.prepare(`INSERT INTO services(id,cat,name,desc,price,duration,active,note,emps,oldPrice,cur,aparat)
+          VALUES(?,?,?,?,?,?,1,?,?,?,?,0)`).run(id, s.cat, s.name, s.desc || "", s.price, s.duration,
+          s.note || null, s.emps ? JSON.stringify(s.emps) : null, s.oldPrice == null ? null : s.oldPrice, s.cur || null);
+        names.add(foldName(s.name));
+      }
+      if (s.aparat) db.prepare("UPDATE services SET aparat=1 WHERE id=?").run(id); // radi se na aparatu (kolona \u201eAparat")
+    }
+    db.prepare("INSERT INTO settings(key,json) VALUES('mig_sredime_2026_11','true')").run();
+  })();
+}
 
 const getSetting = k => { const r = db.prepare("SELECT json FROM settings WHERE key=?").get(k); return r ? JSON.parse(r.json) : null; };
 const setSetting = (k, v) => db.prepare("INSERT OR REPLACE INTO settings(key,json) VALUES(?,?)").run(k, JSON.stringify(v));
