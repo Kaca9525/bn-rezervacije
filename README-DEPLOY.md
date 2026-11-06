@@ -56,8 +56,17 @@ u Admin → Podsetnici i dalje imate gotove tekstove za ručno slanje.
 3. Napravite App password (naziv npr. „Salon rezervacije") — dobijate šifru od 16 znakova
 4. To je vrednost za `SMTP_PASS` (a `SMTP_USER` je sama Gmail adresa)
 
+### Logo pored imena pošiljaoca (Gmail)
+Krug sa slikom pored imena „Beauty & Nutrition" u Gmail-u je **profilna slika Google naloga** sa kog
+aplikacija šalje mejlove (`SMTP_USER`). Ne podešava se u aplikaciji, nego na samom nalogu:
+1. Prijavite se na taj nalog i otvorite https://myaccount.google.com/personal-info
+2. Kliknite na fotografiju profila i otpremite logo (kvadratna slika, npr. 800×800 px)
+3. Slika se kod primalaca pojavljuje na novim mejlovima, nekad tek posle nekoliko sati
+
+Outlook, Yahoo i ostali servisi ovu sliku ne prikazuju (za to je potreban sopstveni domen i BIMI).
+
 Šta se tada šalje automatski:
-- **klijentu**: potvrda odmah po rezervaciji + podsetnik dan pre termina (u `REMINDER_HOUR` sati)
+- **klijentu**: potvrda odmah po rezervaciji (sa podacima za uplatu avansa od 30%) + podsetnik dan pre termina (u `REMINDER_HOUR` sati)
 - **salonu** (`andrijanaobradovic5@gmail.com`): obaveštenje o svakoj novoj rezervaciji i svakom otkazivanju
 - **link za novu lozinku** kada klijent klikne „Zaboravljena lozinka?" (važi 1 sat)
 
