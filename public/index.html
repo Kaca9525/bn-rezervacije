@@ -163,10 +163,12 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc p.desc{display:none}
 .svc.open p.desc{display:block}
 .svc .more{align-self:flex-end;margin-top:auto;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-strong)}
-.svc-foot{display:flex;justify-content:space-between;align-items:center;gap:10px 14px;margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)}
+.svc-foot{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;align-content:start;gap:10px 14px;margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)}
 .svc-foot .note{min-width:0}
 .svc-acts{display:flex;flex-direction:column;align-items:stretch;gap:8px;flex:none;min-width:136px}
-.svc .more+.svc-foot{margin-top:0} /* „Prikaži više" stoji u desnom uglu iznad Dodaj/Kalendar, linije kartica u redu ostaju poravnate */
+/* opis, napomena o paketu i „Prikaži više" (desno, odmah iznad linije sa dugmadima) */
+.svc-x{display:flex;flex-direction:column;gap:10px;min-width:0}
+.svc-x:empty{display:none}
 .svc-acts .btn svg{flex:none}
 .svc-note{display:flex;align-items:flex-start;gap:7px;font-size:11.5px;line-height:1.45;color:var(--gold-strong);font-weight:700}
 .svc-note svg{flex:none;margin-top:-0.5px}
@@ -200,8 +202,24 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc-img.ph span{font-family:var(--ff-disp);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--band-gold);opacity:.8}
 @container (max-width:635px){
   .svc.photo.noimg{min-height:0}
+  .svc.photo.noimg::after{display:none}
   .svc.photo.noimg .svc-img{display:none}
   .svc.photo.noimg .svc-body{padding-top:22px;background:var(--band)}
+}
+/* tekst u istoj ravni u celom redu kartica: svaka kartica zauzima pet redova mreže (fotografija, naziv, trajanje i cena,
+   opis/napomena/„Prikaži više", dugmad), a ti redovi su zajednički za sve kartice u istom redu (subgrid).
+   Naziv u jednom redu ostaje poravnat sa nazivima u dva reda, cene, linije i dugmad su na istoj visini.
+   Pregledači bez subgrid-a zadržavaju raniji raspored. */
+@supports (grid-template-rows:subgrid){
+  .svc-grid{row-gap:0}
+  .svc-grid>.svc{margin-bottom:16px}
+  .svc.photo{display:grid;grid-row:span 5;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr);justify-content:stretch;row-gap:0;min-height:0}
+  .svc.photo::after{content:"";grid-row:1;grid-column:1;height:var(--svc-img-h,212px)}
+  .svc-body{grid-row:2/span 4;display:grid;grid-template-rows:subgrid;row-gap:0}
+  .svc-body>.svc-top{grid-row:1}
+  .svc-body>.svc-meta{grid-row:2;margin-top:10px}
+  .svc-body>.svc-x{grid-row:3;margin-top:10px}
+  .svc-body>.svc-foot{grid-row:4;margin-top:10px}
 }
 .empty{border:1px dashed var(--line);border-radius:18px;padding:44px 20px;text-align:center;color:var(--muted);background:var(--surface)}
 .remind{display:flex;gap:12px;align-items:center;background:linear-gradient(135deg,var(--gold-soft),transparent 160%);border:1px solid var(--gold);color:var(--gold-strong);border-radius:14px;padding:13px 18px;margin:0 0 20px;font-weight:700;font-size:13.5px;box-shadow:var(--shadow)}
@@ -891,10 +909,20 @@ function reminderBanner(){
 /* fotografije tretmana: dodeljuju se po nazivu tretmana (bez obzira na kvačice i velika slova); važi prvo pravilo koje odgovara,
    pa su konkretnija pravila iznad opštijih. Tretmani koje salon doda kasnije dobijaju sliku ako im naziv odgovara nekom pravilu. */
 const SVC_IMGS=[
+  [/obuk\w* .*lica/,"edukacija-lica"],                 // plakat „Edukacija Hydrafacial 14u1"
+  [/obuk\w* .*tela/,"edukacija-tela"],                 // plakat „Edukacija lipomodelovanje tela & Divine face"
   [/eliminacij\w* celulit|anticelulit paket/,"paket-eliminacije-celulita"],  // tri slike: maderoterapija, brazilsko podizanje, vakum sonda
   [/14 ?u ?1/,"hidra-facial-14-u-1"],
   [/h[iy]dra ?f[ae]cial/,"hidra-facial-7-u-1"],     // plakat „Hydrafacial Oxy" (7u1); ne hvata „hidratacija"
   [/darsonval|vlasist/,""],                        // tretman kose: slika lica sa dermapenom ne odgovara
+  [/bubble/,"bubble-pen"],                          // i „Mikrodermoabrazija + bubble pen + mezoporacija"
+  [/vocn\w* kiselin/,"vocne-kiseline"],              // „Voćne kiseline Eberlin" i „Derma evolution - voćne kiseline"
+  [/kolagen niti.*vrat/,"kolagen-niti-lice-vrat"],
+  [/kolagen niti.*celo lice/,"kolagen-niti-lice"],
+  [/kolagen niti/,"kolagen-niti-noto"],             // „Kolagen niti + kolagen tračice + NO-TO maska"
+  [/sminkanj/,"sminkanje"],
+  [/fototerapij/,"fototerapija"],
+  [/bio sond/,"premium-tretman-lica"],              // sonda na licu, dok ne stigne posebna slika
   [/derma ?pen/,"derma-pen"],
   [/oligopeptid|botox|botoks/,"botox-prah"],
   [/divine/,"divine-face"],
@@ -912,6 +940,7 @@ const SVC_IMGS=[
   [/spatul/,"masaza-lica-vrata-i-dekoltea"],       // „Ultrazvučna špatula - masaža lica..." nije mezoporacija
   [/ultrazvu/,"ultrazvuk-lice-mezoporacija"],
   [/iglicam/,"mezoterapija-iglicama"],
+  [/radio ?talasn\w* lifting lica/,"radiotalasni-lifting-lica"],
   [/radio ?talas/,"radiotalasni-lifting"],
   [/konsultacij/,"besplatna-konsultacija"],
   [/brazilsk/,"brazilsko-podizanje-zadnjice"],
@@ -919,14 +948,19 @@ const SVC_IMGS=[
   [/trudnic/,"limfna-drenaza-za-trudnice"],
   [/limfn\w* drenaz/,"limfna-drenaza"],
   [/vakum/,"vakum-sonda"],
+  [/maderoterapij\w* premium mix/,"maderoterapija-mix"],   // tri fotografije (Madero mix, 1, 2)
   [/maderoterapij/,"maderoterapija-premium-mix"],
+  [/lipomodelovanj\w*.*gornj/,"lipomodelovanje-gornji"],
+  [/lipomodelovanj\w* \+ lipoliz/,"lipomodelovanje-lipoliza-ems"],
   [/lipomodelovanj/,"lipomodelovanje-tela"],
   [/neinvaziv.*lipoliz/,"neinvazivna-lipoliza"],
+  [/lipoliz\w* podbrat/,"lipoliza-podbratka"],
   [/^(?!.*neinvaziv).*lipoliz/,"lipoliza"],          // slika sa iglom ne ide uz neinvazivnu lipolizu
   [/lipolaser/,"lipolaseri"],
   [/termo/,"termo-cebe"],
   [/inari|fitnes masaz/,"inarie"],                 // „Inari anticelulit masaža", pre opšteg pravila za anticelulit
   [/sportsk/,"sportska-masaza"],
+  [/endosfer\w* (lica|podbrat)/,"endosfera-lica"],   // pre/posle profil lica i podbratka
   [/^(?!.*(lica|podbrat)).*endosfer/,"endosfera"],  // slika je tretman tela, ne ide uz endosferu lica i podbratka
   [/ice body/,"ice-body-sculpting"],
   [/rolosfer/,"rolosfera"],
@@ -937,7 +971,8 @@ const SVC_IMGS=[
   [/antistres/,"antistress-masaza"],
   [/terapeutsk/,"terapeutska-masaza"],
   [/masaza lica/,"masaza-lica-vrata-i-dekoltea"],
-  [/relax/,"relax-masaza"],
+  [/relax|piling/,"relax-masaza"],                  // i „SPA masaža sa pilingom", dok ne stigne posebna slika
+  [/body sculpt/,"els-body-tesla-aparat"],          // „Neinvazivna body sculpt terapija", posle Ice body i EMS
 ];
 const svcImgMemo={};
 function svcImgKey(s){
@@ -964,32 +999,35 @@ function photoModal(id){
 const openDesc=new Set();
 const svcMore=s=>(s.desc||"").trim()?`<button class="more" data-more="${esc(s.id)}" aria-expanded="${openDesc.has(s.id)}" aria-controls="d-${esc(s.id)}">${openDesc.has(s.id)?"Prikaži manje":"Prikaži više"}</button>`:"";
 const svcDesc=s=>(s.desc||"").trim()?`<p class="desc" id="d-${esc(s.id)}">${esc(s.desc)}</p>`:"";
+/* kartica ima uvek ista četiri reda teksta (naziv, trajanje i cena, opis/napomena/„Prikaži više", dugmad),
+   pa su u istom redu kartica nazivi, cene i dugmad poravnati (vidi .svc-grid i subgrid u CSS-u) */
+const svcX=(s,note)=>`<div class="svc-x">${svcDesc(s)}${note?`<div class="svc-note">${ICON_ROLL}<span>${esc(note)}</span></div>`:""}${svcMore(s)}</div>`;
 function svcCard(s){
   const open=openDesc.has(s.id)?" open":"";
   if(s.cat==="edu"){
-    return `<div class="card svc${open}">
-      <h3>${esc(s.name)}</h3>
+    return `<div class="card svc photo${svcImgKey(s)?"":" noimg"}${open}">
+    ${svcImgHtml(s)}
+    <div class="svc-body">
+      <div class="svc-top"><h3>${esc(s.name)}</h3></div>
       <div class="svc-meta"><span>Termini po dogovoru</span><span class="price">Cena: na upit</span></div>
-      ${svcDesc(s)}
-      ${svcMore(s)}
+      ${svcX(s,"")}
       <div class="svc-foot">
         <span class="note">Edukator: Andrijana</span>
         <div class="svc-acts">
           <button class="btn btn-gold btn-sm" data-inq="${esc(s.id)}">Pošalji upit</button>
         </div>
       </div>
-    </div>`;
+    </div>
+  </div>`;
   }
   const inCart=S.cart.some(c=>c.id===s.id);
   const off=+s.oldPrice>+s.price?`<span class="pill pill-off">AKCIJA −${Math.round((1-s.price/s.oldPrice)*100)}%</span>`:"";
   return `<div class="card svc photo${svcImgKey(s)?"":" noimg"}${inCart?" inCart":""}${open}">
     ${svcImgHtml(s)}
     <div class="svc-body">
-      ${off?`<div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>`:`<h3>${esc(s.name)}</h3>`}
+      <div class="svc-top"><h3>${esc(s.name)}</h3>${off}</div>
       <div class="svc-meta"><span>⏱ ${durTxt(+s.duration)}</span>${+s.oldPrice>+s.price?`<span style="text-decoration:line-through;opacity:.6">${priceTxt(s,+s.oldPrice)}</span>`:""}<span class="price">${+s.price===0?"Besplatno":priceTxt(s,+s.price)}</span></div>
-      ${svcDesc(s)}
-      ${s.note?`<div class="svc-note">${ICON_ROLL}<span>${esc(s.note)}</span></div>`:""}
-      ${svcMore(s)}
+      ${svcX(s,s.note)}
       <div class="svc-foot">
         <span class="note">${s.aparat?"Tretman na aparatu":svcEmps(s).map(e=>e.name).join(" · ")}</span>
         <div class="svc-acts">
