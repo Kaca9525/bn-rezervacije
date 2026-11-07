@@ -71,6 +71,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .wrap{max-width:1100px;margin:0 auto;padding-block:34px 140px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 #app > *{animation:rise .4s ease both}
+#app.still > *{animation:none}  /* osvežen isti ekran (tab, Dodaj): bez ponovnog ulaska, da strana ne trepne */
 @keyframes rise{from{opacity:.001;transform:translateY(10px)}to{opacity:1;transform:none}}
 .h-page{font-family:var(--ff-hero);font-weight:600;font-size:clamp(30px,5vw,46px);line-height:1.08;letter-spacing:-.01em;margin:0 0 6px;text-wrap:balance}
 .h-page em{font-style:italic;font-weight:500;color:var(--gold-strong)}
@@ -828,7 +829,7 @@ function render(){
   renderNav();renderCartbar();
   const app=$("#app");
   if(S.loadErr){app.innerHTML=`<div class="empty"><p style="font-weight:800">Server trenutno nije dostupan.</p><p class="note">Osvežite stranicu za koji trenutak.</p></div>`;return}
-  const v=S.view,y=window.scrollY,same=v===shownView;shownView=v;
+  const v=S.view,y=window.scrollY,same=v===shownView;shownView=v;app.classList.toggle("still",same);
   if(v==="auth")app.innerHTML=tplAuth();
   else if(v==="catalog")app.innerHTML=tplCatalog();
   else if(v==="booking"){app.innerHTML=tplBooking();renderSlots()}
@@ -1092,7 +1093,7 @@ function catalogBody(){
    sa prvim redom tretmana ispod njih; na telefonu su tabovi u više redova, pa ispod trake staje prvi tretman. */
 function toCatList(){
   const tabs=$(".cat-tabs"),body=$("#cat-body"),first=body&&body.firstElementChild;if(!tabs||!first)return;
-  /* položaj u dokumentu preko offsetTop: getBoundingClientRect bi uračunao pomeraj animacije „rise" (10px) */
+  /* položaj u dokumentu preko offsetTop, nezavisno od transform-a (animacija „rise" pomera elemente za 10px) */
   const docY=el=>{let y=0;for(let e=el;e;e=e.offsetParent)y+=e.offsetTop;return y};
   const band=$(".band"),top=(band?band.getBoundingClientRect().bottom:0)+10;
   const tt=docY(tabs),ft=docY(first);
