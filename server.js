@@ -551,7 +551,7 @@ ${empLine(b)}
 
 ${avansText(b.totalPrice, b.totalPriceEur || 0)}
 
-Podsetnik vam stiže dan pre termina (e-mailom i SMS-om). Za izmene nam pišite na ${rezEmail()} ili pozovite +381 64 93 55 003.
+Podsetnik vam stiže dan pre termina e-mail-om. Za izmene nam pišite na ${rezEmail()} ili pozovite +381 64 93 55 003.
 
 Srdačno,
 Beauty & Nutrition`);
@@ -830,7 +830,7 @@ ${list.length > 1 ? "vaši termini" : "vaš termin"} u salonu Beauty & Nutrition
 ${visitLines(list)}
 📍 Živojina Žujovića 25, Beograd (Zvezdara)
 ${manualAvans(list)}
-Podsetnik vam stiže dan pre termina. Za izmene: ${rezEmail()} ili +381 64 93 55 003.
+Podsetnik vam stiže dan pre termina e-mail-om. Za izmene: ${rezEmail()} ili +381 64 93 55 003.
 
 Beauty & Nutrition`);
   res.json({ bookings: list.map(b => ({ ...b, reminderSent: !c.mail, sms24: 0, smsDay: 0 })) });
