@@ -150,7 +150,7 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_sredime_2026_11'").get())
     "presoterapija": ["note"],
     "antistres-60": ["price"],
   };
-  const NEW = ["botoks-maska", "bubble-pen", "darsonvalizacija", "derma-evolution", "lipoliza-podbratka",
+  const NEW = ["botoks-maska", "bubble-pen", "darsonvalizacija", "lipoliza-podbratka",
     "mikrodermoabrazija-mezoporacija", "sminkanje-trepavice", "rf-mio-lift", "rf-lifting-vrat", "vocne-kiseline",
     "kolagen-niti-lice", "kolagen-niti-lice-vrat", "uz-spatula-masaza", "mikrodermoabrazija-masaza",
     "ems-endosfera", "inari-masaza", "kavitacija-lipolaseri", "lipoliza-noge", "lipomodelovanje-donji-ems",
@@ -176,6 +176,22 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_sredime_2026_11'").get())
   })();
 }
 
+/* jednokratno (novembar 2026): „Derma evolution - vo\u0107ne kiseline" vi\u0161e nije u ponudi (ve\u0107 zakazani termini ostaju);
+   Bio sonda nosi i popularniji naziv Myo lift, a tretman kose ispravljen naziv. */
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_derma_evo_myo'").get()) {
+  const foldName = s => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\u0111/g, "dj").replace(/\s+/g, " ").trim();
+  const seedName = id => JSON.parse(fs.readFileSync(path.join(__dirname, "seed", "services", id + ".json"), "utf8")).name;
+  db.transaction(() => {
+    for (const r of db.prepare("SELECT id,name FROM services").all()) {
+      const n = foldName(r.name);
+      if (r.id === "derma-evolution" || /^derma evolution/.test(n)) db.prepare("DELETE FROM services WHERE id=?").run(r.id);
+      else if (r.id === "bio-sonda" || n === "bio sonda") db.prepare("UPDATE services SET name=? WHERE id=?").run(seedName("bio-sonda"), r.id);
+      else if (r.id === "darsonvalizacija" || n === "darsonvalizacija + dermapen kose i vlasista")
+        db.prepare("UPDATE services SET name=? WHERE id=?").run(seedName("darsonvalizacija"), r.id);
+    }
+    db.prepare("INSERT INTO settings(key,json) VALUES('mig_derma_evo_myo','true')").run();
+  })();
+}
 const getSetting = k => { const r = db.prepare("SELECT json FROM settings WHERE key=?").get(k); return r ? JSON.parse(r.json) : null; };
 const setSetting = (k, v) => db.prepare("INSERT OR REPLACE INTO settings(key,json) VALUES(?,?)").run(k, JSON.stringify(v));
 const rezEmail = () => (getSetting("salon") || {}).rezEmail || "andrijanaobradovic5@gmail.com";

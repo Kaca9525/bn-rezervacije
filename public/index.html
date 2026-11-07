@@ -929,15 +929,15 @@ const SVC_IMGS=[
   [/eliminacij\w* celulit|anticelulit paket/,"paket-eliminacije-celulita"],  // tri slike: maderoterapija, brazilsko podizanje, vakum sonda
   [/14 ?u ?1/,"hidra-facial-14-u-1"],
   [/h[iy]dra ?f[ae]cial/,"hidra-facial-7-u-1"],     // plakat „Hydrafacial Oxy" (7u1); ne hvata „hidratacija"
-  [/darsonval|vlasist/,""],                        // tretman kose: slika lica sa dermapenom ne odgovara
+  [/darsonval|vlasist/,"dermapen-darsonval-kose"],  // tretman kose, pre opšteg pravila za dermapen
   [/bubble/,"bubble-pen"],                          // i „Mikrodermoabrazija + bubble pen + mezoporacija"
-  [/vocn\w* kiselin/,"vocne-kiseline"],              // „Voćne kiseline Eberlin" i „Derma evolution - voćne kiseline"
+  [/vocn\w* kiselin/,"vocne-kiseline"],              // „Voćne kiseline Eberlin"
   [/kolagen niti.*vrat/,"kolagen-niti-lice-vrat"],
   [/kolagen niti.*celo lice/,"kolagen-niti-lice"],
   [/kolagen niti/,"kolagen-niti-noto"],             // „Kolagen niti + kolagen tračice + NO-TO maska"
   [/sminkanj/,"sminkanje"],
   [/fototerapij/,"fototerapija"],
-  [/bio sond/,"premium-tretman-lica"],              // sonda na licu, dok ne stigne posebna slika
+  [/myo ?lift|bio sond/,"myo-lift-bio-sonda"],       // „Myo lift - Bio sonda" (mikrostruja)
   [/derma ?pen/,"derma-pen"],
   [/oligopeptid|botox|botoks/,"botox-prah"],
   [/divine/,"divine-face"],
@@ -975,7 +975,8 @@ const SVC_IMGS=[
   [/termo/,"termo-cebe"],
   [/inari|fitnes masaz/,"inarie"],                 // „Inari anticelulit masaža", pre opšteg pravila za anticelulit
   [/sportsk/,"sportska-masaza"],
-  [/endosfer\w* (lica|podbrat)/,"endosfera-lica"],   // pre/posle profil lica i podbratka
+  [/endosfer\w* podbrat/,"endosfera-podbratka"],    // pre/posle profil podbratka
+  [/endosfer\w* lica/,"endosfera-lica"],             // pre/posle profil lica
   [/^(?!.*(lica|podbrat)).*endosfer/,"endosfera"],  // slika je tretman tela, ne ide uz endosferu lica i podbratka
   [/ice body/,"ice-body-sculpting"],
   [/rolosfer/,"rolosfera"],
