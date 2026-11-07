@@ -581,6 +581,7 @@ const ICON_ROLL=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" str
 const ICON_GIFT=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="8" width="17" height="4.5" rx="1"/><path d="M5 12.5v7.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7.5M12 8v13"/><path d="M12 8c-1.4-3.4-5.6-3.9-5.6-1.4C6.4 8 9.2 8 12 8zM12 8c1.4-3.4 5.6-3.9 5.6-1.4C17.6 8 14.8 8 12 8z"/></svg>`;
 
 /* ================= boot & data ================= */
+let shownView="";  /* ekran koji je render() poslednji nacrtao; mora pre boot()-a jer boot() odmah zove render() */
 (async function boot(){
   render();
   try{
@@ -821,11 +822,13 @@ async function cancelBooking(id){
 }
 
 /* ================= render ================= */
+/* na vrh stranice se ide samo pri prelasku na drugi ekran; kad se osvežava isti ekran (tab, Dodaj/Ukloni,
+   izbor kozmetičarke ili dana, podaci stigli sa servera) stranica ostaje gde je bila (shownView je pre boot()-a) */
 function render(){
   renderNav();renderCartbar();
   const app=$("#app");
   if(S.loadErr){app.innerHTML=`<div class="empty"><p style="font-weight:800">Server trenutno nije dostupan.</p><p class="note">Osvežite stranicu za koji trenutak.</p></div>`;return}
-  const v=S.view;
+  const v=S.view,y=window.scrollY,same=v===shownView;shownView=v;
   if(v==="auth")app.innerHTML=tplAuth();
   else if(v==="catalog")app.innerHTML=tplCatalog();
   else if(v==="booking"){app.innerHTML=tplBooking();renderSlots()}
@@ -833,7 +836,7 @@ function render(){
   else if(v==="my")app.innerHTML=tplMy();
   else if(v==="admin")app.innerHTML=tplAdmin();
   wire(app);
-  window.scrollTo({top:0});
+  window.scrollTo({top:same?y:0});
 }
 function renderNav(){
   const n=$("#nav");
@@ -849,7 +852,7 @@ function renderNav(){
   n.querySelectorAll("[data-nav]").forEach(el=>el.onclick=()=>{
     const t=el.dataset.nav;
     if(t==="logout")return logout();
-    S.view=t;if(t==="admin")loadAdm();render();
+    S.view=t;if(t==="admin")loadAdm();render();window.scrollTo({top:0});  /* dugmad u zaglavlju uvek vode na vrh */
   });
 }
 function renderCartbar(){
@@ -1084,6 +1087,19 @@ function catalogBody(){
           +(m.length?`<div class="rule"><h2>Masaže</h2></div><div class="svc-grid">${m.map(svcCard).join("")}</div>`:"");
   }
   return `<div class="svc-grid">${byCat(cats[0]).map(svcCard).join("")}</div>`;
+}
+/* posle klika na tab stranica se spušta do liste. Na računaru tabovi (jedan red) staju odmah ispod gornje trake,
+   sa prvim redom tretmana ispod njih; na telefonu su tabovi u više redova, pa ispod trake staje prvi tretman. */
+function toCatList(){
+  const tabs=$(".cat-tabs"),body=$("#cat-body"),first=body&&body.firstElementChild;if(!tabs||!first)return;
+  /* položaj u dokumentu preko offsetTop: getBoundingClientRect bi uračunao pomeraj animacije „rise" (10px) */
+  const docY=el=>{let y=0;for(let e=el;e;e=e.offsetParent)y+=e.offsetTop;return y};
+  const band=$(".band"),top=(band?band.getBoundingClientRect().bottom:0)+10;
+  const tt=docY(tabs),ft=docY(first);
+  const y=Math.max(0,Math.round((top+ft-tt<=innerHeight*.35?tt:ft)-top));
+  if(Math.abs(y-window.scrollY)<4)return;
+  const calm=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollTo({top:y,behavior:calm?"auto":"smooth"});
 }
 function tplCatalog(){
   const q=(S.q||"").trim();
@@ -1898,7 +1914,7 @@ function wire(root){
   root.querySelectorAll("[data-forgot]").forEach(b=>b.onclick=forgotModal);
   const tl2=root.querySelector("#t-login2");if(tl2)tl2.onclick=()=>{S.authTab="login";render()};
   const fr=root.querySelector("#f-reg");if(fr)fr.onsubmit=e=>{e.preventDefault();register(fr)};
-  root.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{S.cat=b.dataset.cat;S.q="";render()});
+  root.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{S.cat=b.dataset.cat;S.q="";render();toCatList()});
   const sq=root.querySelector("#svc-q");
   if(sq){ /* pretraga osvežava samo listu, bez render() da kursor i skrol ostanu na mestu */
     const refresh=()=>{const q=(S.q||"").trim();const body=$("#cat-body");if(body){body.innerHTML=catalogBody();wire(body)}
@@ -1925,10 +1941,8 @@ function wire(root){
     b.setAttribute("aria-expanded",String(o));b.textContent=o?"Prikaži manje":"Prikaži više";
   });
   root.querySelectorAll("[data-emp]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bEmp=b.dataset.emp;S.bSlot=null;render()});
-  /* promena meseca zadržava položaj stranice (render inače skroluje na vrh) */
-  const keepY=()=>{const y=window.scrollY;render();window.scrollTo({top:y})};
-  root.querySelectorAll("[data-date-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bOff=+b.dataset.dateOff;keepY()});
-  root.querySelectorAll("[data-date-sel]").forEach(s=>s.onchange=()=>{S.bOff=+s.value;keepY();const x=$("[data-date-sel]");if(x)x.focus({preventScroll:true})});
+  root.querySelectorAll("[data-date-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bOff=+b.dataset.dateOff;render()});
+  root.querySelectorAll("[data-date-sel]").forEach(s=>s.onchange=()=>{S.bOff=+s.value;render();const x=$("[data-date-sel]");if(x)x.focus({preventScroll:true})});
   root.querySelectorAll("[data-cal]").forEach(b=>b.onclick=()=>calModal(b.dataset.cal));
   root.querySelectorAll("[data-zoom]").forEach(b=>b.onclick=()=>photoModal(b.dataset.zoom));
   root.querySelectorAll("[data-date]").forEach(b=>b.onclick=()=>{if(b.disabled)return;S.bDate=b.dataset.date;S.bSlot=null;render()});
