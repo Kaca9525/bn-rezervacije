@@ -360,7 +360,7 @@ if (SITE_HOST) {
   console.log("Adresa sajta: " + SITE_URL + " (onrender.com adresa preusmerava na nju).");
   app.use((req, res, next) => {
     const host = String(req.headers.host || "").toLowerCase().split(":")[0];
-    if (host.endsWith(".onrender.com") && req.path !== "/zdravlje")
+    if (host.endsWith(".onrender.com") && host !== SITE_HOST && req.path !== "/zdravlje")  // bez petlje ako je SITE_URL i sam onrender adresa
       return res.redirect(req.method === "GET" || req.method === "HEAD" ? 301 : 308, "https://" + SITE_HOST + req.originalUrl);
     next();
   });
