@@ -46,6 +46,7 @@ npm start          # aplikacija radi na http://localhost:3000
 | `SMS_PROVIDER`  | ne       | `log` = probni režim (poruke samo u logu); inače se bira sam po ključu |
 | `PORT`          | ne       | Port servera (hosting ga obično sam zada) |
 | `DATA_DIR`      | ne       | Folder za bazu `salon.db` (korisno uz persistent disk) |
+| `SITE_URL`      | ne       | Sopstveni domen, npr. `https://beautyandnutrition.app`; stara onrender.com adresa tada preusmerava na njega (vidi „Sopstveni domen") |
 
 **Bez SMTP podešavanja aplikacija normalno radi** — samo se mejlovi ne šalju automatski;
 u Admin → Podsetnici i dalje imate gotove tekstove za ručno slanje.
@@ -111,9 +112,21 @@ radi normalno, samo se SMS ne šalje. Poruke idu bez kvačica (č→c), da bi st
 
 Ista aplikacija radi i na Railway, Fly.io, Hetzner/DigitalOcean VPS-u ili cPanel hostingu sa Node.js.
 
-## Sopstveni domen
-Na Renderu: Settings → Custom Domains → dodajte npr. `rezervacije.bg-beauty-and-nutrition.com`
-i upišite prikazani CNAME kod svog registra domena. HTTPS je automatski.
+## Sopstveni domen (beautyandnutrition.app, kupljen preko Hostinger-a)
+1. **Render:** servis → Settings → Custom Domains → **+ Add Custom Domain** → `beautyandnutrition.app` → Save.
+   Render sam dodaje i `www.beautyandnutrition.app` i preusmerava ga na glavnu adresu.
+2. **Hostinger:** hPanel → Domeni → `beautyandnutrition.app` → **DNS / Nameservers** → DNS zapisi:
+   - obrišite postojeće `A` i `AAAA` zapise za `@` i postojeći zapis za `www` (Hostinger ih postavlja sam)
+   - dodajte `A` zapis: Name `@`, Points to `216.24.57.1`
+   - dodajte `CNAME` zapis: Name `www`, Target `bn-rezervacije.onrender.com`
+   - ako postoje `CAA` zapisi, moraju da sadrže `letsencrypt.org` i `pki.goog` (ili ih obrišite)
+3. Na Renderu kliknite **Verify**. HTTPS sertifikat se izdaje automatski. Domeni `.app` rade samo preko
+   HTTPS-a, pa adresa proradi tek kad je sertifikat izdat (obično nekoliko minuta, zbog DNS-a ponekad i par sati).
+4. Kad `https://beautyandnutrition.app` otvori aplikaciju: Render → **Environment** → dodajte
+   `SITE_URL=https://beautyandnutrition.app` → Save. Od tada stara adresa `bn-rezervacije.onrender.com`
+   vodi na novu (i stari linkovi i QR kodovi), a link za novu lozinku u mejlu koristi novu adresu.
+
+Prijava važi posebno za svaku adresu, pa se na novoj adresi treba jednom ponovo prijaviti.
 
 ---
 
