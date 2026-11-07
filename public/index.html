@@ -1411,7 +1411,7 @@ function admRem(){
   <p class="sub">Termini za <b>sutra, ${esc(fmtD(tmr))}</b>. ${S.mailEnabled
     ?"Podsetnici se šalju automatski u toku dana; ovde možete poslati odmah ili ručno označiti."
     :"Automatsko slanje e-maila je isključeno (podesite SMTP) - kopirajte tekst i pošaljite sa adrese "+esc(rezEmail())+"."}
-    ${S.smsEnabled?"SMS podsetnici idu automatski 24h pre termina i ujutru na dan termina.":"SMS slanje još nije podešeno (Infobip ili Twilio nalog) - dok se ne podesi, SMS podsetnici se ne šalju."}</p>
+    ${S.smsEnabled?"SMS podsetnici idu automatski 24h pre termina i ujutru na dan termina.":"SMS slanje još nije podešeno (Android telefon sa aplikacijom SMSGate ili SMS servis) - dok se ne podesi, SMS podsetnici se ne šalju."}</p>
   ${list.length?list.map(b=>{
     const txt=`Poštovana/i ${b.userName},\n\npodsećamo Vas na zakazani termin u salonu Beauty & Nutrition:\n\n📅 ${fmtD(b.date)} u ${b.start}\n💆 ${b.services.map(s=>s.name).join(", ")}\n👩 Kozmetičarka: ${b.employeeName}\n⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice||0,b.totalPriceEur||0)}\n📍 Živojina Žujovića 25, Beograd (Zvezdara)\n\nAko ste sprečeni, javite nam na ${rezEmail()} ili +381 64 93 55 003.\n\nSrdačno,\nBeauty & Nutrition`;
     return `<div class="card rem-card" style="margin-bottom:12px">

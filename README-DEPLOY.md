@@ -39,6 +39,7 @@ npm start          # aplikacija radi na http://localhost:3000
 | `SMTP_USER`     | za mejl  | Gmail adresa sa koje se šalju potvrde/podsetnici, npr. `andrijanaobradovic5@gmail.com` |
 | `SMTP_PASS`     | za mejl  | Gmail **App Password** (uputstvo ispod) |
 | `REMINDER_HOUR` | ne       | Sat kada se šalju podsetnici za sutra (podrazumevano `18`) |
+| `SMSGATE_USER`, `SMSGATE_PASS` | za SMS | SMS sa Android telefona salona (aplikacija SMSGate) - vidi „SMS podsetnici" |
 | `INFOBIP_API_KEY`, `INFOBIP_BASE_URL` | za SMS | Infobip nalog (API ključ i Base URL) - vidi „SMS podsetnici" |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | za SMS | Umesto Infobip-a može Twilio; opciono i `TWILIO_MESSAGING_SERVICE_SID` |
 | `SMS_FROM`      | ne       | Ime pošiljaoca SMS-a (podrazumevano `BNSalon`, do 11 znakova) |
@@ -79,13 +80,26 @@ Ako je termin zakazan manje od 24h unapred, šalje se samo podsetnik na dan term
 istog dana, SMS se ne šalje (klijent je upravo dobio potvrdu). Posle 21h se SMS ne šalje.
 Status svakog SMS-a vidi se u Admin → Podsetnici.
 
-Podešavanje (Infobip, dobar izbor za Srbiju):
+**Varijanta 1: Android telefon salona (bez troška po poruci).** Besplatna aplikacija
+[SMSGate](https://sms-gate.app/) šalje SMS-ove sa SIM kartice u telefonu, pa se plaća samo tarifa
+(najbolje sa neograničenim SMS-ovima). Poruka stiže sa broja te kartice, a ne sa imena „BNSalon".
+1. Na Android telefon sa SIM karticom instalirajte **SMS Gateway for Android (SMSGate)** sa sms-gate.app
+2. U aplikaciji uključite **Cloud server** i potvrdite registraciju; prepišite **Username** i **Password**
+   koje aplikacija prikaže
+3. Na Renderu dodajte `SMSGATE_USER` i `SMSGATE_PASS` sa tim vrednostima
+4. Na telefonu isključite štednju baterije za aplikaciju i držite ga na punjaču i internetu (Wi-Fi)
+
+Ako je telefon isključen, poruke čekaju i šalju se kad se uključi, ali samo dok ne prođe vreme termina
+(zastarele se ne šalju). Operateri ne vole automatsko slanje sa običnih kartica, pa je ovo dobro za
+manji broj poruka; za veći obim pređite na SMS servis (varijanta 2).
+
+**Varijanta 2: SMS servis** (Infobip, dobar izbor za Srbiju):
 1. Napravite nalog na **infobip.com** i dopunite kredit
 2. U nalogu prepišite **API key** i **Base URL** (izgleda kao `xxxxxx.api.infobip.com`)
 3. Na Renderu dodajte `INFOBIP_API_KEY` i `INFOBIP_BASE_URL=https://xxxxxx.api.infobip.com`
 4. Po želji zatražite od Infobip-a ime pošiljaoca (npr. `BNSalon`) i postavite `SMS_FROM`
 
-Twilio radi isto tako, sa `TWILIO_ACCOUNT_SID` i `TWILIO_AUTH_TOKEN`. Bez ovih ključeva aplikacija
+Twilio radi isto tako, sa `TWILIO_ACCOUNT_SID` i `TWILIO_AUTH_TOKEN`. Bez ovih podešavanja aplikacija
 radi normalno, samo se SMS ne šalje. Poruke idu bez kvačica (č→c), da bi stale u jedan SMS.
 
 ---
