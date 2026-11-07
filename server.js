@@ -268,6 +268,22 @@ const fmtD = s => { const d = parseD(s); return DOWS[d.getDay()] + ", " + d.getD
 const durTxt = m => m >= 60 ? (Math.floor(m / 60) + "h" + (m % 60 ? " " + (m % 60) + "min" : "")) : (m + " min");
 const RSD = n => new Intl.NumberFormat("sr-RS").format(n) + " RSD";
 const money = (r, e) => [e ? new Intl.NumberFormat("sr-RS").format(e) + " €" : null, r ? RSD(r) : null].filter(Boolean).join(" + ") || RSD(0);
+/* avans 30% je obavezan za sve usluge, tretmane i edukacije - uplata na tekući račun (podaci idu i u aplikaciju, /api/public) */
+const AVANS = { pct: 30, racun: "160-6000001958308-27", primalac: "Andrijana Obradović", svrha: "Avans" };
+const avansAmt = (r, e) => ({ r: Math.round((+r || 0) * AVANS.pct / 100), e: Math.round((+e || 0) * AVANS.pct) / 100 });
+/* blok za mejl potvrde; bez iznosa ako cena nije poznata */
+function avansText(r, e) {
+  const a = avansAmt(r, e), has = !!(a.r || a.e), amt = has ? money(a.r, a.e) : AVANS.pct + "% cene usluge";
+  return `💳 Obavezan avans ${AVANS.pct}%: ${amt}
+
+Avans je obavezan za sve usluge i tretmane. Podaci za uplatu:
+Primalac: ${AVANS.primalac}
+Tekući račun: ${AVANS.racun}
+Svrha uplate: ${AVANS.svrha}
+Iznos: ${amt}
+
+Preostali iznos plaća se u salonu.`;
+}
 const validDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
 const validTime = s => /^\d{2}:\d{2}$/.test(s);
 
@@ -358,6 +374,7 @@ app.get("/api/public", (req, res) => {
     salon: (({ rezEmail, phone, address }) => ({ rezEmail, phone, address }))(getSetting("salon") || {}),
     mailEnabled: !!mailer,
     smsEnabled: smsOn,
+    avans: AVANS,
   });
 });
 /* radno vreme salona i svake zaposlene za dan (za prikaz slobodnih termina) */
@@ -532,6 +549,8 @@ ${empLine(b)}
 ⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
 📍 Živojina Žujovića 25, Beograd (Zvezdara)
 
+${avansText(b.totalPrice, b.totalPriceEur || 0)}
+
 Podsetnik vam stiže dan pre termina (e-mailom i SMS-om). Za izmene nam pišite na ${rezEmail()} ili pozovite +381 64 93 55 003.
 
 Srdačno,
@@ -544,7 +563,8 @@ Termin: ${fmtD(b.date)} u ${b.start}–${b.end}
 ${empLine(b).replace(/^\S+ /, "")}
 Usluge:
 ${list}
-Ukupno: ${money(b.totalPrice, b.totalPriceEur || 0)} · ${durTxt(b.totalDuration)}`);
+Ukupno: ${money(b.totalPrice, b.totalPriceEur || 0)} · ${durTxt(b.totalDuration)}
+Avans (${AVANS.pct}%): ${(a => money(a.r, a.e))(avansAmt(b.totalPrice, b.totalPriceEur || 0))}`);
 
   res.json({ booking: { ...b, reminderSent: false } });
 });
@@ -768,6 +788,11 @@ function checkClient(body) {
   if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return { error: "E-mail adresa klijenta nije ispravna." };
   return { name, tel, mail };
 }
+/* avans u potvrdi ručno unetog termina: od ukupne cene svih termina; izostaje kad je cena 0 (npr. termin iz već plaćenog paketa) */
+const manualAvans = list => {
+  const r = list.reduce((a, b) => a + (b.totalPrice || 0), 0), e = list.reduce((a, b) => a + (b.totalPriceEur || 0), 0);
+  return r || e ? "\n" + avansText(r, e) + "\n" : "";
+};
 const visitLines = list => list.map(b => `📅 ${fmtD(b.date)} u ${b.start}\n💆 ${b.services.map(x => x.name).join(" + ")}\n${empLine(b, true)}`).join("\n\n");
 app.post("/api/admin/manual", auth, staff, (req, res) => {
   const body = req.body || {};
@@ -804,7 +829,7 @@ ${list.length > 1 ? "vaši termini" : "vaš termin"} u salonu Beauty & Nutrition
 
 ${visitLines(list)}
 📍 Živojina Žujovića 25, Beograd (Zvezdara)
-
+${manualAvans(list)}
 Podsetnik vam stiže dan pre termina. Za izmene: ${rezEmail()} ili +381 64 93 55 003.
 
 Beauty & Nutrition`);
