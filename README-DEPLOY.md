@@ -120,8 +120,14 @@ i upišite prikazani CNAME kod svog registra domena. HTTPS je automatski.
 ## Prvi koraci posle postavljanja
 
 1. Otvorite aplikaciju → **Registracija** sa adresom `kaca9525@gmail.com` → taj nalog je automatski **Admin**
-2. Admin → **Radno vreme**: proverite/izmenite (postavljeno: pon–pet 09–21, sub 10–15, nedelja neradna),
-   a u delu **Radno vreme zaposlenih** upišite kada koja zaposlena radi (nedeljni raspored + izuzeci po datumu)
+2. Admin → **Radno vreme**: proverite/izmenite (postavljeno: pon–pet 09–21, sub 10–15, nedelja neradna)
+   - Admin → **Smene**: nedeljna tabela zaposlene × dani. Klik na polje upisuje smenu samo za taj dan ili
+     za taj dan svake nedelje („ne radi" za slobodan dan); klik na ime otvara stalni raspored, a
+     „Kopiraj prethodnu nedelju" prepisuje smene upisane po danima. Klijenti online vide samo termine u
+     smeni. Dok nije uključeno „Bez upisane smene zaposlena ne radi", zaposlena bez smene radi koliko i salon
+   - Admin → **Klijenti**: adresar (ime, telefon, e-mail, napomena, broj dolazaka). Puni se sam iz online
+     rezervacija i ručnog unosa; postojeće klijente uvezite iz Excela (nalepite kolone, `.xlsx` ili CSV) ili
+     iz kontakata telefona (`.vcf`), uz pregled pre uvoza. U ručnom unosu termina klijent se predlaže dok kucate
 3. Admin → **Usluge**: cene, trajanja i aktivnost menjate u par klikova; oznaka **„na aparatu"** šalje
    tretman u kolonu **Aparat** (npr. presoterapija, EMS, termo ćebe), pa ne zauzima zaposlene, a isti
    aparat ne može da primi dva klijenta u isto vreme
