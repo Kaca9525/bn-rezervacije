@@ -372,7 +372,7 @@ function dayHours(dateStr) {
   return { open: toMin(h.open), close: toMin(h.close) };
 }
 function busyFor(dateStr, employee, exceptId) {
-  return db.prepare("SELECT start,end FROM bookings WHERE date=? AND employee=? AND status='zakazano' AND id<>?")
+  return db.prepare("SELECT start,end FROM bookings WHERE date=? AND employee=? AND status IN ('zakazano','ceka') AND id<>?")
     .all(dateStr, employee, exceptId || "").map(b => [toMin(b.start), toMin(b.end)]);
 }
 /* radno vreme zaposlene za datum: izmena za taj datum, pa stalni raspored, pa radno vreme salona;
@@ -463,7 +463,7 @@ app.get("/api/work", (req, res) => {
 app.get("/api/day", (req, res) => {
   const { date } = req.query;
   if (!validDate(date)) return res.status(400).json({ error: "Neispravan datum." });
-  res.json(db.prepare("SELECT employee,start,end FROM bookings WHERE date=? AND status='zakazano'").all(date));
+  res.json(db.prepare("SELECT employee,start,end FROM bookings WHERE date=? AND status IN ('zakazano','ceka')").all(date));
 });
 
 /* ---- nalozi ---- */
@@ -616,16 +616,19 @@ app.post("/api/bookings", auth, (req, res) => {
     services: services.map(s => ({ id: s.id, name: s.name, price: s.price, duration: s.duration, cat: s.cat, cur: s.cur || null, ...(s.pkg ? { pkg: s.pkg } : {}) })),
     employee: chosen.id, employeeName: chosen.name,
     date, start: toHM(t), end: toHM(t + dur),
-    totalPrice: priceR, totalPriceEur: priceE, totalDuration: dur, status: "zakazano", reminderSent: 0,
+    totalPrice: priceR, totalPriceEur: priceE, totalDuration: dur, status: "ceka", reminderSent: 0,
     created: new Date().toISOString(), source: "online", note: null,
   };
   insBooking(b);
 
+  /* online rezervacija je zahtev: termin je rezervisan (blokira slot) dok ga salon ne potvrdi ili odbije u adminu;
+     podaci za uplatu avansa i podsetnici idu tek posle potvrde */
   const list = b.services.map(s => "• " + svcLine(s)).join("\n");
-  sendMail(b.userEmail, "Potvrda rezervacije - Beauty & Nutrition",
+  const av = (a => money(a.r, a.e))(avansAmt(b.totalPrice, b.totalPriceEur || 0));
+  sendMail(b.userEmail, "Zahtev za termin je primljen - Beauty & Nutrition",
 `Poštovana/i ${b.userName},
 
-vaša rezervacija je primljena:
+vaš zahtev za termin je primljen i čeka potvrdu salona:
 
 📅 ${fmtD(b.date)} u ${b.start}
 ${list}
@@ -633,14 +636,14 @@ ${empLine(b)}
 ⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
 📍 Živojina Žujovića 25, Beograd (Zvezdara)
 
-${avansText(b.totalPrice, b.totalPriceEur || 0)}
+Termin je rezervisan za vas dok ga salon ne potvrdi ili odbije - obaveštenje stiže na ovaj e-mail, obično u toku dana. Uz potvrdu stižu i podaci za uplatu obaveznog avansa ${AVANS.pct}%: ${av}. Do potvrde se podsetnici ne šalju.
 
-Podsetnik vam stiže dan pre termina (e-mailom i SMS-om). Za izmene nam pišite na ${rezEmail()} ili pozovite +381 64 93 55 003.
+Za pitanja nam pišite na ${rezEmail()} ili pozovite +381 64 93 55 003.
 
 Srdačno,
 Beauty & Nutrition`);
-  sendMail(rezEmail(), `Nova rezervacija: ${b.date} u ${b.start} - ${b.userName}`,
-`Nova rezervacija u aplikaciji:
+  sendMail(rezEmail(), `Novi zahtev za termin: ${b.date} u ${b.start} - ${b.userName}`,
+`Novi zahtev za termin u aplikaciji - potvrdite ili odbijte u Admin → Rezervacije${SITE_URL ? " (" + SITE_URL + ")" : ""}:
 
 Klijent: ${b.userName} (${b.userEmail}${b.userTel ? ", " + b.userTel : ""})
 Termin: ${fmtD(b.date)} u ${b.start}–${b.end}
@@ -648,7 +651,9 @@ ${empLine(b).replace(/^\S+ /, "")}
 Usluge:
 ${list}
 Ukupno: ${money(b.totalPrice, b.totalPriceEur || 0)} · ${durTxt(b.totalDuration)}
-Avans (${AVANS.pct}%): ${(a => money(a.r, a.e))(avansAmt(b.totalPrice, b.totalPriceEur || 0))}`);
+Avans (${AVANS.pct}%): ${av}
+
+Dok se zahtev ne potvrdi ili odbije, termin je zauzet u kalendaru. Klijent dobija e-mail sa odlukom (uz potvrdu i podatke za uplatu avansa).`);
 
   res.json({ booking: { ...b, reminderSent: false } });
 });
@@ -658,15 +663,21 @@ app.post("/api/bookings/:id/cancel", auth, (req, res) => {
   if (!b) return res.status(404).json({ error: "Rezervacija nije pronađena." });
   const isStaffUser = req.user.admin || req.user.staff;
   if (b.userEmail !== req.user.email && !isStaffUser) return res.status(403).json({ error: "Nije dozvoljeno." });
+  if (b.status !== "zakazano" && b.status !== "ceka") return res.json({ ok: true });  /* već otkazano ili odbijeno */
   db.prepare("UPDATE bookings SET status='otkazano' WHERE id=?").run(b.id);
-  if (b.status === "zakazano") {
+  const bySalon = isStaffUser && b.userEmail !== req.user.email;
+  if (b.status === "ceka") {
+    /* zahtev koji još nije potvrđen: klijent ga povlači (ili ga salon otkazuje umesto da ga odbije) */
+    sendMail(rezEmail(), `Povučen zahtev za termin: ${b.date} u ${b.start} - ${b.userName}`,
+      `Zahtev za termin je ${bySalon ? "otkazao salon" : "povukao klijent"}:\n\n${b.userName} · ${fmtD(b.date)} u ${b.start} · ${b.services.map(svcLine).join(", ")}`);
+  } else {
     sendMail(rezEmail(), `Otkazana rezervacija: ${b.date} u ${b.start} - ${b.userName}`,
-      `Rezervacija je otkazana (${isStaffUser && b.userEmail !== req.user.email ? "od strane salona" : "od strane klijenta"}):\n\n` +
+      `Rezervacija je otkazana (${bySalon ? "od strane salona" : "od strane klijenta"}):\n\n` +
       `${b.userName} · ${fmtD(b.date)} u ${b.start} · ${b.services.map(svcLine).join(", ")}`);
-    if (isStaffUser && b.userEmail !== req.user.email)
-      sendMail(b.userEmail, "Otkazan termin - Beauty & Nutrition",
-        `Poštovana/i ${b.userName},\n\nnažalost, termin ${fmtD(b.date)} u ${b.start} je otkazan. Molimo vas da zakažete novi termin u aplikaciji ili nas pozovete na +381 64 93 55 003.\n\nBeauty & Nutrition`);
   }
+  if (bySalon)
+    sendMail(b.userEmail, "Otkazan termin - Beauty & Nutrition",
+      `Poštovana/i ${b.userName},\n\nnažalost, termin ${fmtD(b.date)} u ${b.start} je otkazan. Molimo vas da zakažete novi termin u aplikaciji ili nas pozovete na +381 64 93 55 003.\n\nBeauty & Nutrition`);
   res.json({ ok: true });
 });
 
@@ -836,7 +847,7 @@ function manualServices(items) {
 function clientSvcCount(date, empId, tel, mail, exceptId) {
   const t = normTel(tel), m = String(mail || "").toLowerCase();
   if (!t && !m) return 0;
-  return db.prepare("SELECT * FROM bookings WHERE date=? AND employee=? AND status='zakazano' AND id<>?").all(date, empId, exceptId || "")
+  return db.prepare("SELECT * FROM bookings WHERE date=? AND employee=? AND status IN ('zakazano','ceka') AND id<>?").all(date, empId, exceptId || "")
     .map(bkRow).filter(b => (t && normTel(b.userTel) === t) || (m && String(b.userEmail || "").toLowerCase() === m))
     .reduce((a, b) => a + b.services.length, 0);
 }
@@ -844,7 +855,7 @@ function clientSvcCount(date, empId, tel, mail, exceptId) {
 function clientClash(date, t, dur, tel, mail, exceptId) {
   const tn = normTel(tel), m = String(mail || "").toLowerCase();
   if (!tn && !m) return null;
-  return db.prepare("SELECT * FROM bookings WHERE date=? AND status='zakazano' AND id<>?").all(date, exceptId || "")
+  return db.prepare("SELECT * FROM bookings WHERE date=? AND status IN ('zakazano','ceka') AND id<>?").all(date, exceptId || "")
     .find(b => ((tn && normTel(b.userTel) === tn) || (m && String(b.userEmail || "").toLowerCase() === m))
       && !(t + dur <= toMin(b.start) || t >= toMin(b.end))) || null;
 }
@@ -966,6 +977,52 @@ app.post("/api/admin/booking-del/:id", auth, staff, (req, res) => {
   if ((b.source || "online") !== "manual") return res.status(400).json({ error: "Online rezervacija se otkazuje, ne briše." });
   db.prepare("DELETE FROM bookings WHERE id=?").run(b.id);
   res.json({ ok: true });
+});
+
+/* ---- potvrda zahteva: online rezervacija čeka ("ceka") dok je salon ne potvrdi ili odbije ---- */
+const pendingBk = (req, res) => {
+  const b = bkRow(db.prepare("SELECT * FROM bookings WHERE id=?").get(req.params.id));
+  if (!b) { res.status(404).json({ error: "Zahtev nije pronađen." }); return null; }
+  if (b.status !== "ceka") { res.status(400).json({ error: "Ovaj zahtev više nije na čekanju (osvežite listu)." }); return null; }
+  return b;
+};
+app.post("/api/admin/booking/:id/accept", auth, staff, (req, res) => {
+  const b = pendingBk(req, res); if (!b) return;
+  db.prepare("UPDATE bookings SET status='zakazano' WHERE id=?").run(b.id);
+  const list = b.services.map(s => "• " + svcLine(s)).join("\n");
+  sendMail(b.userEmail, "Termin je potvrđen - Beauty & Nutrition",
+`Poštovana/i ${b.userName},
+
+vaš termin je potvrđen:
+
+📅 ${fmtD(b.date)} u ${b.start}
+${list}
+${empLine(b)}
+⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
+📍 Živojina Žujovića 25, Beograd (Zvezdara)
+
+${avansText(b.totalPrice, b.totalPriceEur || 0)}
+
+Podsetnik vam stiže dan pre termina (e-mailom i SMS-om). Za izmene nam pišite na ${rezEmail()} ili pozovite +381 64 93 55 003.
+
+Srdačno,
+Beauty & Nutrition`);
+  res.json({ booking: bkRow(db.prepare("SELECT * FROM bookings WHERE id=?").get(b.id)) });
+});
+app.post("/api/admin/booking/:id/reject", auth, staff, (req, res) => {
+  const b = pendingBk(req, res); if (!b) return;
+  const reason = String((req.body || {}).reason || "").trim().slice(0, 300);
+  db.prepare("UPDATE bookings SET status='odbijeno', note=? WHERE id=?").run(reason ? "Odbijeno: " + reason : b.note || null, b.id);
+  sendMail(b.userEmail, "Termin nije moguć - Beauty & Nutrition",
+`Poštovana/i ${b.userName},
+
+nažalost, zahtev za termin ${fmtD(b.date)} u ${b.start} (${b.services.map(svcLine).join(", ")}) ne možemo da potvrdimo.${reason ? "\nRazlog: " + reason : ""}
+
+Molimo vas da izaberete drugi termin u aplikaciji ili nas pozovete na +381 64 93 55 003 - rado ćemo pronaći termin koji vam odgovara.
+
+Srdačno,
+Beauty & Nutrition`);
+  res.json({ booking: bkRow(db.prepare("SELECT * FROM bookings WHERE id=?").get(b.id)) });
 });
 
 /* ---- radno vreme zaposlenih ---- */
