@@ -11,6 +11,7 @@ const fs = require("fs");
 const path = require("path");
 
 const PORT = process.env.PORT || 3000;
+const compression = require("compression");
 const SECRET = process.env.SECRET || "promeni-ovaj-secret-u-produkciji";
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "kaca9525@gmail.com")
   .split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -416,7 +417,13 @@ if (SITE_HOST) {
 }
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(compression());  // gzip: strana, cenovnik (/api/public) i ostali odgovori idu do 4x manji
+/* keširanje: slike, ikone i fontovi 1 dan (posle toga pregledač proverava da li su promenjeni);
+   HTML, JS i JSON se proveravaju pri svakom otvaranju, pa se nova verzija sajta vidi odmah posle postavljanja */
+app.use(express.static(path.join(__dirname, "public"), {
+  maxAge: "1d",
+  setHeaders: (res, file) => { if (/\.(html|js|json|webmanifest)$/i.test(file)) res.setHeader("Cache-Control", "no-cache"); },
+}));
 
 function me(req) {
   const email = verify(req.cookies.bn);
