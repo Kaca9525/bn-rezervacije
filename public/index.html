@@ -298,6 +298,11 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .spam-box{margin-top:14px;padding:14px 16px;border-radius:14px;border:1px solid var(--gold);background:var(--gold-soft);color:var(--ink);font-size:13.5px;line-height:1.5;text-align:left}
 .spam-box b{color:var(--ink)}
 .wait-box{margin-top:14px;padding:14px 16px;border-radius:14px;border:1px solid #E4C27A;background:#FBF3E2;color:var(--ink);font-size:13.5px;line-height:1.5;text-align:left}
+.notice-pop .notice-txt p{margin:0 0 11px;font-size:14px;line-height:1.55;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+.notice-pop .notice-txt b{color:var(--ink)}
+.notice-pop .notice-ok{margin-top:16px!important;padding-top:12px;border-top:1px solid var(--line)}
+.notice-pop .notice-btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.notice-pop .notice-btns .btn{flex:1 1 150px}
 .done-pop{text-align:center}
 .done-pop h3{margin:0 0 6px}
 .done-pop .note{margin:0 0 4px;font-size:14px}
@@ -831,6 +836,24 @@ async function confirmBooking(){
   const {dur}=cartTotals();
   if(!S.cart.length||!S.bDate||S.bSlot==null)return;
   if(!telOk(S.me.telefon))return phoneModal(confirmBooking);
+  noticeModal(sendBooking);
+}
+/* Važno obaveštenje: prikazuje se pre slanja zahteva za termin; tek „Prihvatam i šaljem zahtev" šalje zahtev (i automatski mejl) */
+function noticeModal(then){
+  showModal(`<h3>Važno obaveštenje</h3>
+  <div class="notice-txt">
+    <p><b>Plaćanje i zaključenje ugovora na daljinu:</b> Cene su izražene u RSD, bez PDV-a. Za potvrdu rezervacije potrebno je unapred uplatiti 30% cene Usluge. Potvrdom saglasnosti sa Uslovima korišćenja i izvršenjem uplate, Korisnik potvrđuje da prihvata navedene uslove i zaključuje ugovor na daljinu za odabranu uslugu.</p>
+    <p><b>Otkazivanje i pomeranje termina:</b> Ukoliko niste u mogućnosti da dođete na zakazani termin, ljubazno vas molimo da nas obavestite i termin otkažete ili pomerite <b>najkasnije 24 sata unapred</b>, telefonom ili putem sistema za zakazivanje. Razumemo da planovi ponekad mogu da se promene, ali nam blagovremeno obaveštenje omogućava da termin ponudimo drugom klijentu.</p>
+    <p>U slučaju otkazivanja u kraćem roku ili nedolaska bez prethodnog obaveštenja, Centar zadržava pravo da naplati 30% cene Usluge, smatra termin iskorišćenim u okviru paketa, ili zatraži celokupnu uplatu unapred za buduće rezervacije u skladu sa Uslovima korišćenja.</p>
+    <p>Hvala vam na razumevanju i uvažavanju našeg vremena i vremena drugih klijenata.</p>
+    <p><b>Odustanak i povraćaj sredstava:</b> Pravo na odustanak i povraćaj zavisi od vrste usluge i važećih propisa. Kada postoji pravo na povraćaj, sredstva se vraćaju istim sredstvom plaćanja, najkasnije u roku od 14 dana, u skladu sa zakonom i Uslovima korišćenja.</p>
+    <p class="notice-ok">Klikom na <b>Prihvatam i šaljem zahtev</b> prihvatate <b>Uslove korišćenja, uključujući uslove plaćanja, zaključenja ugovora na daljinu, otkazivanja, odustanka i povraćaja sredstava</b>. Termin potvrđuje salon; podaci za uplatu avansa stižu uz potvrdu.</p>
+  </div>
+  <div class="notice-btns"><button class="btn btn-gold" id="nt-ok">Prihvatam i šaljem zahtev</button><button class="btn btn-ghost" id="m-close">Odustani</button></div>`,"notice-pop");
+  $("#nt-ok").onclick=()=>{closeModal();then()};
+}
+async function sendBooking(){
+  if(!S.cart.length||!S.bDate||S.bSlot==null)return;
   const btn=$("#bk-confirm");if(btn)btn.disabled=true;
   try{
     const r=await apiPost("/api/bookings",{services:S.cart.map(s=>s.pkg?{id:s.id,pkg:s.pkg}:s.id),employee:S.bEmp,date:S.bDate,start:toHM(S.bSlot)});
@@ -838,7 +861,7 @@ async function confirmBooking(){
     S.lastBooking=r.booking;S.view="done";render();loadMy();doneModal(r.booking);
   }catch(e){
     if(btn)btn.disabled=false;
-    if(e.data&&e.data.code==="phone")return phoneModal(confirmBooking);
+    if(e.data&&e.data.code==="phone")return phoneModal(sendBooking);
     toast(e.message);
     if(/zauzet|ne radi/i.test(e.message)){S.bSlot=null;renderSlots()}
   }
