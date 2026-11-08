@@ -120,6 +120,9 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .pill-cat{background:var(--gold-soft);color:var(--gold-strong)}
 .pill-ok{background:var(--ok-bg);color:var(--ok)}
 .pill-off{background:var(--danger-bg);color:var(--danger)}
+.pill-wait{background:#FBEDD0;color:#8A5A06}
+.tab-badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:999px;background:var(--danger);color:#FFF;font-size:10.5px;letter-spacing:0;vertical-align:middle}
+.bk.wait{border-color:#E4C27A;box-shadow:0 0 0 1px #E4C27A inset,var(--shadow)}
 
 /* ---------- auth ---------- */
 .auth-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:36px;align-items:start;padding-top:18px}
@@ -294,6 +297,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .ok-ico{width:60px;height:60px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold2),var(--gold));color:var(--on-gold);box-shadow:0 6px 18px rgba(176,137,64,.28)}
 .spam-box{margin-top:14px;padding:14px 16px;border-radius:14px;border:1px solid var(--gold);background:var(--gold-soft);color:var(--ink);font-size:13.5px;line-height:1.5;text-align:left}
 .spam-box b{color:var(--ink)}
+.wait-box{margin-top:14px;padding:14px 16px;border-radius:14px;border:1px solid #E4C27A;background:#FBF3E2;color:var(--ink);font-size:13.5px;line-height:1.5;text-align:left}
 .done-pop{text-align:center}
 .done-pop h3{margin:0 0 6px}
 .done-pop .note{margin:0 0 4px;font-size:14px}
@@ -435,6 +439,8 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .cal-bk{position:absolute;left:2px;right:2px;border-radius:6px;color:#FFFDF6;padding:2px 5px;font-size:10px;line-height:1.25;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 .cal-bk.man{cursor:pointer}
 .cal-bk.man:hover{filter:brightness(1.08);box-shadow:0 0 0 2px var(--gold),0 2px 6px rgba(0,0,0,.2)}
+/* zahtev koji čeka potvrdu salona: isprugan i bleđi, dok se ne potvrdi ili odbije */
+.cal-bk.wait{opacity:.78;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.22) 0 5px,transparent 5px 11px);outline:2px dashed rgba(255,253,246,.9);outline-offset:-2px}
 /* ---------- obavezna polja, zaboravljena lozinka ---------- */
 .req{color:var(--danger);font-weight:800}
 .field input.bad{border-color:var(--danger);box-shadow:0 0 0 3px var(--danger-bg)}
@@ -839,10 +845,34 @@ async function confirmBooking(){
 }
 async function cancelBooking(id){
   try{
+    const was=(S.myBookings||[]).concat(S.admBookings||[]).find(x=>x.id===id);
     await apiPost("/api/bookings/"+encodeURIComponent(id)+"/cancel");
-    toast("Rezervacija je otkazana.");
-    loadMy();if(isAdmin())loadAdm();
+    toast(was&&was.status==="ceka"?"Zahtev je otkazan.":"Rezervacija je otkazana.");
+    loadMy();if(isStaff()){S.calBk=null;loadAdm()}
   }catch(e){toast(e.message)}
+}
+/* salon odlučuje o online zahtevu: potvrda šalje klijentu mejl sa podacima za avans, odbijanje mejl sa (opcionim) razlogom */
+const putBk=nb=>{const i=(S.admBookings||[]).findIndex(x=>x.id===nb.id);if(i>=0)S.admBookings[i]=nb;S.calBk=null};
+async function acceptBooking(id,btn){
+  if(btn)btn.disabled=true;
+  try{const r=await apiPost("/api/admin/booking/"+encodeURIComponent(id)+"/accept");putBk(r.booking);toast("Termin je potvrđen - klijent je obavešten e-mailom.");render()}
+  catch(e){toast(e.message);if(btn)btn.disabled=false;loadAdm()}
+}
+function rejectModal(id){
+  const b=findBk(id);if(!b)return;
+  showModal(`<h3>Odbijanje zahteva</h3>
+    <p class="note" style="margin:0 0 12px"><b>${esc(b.userName)}</b> · ${esc(fmtD(b.date))} u ${esc(b.start)} · ${esc(b.services.map(svcLine).join(", "))}</p>
+    <div class="field"><label for="rj-reason">Poruka klijentu (opciono)</label><textarea id="rj-reason" rows="3" maxlength="300" placeholder="npr. Termin je u međuvremenu popunjen - predložite 16h ili sredu."></textarea></div>
+    <p class="note" style="margin:0 0 14px">Klijent dobija e-mail da termin nije moguć, sa ovom porukom ako je upišete, i poziv da izabere drugi termin. Termin se oslobađa u kalendaru.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-danger btn-sm" id="rj-go">Odbij i obavesti klijenta</button>
+      <button class="btn btn-ghost btn-sm" id="m-close">Odustani</button>
+    </div>`);
+  $("#rj-go").onclick=async()=>{
+    const g=$("#rj-go");g.disabled=true;
+    try{const r=await apiPost("/api/admin/booking/"+encodeURIComponent(id)+"/reject",{reason:$("#rj-reason").value.trim()});putBk(r.booking);closeModal();toast("Zahtev je odbijen - klijent je obavešten e-mailom.");render()}
+    catch(e){toast(e.message);g.disabled=false}
+  };
 }
 
 /* ================= render ================= */
@@ -1304,7 +1334,8 @@ function tplBooking(){
       <div class="tot"><span>Ukupna cena</span><span>${money(t.rsd,t.eur)}</span></div>
       ${avansMini(t.rsd,t.eur)}
       <div id="bk-pick" class="note" style="margin:8px 0 12px">${S.bDate&&S.bSlot!=null?esc(fmtD(S.bDate))+" u "+toHM(S.bSlot):"Termin još nije izabran."}</div>
-      <button class="btn btn-gold" id="bk-confirm" style="width:100%" ${S.me?(S.bDate&&S.bSlot!=null?"":"disabled"):"disabled"}>Potvrdi rezervaciju</button>
+      <button class="btn btn-gold" id="bk-confirm" style="width:100%" ${S.me?(S.bDate&&S.bSlot!=null?"":"disabled"):"disabled"}>Pošalji zahtev za termin</button>
+      ${S.me?`<p class="note" style="margin-top:10px">Termin potvrđuje salon; obaveštenje i podaci za uplatu avansa stižu na e-mail.</p>`:""}
       ${S.me?"":`<p class="note" style="margin-top:10px">Za potvrdu je potrebna <button class="more" id="go-auth" style="padding:0">prijava</button>.</p>`}
       <button class="btn btn-ghost btn-sm" id="bk-back" style="width:100%;margin-top:10px">← Nazad na usluge</button>
     </div>
@@ -1335,7 +1366,7 @@ const avansAmt=(r,e)=>{const p=avansCfg().pct;return {r:Math.round((+r||0)*p/100
 /* kratka napomena u pregledu pre potvrde rezervacije */
 function avansMini(r,e){
   const a=avansAmt(r,e);if(!a.r&&!a.e)return "";
-  return `<div class="av-mini">Obavezan avans ${avansCfg().pct}%: <b>${money(a.r,a.e)}</b><br>Podatke za uplatu dobijate posle potvrde rezervacije.</div>`;
+  return `<div class="av-mini">Obavezan avans ${avansCfg().pct}%: <b>${money(a.r,a.e)}</b><br>Podatke za uplatu dobijate kad salon potvrdi termin.</div>`;
 }
 /* podaci za uplatu; edu = edukacije (iznos po dogovoru) */
 function avansBox(r,e,edu){
@@ -1355,42 +1386,53 @@ function avansModal(b){
     ${avansBox(b.totalPrice||0,b.totalPriceEur||0)}
     <button class="btn btn-gold" id="m-close" style="width:100%;margin-top:18px">Zatvori</button>`);
 }
-/* posle rezervacije: strana sa potvrdom i iskačući prozor „Vaš termin je zakazan"; mejl ume da završi u Spam/Junk folderu, pa to piše na oba mesta */
-const spamNote=b=>S.mailEnabled&&b.userEmail?`<div class="spam-box" role="note"><b>Proverite e-mail.</b> Potvrda je poslata na <b>${esc(b.userEmail)}</b>. Ako je ne vidite u prijemnom sandučetu, pogledajte folder <b>Spam</b> ili <b>Junk</b> (neželjena pošta), kao i karticu Promocije. Označite poruku sa „Nije spam" da vam podsetnici stižu redovno.</div>`:"";
+/* posle rezervacije: strana i iskačući prozor. Online rezervacija je zahtev (status „ceka"): salon je potvrđuje ili odbija u adminu,
+   pa klijent ovde vidi „Zahtev je poslat" bez podataka za uplatu - oni stižu e-mailom uz potvrdu. Mejl ume da završi u Spam/Junk folderu, pa to piše na oba mesta */
+const spamNote=(b,what)=>S.mailEnabled&&b.userEmail?`<div class="spam-box" role="note"><b>Proverite e-mail.</b> ${what||"Potvrda"} je poslata na <b>${esc(b.userEmail)}</b>. Ako je ne vidite u prijemnom sandučetu, pogledajte folder <b>Spam</b> ili <b>Junk</b> (neželjena pošta), kao i karticu Promocije. Označite poruku sa „Nije spam" da vam obaveštenja stižu redovno.</div>`:"";
+const isWait=b=>!!b&&b.status==="ceka";
+/* šta klijenta čeka dok salon ne odluči: potvrda i podaci za uplatu avansa stižu e-mailom */
+const waitNote=b=>{const a=avansAmt(b.totalPrice||0,b.totalPriceEur||0),has=!!(a.r||a.e);
+  return `<div class="wait-box" role="note"><b>Salon potvrđuje termin u najkraćem roku.</b> Termin je rezervisan za vas dok salon ne odluči; obaveštenje stiže na e-mail${has?`, a uz potvrdu i podaci za uplatu obaveznog avansa ${avansCfg().pct}%: <b>${money(a.r,a.e)}</b>`:""}. Do potvrde se podsetnici ne šalju.</div>`};
 function doneModal(b){
   if(!b)return;
+  const w=isWait(b);
   showModal(`<div class="done-pop">
     <div class="ok-ico">${ICON_OK}</div>
-    <h3>Vaš termin je zakazan!</h3>
+    <h3>${w?"Zahtev je poslat!":"Vaš termin je zakazan!"}</h3>
     <p class="note"><b>${esc(fmtD(b.date))} u ${esc(b.start)}</b>${b.employeeName?" · "+esc(b.employeeName):""}</p>
-    ${hasPrice(b)?avansBox(b.totalPrice||0,b.totalPriceEur||0):""}
-    ${spamNote(b)}
+    ${w?waitNote(b):hasPrice(b)?avansBox(b.totalPrice||0,b.totalPriceEur||0):""}
+    ${spamNote(b,w?"Potvrda prijema zahteva":"")}
     <button class="btn btn-gold" id="m-close" style="width:100%">U redu</button>
   </div>`,"done-modal");
 }
 function tplDone(){
   const b=S.lastBooking;if(!b)return tplCatalog();
+  const w=isWait(b);
   return `
   <div class="card" style="max-width:640px;margin:30px auto;text-align:center;padding:38px 28px">
     <div class="ok-ico">${ICON_OK}</div>
-    <div class="eyebrow" style="justify-content:center">Rezervacija potvrđena</div>
-    <h1 class="h-page" style="margin-top:12px">Vaš termin je zakazan</h1>
+    <div class="eyebrow" style="justify-content:center">${w?"Zahtev je poslat":"Rezervacija potvrđena"}</div>
+    <h1 class="h-page" style="margin-top:12px">${w?"Čeka se potvrda salona":"Vaš termin je zakazan"}</h1>
     <p class="sub" style="margin:10px auto 18px"><b>${esc(fmtD(b.date))} u ${esc(b.start)}</b> · ${esc(b.employeeName)} · ${esc(durTxt(b.totalDuration))} · ${money(b.totalPrice||0,b.totalPriceEur||0)}</p>
     <div class="ok-box" style="text-align:left">${b.services.map(s=>"• "+esc(svcLine(s))).join("<br>")}</div>
-    ${hasPrice(b)?avansBox(b.totalPrice||0,b.totalPriceEur||0):""}
-    ${spamNote(b)}
-    <p class="note" style="margin:16px 0 20px">${S.mailEnabled?"Podsetnik vam stiže dan pre termina na e-mail"+(S.smsEnabled?" i SMS-om.":"."):S.smsEnabled?"Podsetnik vam stiže SMS-om dan pre i na dan termina.":"Podsetnik vam stiže dan pre termina."} Za izmene pišite na <b>${esc(rezEmail())}</b> ili otkažite u „Moje rezervacije".</p>
+    ${w?waitNote(b):hasPrice(b)?avansBox(b.totalPrice||0,b.totalPriceEur||0):""}
+    ${spamNote(b,w?"Potvrda prijema zahteva":"")}
+    <p class="note" style="margin:16px 0 20px">${w?'Stanje zahteva možete pratiti u „Moje rezervacije", gde ga možete i otkazati.':(S.mailEnabled?"Podsetnik vam stiže dan pre termina na e-mail"+(S.smsEnabled?" i SMS-om.":"."):S.smsEnabled?"Podsetnik vam stiže SMS-om dan pre i na dan termina.":"Podsetnik vam stiže dan pre termina.")} Za izmene pišite na <b>${esc(rezEmail())}</b>${w?".":' ili otkažite u „Moje rezervacije".'}</p>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-gold" data-nav2="my">Moje rezervacije</button>
       <button class="btn btn-ghost" data-nav2="catalog">Nazad na usluge</button>
     </div>
   </div>`;
 }
+/* statusi: zakazano (potvrđeno), ceka (online zahtev čeka potvrdu salona), odbijeno (salon odbio), otkazano */
+const ST={zakazano:["Zakazano","pill-ok"],ceka:["Čeka potvrdu salona","pill-wait"],odbijeno:["Odbijeno","pill-off"],otkazano:["Otkazano","pill-off"]};
+const stPill=b=>{const x=ST[b.status]||[b.status,"pill-cat"];return `<span class="pill ${x[1]}">${esc(x[0])}</span>`};
 function bkCard(b,adminView){
   const d=parseD(b.date);const past=b.date<dstr(new Date());
-  const cancellable=b.status==="zakazano"&&!past;
+  const wait=b.status==="ceka";
+  const cancellable=(b.status==="zakazano"||wait)&&!past;
   const man=adminView&&b.source==="manual"&&b.status==="zakazano";
-  return `<div class="card bk">
+  return `<div class="card bk${wait?" wait":""}" data-bk="${esc(b.id)}">
     <div class="when"><div class="d">${d.getDate()}.</div><div class="m">${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}</div><div class="t">${esc(b.start)}-${esc(b.end)}</div></div>
     <div class="mid">
       <div class="who">${adminView?esc(b.userName):esc(b.employeeName)}</div>
@@ -1398,20 +1440,26 @@ function bkCard(b,adminView){
       <div class="list">${b.services.map(s=>esc(s.name)+(s.pkg?` · <b class="pk-tag">${esc(pkgName(s.pkg))}</b>`:"")).join(" + ")}</div>
       ${adminView&&b.note?`<div class="note">Napomena: ${esc(b.note)}</div>`:""}
       <div class="tags">
-        <span class="pill ${b.status==="zakazano"?"pill-ok":"pill-off"}">${b.status==="zakazano"?"Zakazano":"Otkazano"}</span>
+        ${stPill(b)}
         <span class="pill pill-cat">${esc(durTxt(b.totalDuration))}</span>
         ${adminView&&b.source==="manual"?`<span class="pill pill-cat">Ručni unos</span>`:""}
       </div>
+      ${!adminView&&wait&&!past?`<div class="note" style="margin-top:8px">Salon potvrđuje termin u najkraćem roku; obaveštenje i podaci za uplatu avansa stižu na e-mail.</div>`:""}
+      ${adminView&&wait?`<div class="note" style="margin-top:8px">Zahtev poslat ${esc(fmtWhen(b.created))}; termin je zauzet dok se ne odluči.</div>`:""}
     </div>
     <div class="side">
       <div class="price">${money(b.totalPrice||0,b.totalPriceEur||0)}</div>
+      ${adminView&&wait&&!past?`<button class="btn btn-gold btn-sm" data-accept="${esc(b.id)}">Potvrdi</button>
+      <button class="btn btn-danger btn-sm" data-reject="${esc(b.id)}">Odbij</button>`:""}
       ${man?`<button class="btn btn-ghost btn-sm" data-bkedit="${esc(b.id)}">Izmeni</button>
       <button class="btn btn-ghost btn-sm" data-bkdel="${esc(b.id)}" title="Briše pogrešno unet termin, bez obaveštenja klijentu">Obriši</button>`:""}
-      ${!adminView&&cancellable&&hasPrice(b)?`<button class="btn btn-ghost btn-sm" data-avans="${esc(b.id)}">Uplata avansa</button>`:""}
-      ${cancellable?`<button class="btn btn-danger btn-sm" data-cancel="${esc(b.id)}">Otkaži</button>`:""}
+      ${!adminView&&cancellable&&!wait&&hasPrice(b)?`<button class="btn btn-ghost btn-sm" data-avans="${esc(b.id)}">Uplata avansa</button>`:""}
+      ${cancellable&&!(adminView&&wait)?`<button class="btn btn-danger btn-sm" data-cancel="${esc(b.id)}">${wait?"Otkaži zahtev":"Otkaži"}</button>`:""}
     </div>
   </div>`;
 }
+/* „8. nov u 11:45" za vreme slanja zahteva */
+const fmtWhen=iso=>{const d=new Date(iso||"");if(isNaN(d))return"";return d.getDate()+". "+MONTHS[d.getMonth()].toLowerCase()+" u "+pad(d.getHours())+":"+pad(d.getMinutes())};
 function tplMy(){
   const up=S.myBookings.filter(b=>b.date>=dstr(new Date())).sort((a,b)=>(a.date+a.start)<(b.date+b.start)?-1:1);
   const past=S.myBookings.filter(b=>b.date<dstr(new Date())).sort((a,b)=>(a.date+a.start)>(b.date+b.start)?-1:1);
@@ -1430,11 +1478,11 @@ function tplMy(){
 function tplAdmin(){
   if(!isStaff())return`<div class="empty">Ova stranica je dostupna samo osoblju salona.</div>`;
   const t=S.admTab;
-  const tab=(id,l)=>`<button data-admtab="${id}" class="${t===id?"on":""}">${l}</button>`;
+  const tab=(id,l)=>`<button data-admtab="${id}" class="${t===id?"on":""}">${l}</button>`,nWait=(S.admBookings||[]).filter(b=>b.status==="ceka").length;
   return `
   <span class="eyebrow">Administracija salona</span>
   <h1 class="h-page">Admin panel</h1>
-  <div class="adm-tabs">${tab("rez","Rezervacije")}${tab("cal","Kalendar")}${tab("rem","Podsetnici")}${tab("vcr","Vaučeri")}${isAdmin()?tab("hrs","Radno vreme")+tab("svc","Usluge")+tab("emp","Zaposlene")+tab("akc","Akcije"):""}${isAdmin()?`<button class="btn btn-ghost btn-sm" data-backup title="Preuzmite sve podatke salona kao fajl">⤓ Rezervna kopija</button>`:""}<button class="btn btn-gold btn-sm" data-manual style="margin-left:auto">+ Ručni unos</button>
+  <div class="adm-tabs">${tab("rez","Rezervacije"+(nWait?`<span class="tab-badge" title="Zahtevi na čekanju">${nWait}</span>`:""))}${tab("cal","Kalendar")}${tab("rem","Podsetnici")}${tab("vcr","Vaučeri")}${isAdmin()?tab("hrs","Radno vreme")+tab("svc","Usluge")+tab("emp","Zaposlene")+tab("akc","Akcije"):""}${isAdmin()?`<button class="btn btn-ghost btn-sm" data-backup title="Preuzmite sve podatke salona kao fajl">⤓ Rezervna kopija</button>`:""}<button class="btn btn-gold btn-sm" data-manual style="margin-left:auto">+ Ručni unos</button>
     <button class="btn btn-ghost btn-sm" id="adm-refresh">Osveži</button></div>
   <div id="adm-body">${t==="cal"?admCal():t==="rem"?admRem():t==="vcr"?admVcr():(t==="hrs"&&isAdmin())?admHrs():(t==="svc"&&isAdmin())?admSvc():(t==="emp"&&isAdmin())?admEmp():(t==="akc"&&isAdmin())?admAkc():admRez()}</div>
   ${footer()}`;
@@ -1442,21 +1490,27 @@ function tplAdmin(){
 function admRez(){
   const f=S.admFilter||"__all";
   const act=S.admBookings.filter(b=>b.status==="zakazano"&&(f==="__all"||b.employee===f));
+  /* online zahtevi koji čekaju odluku salona - prvi na listi, sa dugmadima „Potvrdi" i „Odbij" */
+  const wait=S.admBookings.filter(b=>b.status==="ceka"&&(f==="__all"||b.employee===f)).sort((a,b)=>(a.date+a.start)<(b.date+b.start)?-1:1);
   const today=dstr(new Date());const tmr=dstr(new Date(Date.now()+864e5));
   const byDay={};act.forEach(b=>{(byDay[b.date]=byDay[b.date]||[]).push(b)});
   const days=Object.keys(byDay).sort();
   const rev=act.reduce((a,b)=>a+(+b.totalPrice||0),0),revE=act.reduce((a,b)=>a+(+b.totalPriceEur||0),0);
   return `
   <div class="statline">
+    <div class="stat"><b${wait.length?' style="color:var(--gold-strong)"':""}>${wait.length}</b><span>čeka potvrdu</span></div>
     <div class="stat"><b>${act.filter(b=>b.date===today).length}</b><span>danas</span></div>
     <div class="stat"><b>${act.filter(b=>b.date===tmr).length}</b><span>sutra</span></div>
-    <div class="stat"><b>${act.length}</b><span>ukupno predstojećih</span></div>
+    <div class="stat"><b>${act.length}</b><span>potvrđenih predstojećih</span></div>
     <div class="stat"><b style="font-size:19px">${money(rev,revE)}</b><span>u najavi</span></div>
   </div>
   <div class="choice-row" style="margin:0 0 18px"><button class="chip ${f==="__all"?"on":""}" data-admemp="__all">Sve zaposlene</button>${S.employees.map(e=>`<button class="chip ${f===e.id?"on":""}" data-admemp="${esc(e.id)}">${esc(e.name)}</button>`).join("")}</div>
+  ${wait.length?`<div class="rule"><h2>Zahtevi na čekanju (${wait.length})</h2></div>
+    <p class="note" style="margin:-6px 0 12px">Online rezervacija važi tek kad je potvrdite. Termin je zauzet u kalendaru dok se zahtev ne potvrdi ili odbije; klijent dobija e-mail sa odlukom (uz potvrdu i podatke za uplatu avansa).</p>
+    <div class="bk-list" id="adm-wait">${wait.map(b=>bkCard(b,true)).join("")}</div>`:""}
   ${days.length?days.map(d=>`<div class="rule"><h2>${esc(fmtD(d))}</h2></div>
     <div class="bk-list">${byDay[d].sort((a,b)=>a.start<b.start?-1:1).map(b=>bkCard(b,true)).join("")}</div>`).join("")
-   :`<div class="empty">Nema predstojećih rezervacija.</div>`}`;
+   :`<div class="empty">${wait.length?"Nema potvrđenih predstojećih rezervacija.":"Nema predstojećih rezervacija."}</div>`}`;
 }
 function admRem(){
   const tmr=dstr(new Date(Date.now()+864e5));
@@ -1672,7 +1726,7 @@ function admCal(){
   const wsD=S.calWS?parseD(S.calWS):weekStart(new Date());const ws=dstr(weekStart(wsD));S.calWS=ws;
   loadCal(ws);
   const have=S.calBk&&S.calBk.ws===ws;
-  const list=have?S.calBk.list.filter(b=>b.status==="zakazano"):[];
+  const list=have?S.calBk.list.filter(b=>b.status==="zakazano"||b.status==="ceka"):[];
   const d0=parseD(ws);const days=[];for(let i=0;i<7;i++)days.push(new Date(d0.getFullYear(),d0.getMonth(),d0.getDate()+i));
   const O=480,CL=1260,PXH=44;const H=(CL-O)/60*PXH;
   const shownY=S.calYear||days[3].getFullYear();
@@ -1685,7 +1739,7 @@ function admCal(){
       ${hrs.map(h=>`<div class="cal-hr" style="top:${(h*60-O)/60*PXH}px"></div>`).join("")}
       ${bks.map(b=>{const t=toMin(b.start);const hpx=Math.max(21,(b.totalDuration/60)*PXH-2);const L=ln[b.id]||{lane:0,lanes:1};
         const pos=L.lanes>1?`left:calc(${(L.lane*100/L.lanes).toFixed(3)}% + 1px);right:auto;width:calc(${(100/L.lanes).toFixed(3)}% - 2px);`:"";
-        return `<div class="cal-bk ${b.source==="manual"?"man":""}" data-calbk="${esc(b.id)}" style="${pos}top:${(t-O)/60*PXH}px;height:${hpx}px;background:${calColor(b.employee)}" title="${esc(b.start+"\u2013"+b.end+" \u00b7 "+b.userName+" \u00b7 "+b.services.map(svcLine).join(", ")+" ("+b.employeeName+")")}"><b>${esc(b.start)}</b> ${esc(b.userName)}<br>${esc(b.employeeName)}</div>`}).join("")}
+        return `<div class="cal-bk ${b.source==="manual"?"man":""}${b.status==="ceka"?" wait":""}" data-calbk="${esc(b.id)}" style="${pos}top:${(t-O)/60*PXH}px;height:${hpx}px;background:${calColor(b.employee)}" title="${esc(b.start+"\u2013"+b.end+" \u00b7 "+b.userName+" \u00b7 "+b.services.map(svcLine).join(", ")+" ("+b.employeeName+")"+(b.status==="ceka"?" · čeka potvrdu":""))}"><b>${esc(b.start)}</b> ${esc(b.userName)}<br>${esc(b.employeeName)}</div>`}).join("")}
       ${open?"":`<div style="position:absolute;inset:0;display:grid;place-items:center;font-size:11px;letter-spacing:.14em;color:var(--muted)">NERADNO</div>`}
     </div>`}).join("");
   const headRow=`<div></div>${days.map(d=>{const ds=dstr(d);return `<div class="cal-dayh ${ds===today?"today":""}">${DOWS_S[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}.</div>`}).join("")}`;
@@ -1700,7 +1754,7 @@ function admCal(){
     <button class="btn btn-ghost btn-sm" data-calnav="0">Danas</button>
     <button class="btn btn-ghost btn-sm" data-calnav="7">Sledeća \u203a</button>
     <span class="cal-title">${esc(lab)}</span>
-    <span class="cal-legend">${S.employees.map(e=>`<span><span class="cal-dot" style="background:${calColor(e.id)}"></span>${esc(e.name)}</span>`).join("")}</span>
+    <span class="cal-legend">${S.employees.map(e=>`<span><span class="cal-dot" style="background:${calColor(e.id)}"></span>${esc(e.name)}</span>`).join("")}<span><span class="cal-dot" style="background:repeating-linear-gradient(135deg,#B8A98C 0 3px,#E9E0CF 3px 6px)"></span>čeka potvrdu</span></span>
   </div>
   ${have?"":`<div class="loading">Učitavanje kalendara…</div>`}
   <div class="cal-wrap"><div class="cal-grid">${headRow}${gut}${cols}</div></div>
@@ -2044,8 +2098,10 @@ function wire(root){
   const bb=root.querySelector("#bk-back");if(bb)bb.onclick=()=>{S.view="catalog";render()};
   root.querySelectorAll("[data-cancel]").forEach(b=>b.onclick=()=>{
     if(b.dataset.arm){cancelBooking(b.dataset.cancel)}
-    else{b.dataset.arm="1";b.textContent="Potvrdi otkazivanje";setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.textContent="Otkaži"}},4000)}
+    else{const was=b.textContent;b.dataset.arm="1";b.textContent="Potvrdi otkazivanje";setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.textContent=was}},4000)}
   });
+  root.querySelectorAll("[data-accept]").forEach(b=>b.onclick=()=>acceptBooking(b.dataset.accept,b));
+  root.querySelectorAll("[data-reject]").forEach(b=>b.onclick=()=>rejectModal(b.dataset.reject));
   root.querySelectorAll("[data-admtab]").forEach(b=>b.onclick=()=>{S.admTab=b.dataset.admtab;if(S.admTab==="vcr")S.vcrKey=null;render()});
   root.querySelectorAll("[data-admemp]").forEach(b=>b.onclick=()=>{S.admFilter=b.dataset.admemp;render()});
   const bk=root.querySelector("[data-backup]");
@@ -2095,7 +2151,7 @@ function wire(root){
     b.disabled=true;deleteBooking(b.dataset.bkdel);
   });
   root.querySelectorAll("[data-calbk]").forEach(el=>el.onclick=()=>{const x=findBk(el.dataset.calbk);if(!x)return;
-    if(x.source==="manual")manualModal(x);else toast("Online rezervacija ("+x.userName+") - otkazuje se u kartici Rezervacije.")});
+    if(x.source==="manual")manualModal(x);else toast(x.status==="ceka"?"Zahtev ("+x.userName+") čeka potvrdu - potvrdite ili odbijte u kartici Rezervacije.":"Online rezervacija ("+x.userName+") - otkazuje se u kartici Rezervacije.")});
   /* radno vreme zaposlenih */
   const ehReload=()=>{S.eh=null;loadEh()};
   root.querySelectorAll("[data-ehemp]").forEach(b=>b.onclick=()=>{S.ehEmp=b.dataset.ehemp;render()});
