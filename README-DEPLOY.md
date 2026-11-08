@@ -138,7 +138,8 @@ Prijava važi posebno za svaku adresu, pa se na novoj adresi treba jednom ponovo
 3. Admin → **Usluge**: cene, trajanja i aktivnost menjate u par klikova; oznaka **„na aparatu"** šalje
    tretman u kolonu **Aparat** (npr. presoterapija, EMS, termo ćebe), pa ne zauzima zaposlene, a isti
    aparat ne može da primi dva klijenta u isto vreme; dugme **„Paketi"** uz uslugu (i uz objavljenu akciju) dodaje
-   pakete tretmana sa cenama, npr. „Paket od 10 tretmana: 25.000 RSD", koji se prikazuju na kartici usluge
+   pakete tretmana sa cenama, npr. „Paket od 10 tretmana: 25.000 RSD"; klijent na kartici bira „1 tretman" ili paket,
+   a izbor i cena paketa idu u rezervaciju, potvrdu i mejl
 4. Pošaljite mi javnu adresu — **regenerisaću QR karticu** sa njom za minut
 
 ## Sigurnosne napomene

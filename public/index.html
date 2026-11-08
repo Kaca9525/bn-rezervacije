@@ -187,7 +187,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .svc-img:focus-visible{outline:2px solid var(--gold);outline-offset:-5px}
 .svc-body{position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;padding:120px 22px 22px;pointer-events:none;
   background:linear-gradient(180deg,rgba(23,18,14,0) 0,rgba(23,18,14,.5) 56px,rgba(23,18,14,.8) 118px,rgba(23,18,14,.9) 100%)}
-.svc-body :is(button,a,input,p.desc){pointer-events:auto}
+.svc-body :is(button,a,input,p.desc,.opt){pointer-events:auto}
 .svc.photo h3{color:#FFF}
 .svc.photo .svc-meta{color:var(--band-mut)}
 .svc.photo .svc-meta .price{color:var(--band-gold)}
@@ -339,8 +339,20 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .adm-svc .nm small{display:block;color:var(--muted);font-weight:400}
 .adm-svc input{width:90px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-variant-numeric:tabular-nums}
 .adm-svc input[type=checkbox]{width:auto}
-/* paketi tretmana: redovi na kartici i unos u prozoru „Paketi" (broj tretmana, cena, naziv, ukloni) */
-.svc-pk{display:flex;flex-direction:column;gap:4px}
+/* paketi tretmana: izbor „1 tretman / paket" na kartici (red sa kružićem, naziv levo, cena desno; izabrani red je zlatan)
+   i unos u prozoru „Paketi" (broj tretmana, cena, naziv, ukloni) */
+.svc-opt{display:flex;flex-direction:column;gap:5px}
+.opt{display:flex;align-items:center;gap:9px;padding:7px 10px;border:1px solid rgba(243,235,219,.3);border-radius:10px;background:rgba(23,18,14,.38);color:rgba(243,235,219,.92);font-size:12.5px;font-weight:700;line-height:1.3;cursor:pointer;transition:border-color .15s,background .15s}
+@media (hover:hover){.opt:hover{border-color:rgba(243,235,219,.6)}}
+.opt.on{border-color:var(--band-gold);background:rgba(243,235,219,.12)}
+.opt input{appearance:none;-webkit-appearance:none;flex:none;width:16px;height:16px;margin:0;border:1.5px solid rgba(243,235,219,.6);border-radius:50%;display:grid;place-content:center;cursor:pointer;background:none}
+.opt input::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--band-gold);transform:scale(0);transition:transform .12s}
+.opt input:checked{border-color:var(--band-gold)}
+.opt input:checked::before{transform:scale(1)}
+.opt input:focus-visible{outline:2px solid var(--band-gold);outline-offset:2px}
+.opt .opt-n{flex:1;min-width:0}
+.opt .opt-p{flex:none;font-weight:800;font-variant-numeric:tabular-nums;color:var(--band-gold)}
+.pk-tag{color:var(--gold-strong);font-weight:800}
 .pk-row{display:grid;grid-template-columns:120px 130px minmax(0,1fr) auto;gap:8px;align-items:center;margin-bottom:8px;min-width:0}
 .pk-row input{width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-size:13.5px}
 @media (max-width:600px){.pk-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}.pk-row .pk-del{grid-row:1/3;grid-column:3}.pk-row .pk-label{grid-column:1/3}}
@@ -567,7 +579,7 @@ const S={
   me:null,loaded:false,loadErr:false,mailEnabled:false,smsEnabled:false,
   services:[],employees:[],hours:null,salon:null,
   myBookings:[],admBookings:[],
-  cart:[],view:"catalog",cat:"lice",q:"",authTab:"login",
+  cart:[],pick:{},view:"catalog",cat:"lice",q:"",authTab:"login",
   bEmp:"__any",bDate:null,bSlot:null,
   admTab:"rez",lastBooking:null
 };
@@ -761,7 +773,7 @@ const ICON_CAL=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stro
 const ICON_TRASH=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>`;
 function calModal(svcId){
   const s=S.services.find(x=>x.id===svcId);if(!s)return;
-  const list=S.cart.some(c=>c.id===s.id)?S.cart.slice():S.cart.concat([s]);
+  const list=S.cart.some(c=>c.id===s.id)?S.cart.slice():S.cart.concat([cartItem(s)]);
   const st={off:0,date:null,slot:null};
   const dur=list.reduce((a,x)=>a+(+x.duration||0),0);
   const draw=()=>{
@@ -780,7 +792,7 @@ function calModal(svcId){
     m.querySelectorAll("[data-cmday]").forEach(b=>b.onclick=()=>{if(b.disabled)return;st.date=b.dataset.cmday;st.slot=null;draw()});
     m.querySelector("#cm-go").onclick=()=>{
       if(!st.date||st.slot==null)return;
-      if(!S.cart.some(c=>c.id===s.id))S.cart.push(s);
+      if(!S.cart.some(c=>c.id===s.id))S.cart.push(cartItem(s));
       S.bEmp="__any";S.bDate=st.date;S.bSlot=st.slot;S.bOff=null;closeModal();S.view="booking";render();
     };
     const area=m.querySelector("#cm-slots");
@@ -810,7 +822,7 @@ async function confirmBooking(){
   if(!telOk(S.me.telefon))return phoneModal(confirmBooking);
   const btn=$("#bk-confirm");if(btn)btn.disabled=true;
   try{
-    const r=await apiPost("/api/bookings",{services:S.cart.map(s=>s.id),employee:S.bEmp,date:S.bDate,start:toHM(S.bSlot)});
+    const r=await apiPost("/api/bookings",{services:S.cart.map(s=>s.pkg?{id:s.id,pkg:s.pkg}:s.id),employee:S.bEmp,date:S.bDate,start:toHM(S.bSlot)});
     S.cart=[];S.bSlot=null;S.bDate=null;S.bOff=null;S.bEmp="__any";
     S.lastBooking=r.booking;S.view="done";render();loadMy();doneModal(r.booking);
   }catch(e){
@@ -929,7 +941,7 @@ function reminderBanner(){
   const tmr=dstr(new Date(Date.now()+864e5));
   const b=S.myBookings.filter(x=>x.status==="zakazano"&&x.date===tmr).sort((a,b)=>a.start<b.start?-1:1)[0];
   if(!b)return"";
-  return `<div class="remind">⏰ Podsetnik: sutra u ${esc(b.start)} imate zakazano - ${esc(b.services.map(s=>s.name).join(", "))} (${esc(b.employeeName)}).</div>`;
+  return `<div class="remind">⏰ Podsetnik: sutra u ${esc(b.start)} imate zakazano - ${esc(b.services.map(svcLine).join(", "))} (${esc(b.employeeName)}).</div>`;
 }
 /* fotografije tretmana: dodeljuju se po nazivu tretmana (bez obzira na kvačice i velika slova); važi prvo pravilo koje odgovara,
    pa su konkretnija pravila iznad opštijih. Tretmani koje salon doda kasnije dobijaju sliku ako im naziv odgovara nekom pravilu. */
@@ -1027,10 +1039,20 @@ const svcMore=s=>(s.desc||"").trim()?`<button class="more" data-more="${esc(s.id
 const svcDesc=s=>(s.desc||"").trim()?`<p class="desc" id="d-${esc(s.id)}">${esc(s.desc)}</p>`:"";
 /* kartica ima uvek ista četiri reda teksta (naziv, trajanje i cena, opis/napomena/„Prikaži više", dugmad),
    pa su u istom redu kartica nazivi, cene i dugmad poravnati (vidi .svc-grid i subgrid u CSS-u) */
-/* paketi tretmana uz uslugu (admin ih unosi dugmetom „Paketi"): svaki paket je red „Paket od 10 tretmana: 25.000 RSD" */
-const pkgLabel=(s,p)=>(String(p.label||"").trim()||("Paket od "+p.qty+" tretmana"))+": "+priceTxt(s,+p.price);
-const svcPkgs=s=>(s.packages||[]).length?`<div class="svc-pk">${s.packages.map(p=>`<div class="svc-note">${ICON_ROLL}<span>${esc(pkgLabel(s,p))}</span></div>`).join("")}</div>`:"";
-const svcX=(s,note)=>`<div class="svc-x">${svcDesc(s)}${svcPkgs(s)}${note?`<div class="svc-note">${ICON_ROLL}<span>${esc(note)}</span></div>`:""}${svcMore(s)}</div>`;
+/* paketi tretmana uz uslugu (admin ih unosi dugmetom „Paketi"): klijent na kartici bira „1 tretman" ili paket.
+   Izbor se pamti po usluzi (S.pick); u korpu ide kopija usluge sa cenom paketa i poljem pkg, pa isto ide
+   u rezervaciju, potvrdu, mejlove i admin (svcLine: „Naziv – Paket od 5 tretmana") */
+const pkgName=p=>String(p.label||"").trim()||("Paket od "+p.qty+" tretmana");
+const svcLine=x=>x.name+(x.pkg?" – "+pkgName(x.pkg):"");
+const pickedPkg=s=>{const i=S.pick[s.id];return (i!=null&&(s.packages||[])[i])||null};
+const cartItem=s=>{const p=pickedPkg(s);return p?{...s,price:+p.price,pkg:{qty:p.qty==null?null:+p.qty,label:String(p.label||"").trim(),price:+p.price}}:s};
+const svcOpts=s=>{
+  const pk=s.packages||[];if(!pk.length||s.price==null)return"";
+  const i=S.pick[s.id],on0=i==null||!pk[i];
+  const opt=(v,name,price,on)=>`<label class="opt${on?" on":""}"><input type="radio" name="opt-${esc(s.id)}" value="${v}" data-opt="${esc(s.id)}"${on?" checked":""}><span class="opt-n">${esc(name)}</span><span class="opt-p">${price}</span></label>`;
+  return `<div class="svc-opt" role="group" aria-label="Pojedinačni tretman ili paket">${opt("","1 tretman",+s.price===0?"Besplatno":priceTxt(s,+s.price),on0)}${pk.map((p,k)=>opt(k,pkgName(p),priceTxt(s,+p.price),i===k)).join("")}</div>`;
+};
+const svcX=(s,note)=>`<div class="svc-x">${svcDesc(s)}${svcOpts(s)}${note?`<div class="svc-note">${ICON_ROLL}<span>${esc(note)}</span></div>`:""}${svcMore(s)}</div>`;
 function svcCard(s){
   const open=openDesc.has(s.id)?" open":"";
   if(s.cat==="edu"){
@@ -1271,7 +1293,7 @@ function tplBooking(){
     </div>
     <div class="card bk-sum">
       <div class="eyebrow" style="margin-bottom:10px">Odabrano usluga: ${S.cart.length}</div>
-      <ul>${S.cart.map((s,i)=>`<li><span style="display:flex;gap:9px;min-width:0"><span class="num">${i+1}</span><span>${esc(s.name)}<br><span class="note">${durTxt(+s.duration)}</span></span></span>
+      <ul>${S.cart.map((s,i)=>`<li><span style="display:flex;gap:9px;min-width:0"><span class="num">${i+1}</span><span>${esc(s.name)}<br><span class="note">${s.pkg?`<b class="pk-tag">${esc(pkgName(s.pkg))}</b> · `:""}${durTxt(+s.duration)}</span></span></span>
         <span style="text-align:right;font-variant-numeric:tabular-nums;flex:none">${priceTxt(s,+s.price)}<br><button class="rm" data-rm="${esc(s.id)}" aria-label="Ukloni uslugu"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>UKLONI</button></span></li>`).join("")}</ul>
       <div class="tot"><span>Ukupno trajanje</span><span>${durTxt(dur)}</span></div>
       <div class="tot"><span>Ukupna cena</span><span>${money(t.rsd,t.eur)}</span></div>
@@ -1324,7 +1346,7 @@ function avansBox(r,e,edu){
 const hasPrice=b=>!!((b.totalPrice||0)||(b.totalPriceEur||0));
 function avansModal(b){
   showModal(`<h3>Uplata avansa</h3>
-    <p class="note" style="margin:0"><b>${esc(fmtD(b.date))} u ${esc(b.start)}</b> · ${esc(b.services.map(s=>s.name).join(" + "))}</p>
+    <p class="note" style="margin:0"><b>${esc(fmtD(b.date))} u ${esc(b.start)}</b> · ${esc(b.services.map(svcLine).join(" + "))}</p>
     ${avansBox(b.totalPrice||0,b.totalPriceEur||0)}
     <button class="btn btn-gold" id="m-close" style="width:100%;margin-top:18px">Zatvori</button>`);
 }
@@ -1349,7 +1371,7 @@ function tplDone(){
     <div class="eyebrow" style="justify-content:center">Rezervacija potvrđena</div>
     <h1 class="h-page" style="margin-top:12px">Vaš termin je zakazan</h1>
     <p class="sub" style="margin:10px auto 18px"><b>${esc(fmtD(b.date))} u ${esc(b.start)}</b> · ${esc(b.employeeName)} · ${esc(durTxt(b.totalDuration))} · ${money(b.totalPrice||0,b.totalPriceEur||0)}</p>
-    <div class="ok-box" style="text-align:left">${b.services.map(s=>"• "+esc(s.name)).join("<br>")}</div>
+    <div class="ok-box" style="text-align:left">${b.services.map(s=>"• "+esc(svcLine(s))).join("<br>")}</div>
     ${hasPrice(b)?avansBox(b.totalPrice||0,b.totalPriceEur||0):""}
     ${spamNote(b)}
     <p class="note" style="margin:16px 0 20px">${S.mailEnabled?"Podsetnik vam stiže dan pre termina na e-mail"+(S.smsEnabled?" i SMS-om.":"."):S.smsEnabled?"Podsetnik vam stiže SMS-om dan pre i na dan termina.":"Podsetnik vam stiže dan pre termina."} Za izmene pišite na <b>${esc(rezEmail())}</b> ili otkažite u „Moje rezervacije".</p>
@@ -1368,7 +1390,7 @@ function bkCard(b,adminView){
     <div class="mid">
       <div class="who">${adminView?esc(b.userName):esc(b.employeeName)}</div>
       ${adminView?`<div class="note">${esc([b.userEmail,b.userTel,"kod: "+b.employeeName].filter(Boolean).join(" · "))}</div>`:""}
-      <div class="list">${b.services.map(s=>esc(s.name)).join(" + ")}</div>
+      <div class="list">${b.services.map(s=>esc(s.name)+(s.pkg?` · <b class="pk-tag">${esc(pkgName(s.pkg))}</b>`:"")).join(" + ")}</div>
       ${adminView&&b.note?`<div class="note">Napomena: ${esc(b.note)}</div>`:""}
       <div class="tags">
         <span class="pill ${b.status==="zakazano"?"pill-ok":"pill-off"}">${b.status==="zakazano"?"Zakazano":"Otkazano"}</span>
@@ -1440,7 +1462,7 @@ function admRem(){
     :"Automatsko slanje e-maila je isključeno (podesite SMTP) - kopirajte tekst i pošaljite sa adrese "+esc(rezEmail())+"."}
     ${S.smsEnabled?"SMS podsetnici idu automatski 24h pre termina i ujutru na dan termina.":"SMS slanje još nije podešeno (Infobip ili Twilio nalog) - dok se ne podesi, SMS podsetnici se ne šalju."}</p>
   ${list.length?list.map(b=>{
-    const txt=`Poštovana/i ${b.userName},\n\npodsećamo Vas na zakazani termin u salonu Beauty & Nutrition:\n\n📅 ${fmtD(b.date)} u ${b.start}\n💆 ${b.services.map(s=>s.name).join(", ")}\n👩 Kozmetičarka: ${b.employeeName}\n⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice||0,b.totalPriceEur||0)}\n📍 Živojina Žujovića 25, Beograd (Zvezdara)\n\nAko ste sprečeni, javite nam na ${rezEmail()} ili +381 64 93 55 003.\n\nSrdačno,\nBeauty & Nutrition`;
+    const txt=`Poštovana/i ${b.userName},\n\npodsećamo Vas na zakazani termin u salonu Beauty & Nutrition:\n\n📅 ${fmtD(b.date)} u ${b.start}\n💆 ${b.services.map(svcLine).join(", ")}\n👩 Kozmetičarka: ${b.employeeName}\n⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice||0,b.totalPriceEur||0)}\n📍 Živojina Žujovića 25, Beograd (Zvezdara)\n\nAko ste sprečeni, javite nam na ${rezEmail()} ili +381 64 93 55 003.\n\nSrdačno,\nBeauty & Nutrition`;
     return `<div class="card rem-card" style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
         <div><b>${esc(b.start)} - ${esc(b.userName)}</b><div class="note">${esc(b.userEmail)}${b.userTel?" · "+esc(b.userTel):""}</div></div>
@@ -1557,7 +1579,7 @@ function pkgModal(id){
     <button type="button" class="icon-btn pk-del" title="Ukloni paket" aria-label="Ukloni paket">${ICON_TRASH}</button>
   </div>`;
   showModal(`<h3>Paketi - ${esc(s.name)}</h3>
-    <p class="note" style="margin:0 0 12px">Svaki paket je red na kartici usluge, npr. „Paket od 10 tretmana: 25.000 RSD". Ako naziv ostane prazan, piše „Paket od N tretmana". Uplata i evidencija iskorišćenih tretmana iz paketa vode se u salonu.</p>
+    <p class="note" style="margin:0 0 12px">Klijent na kartici usluge bira „1 tretman" ili jedan od paketa pre dodavanja u korpu; izabrani paket i njegova cena upisuju se u rezervaciju, potvrdu i mejl (avans 30% računa se od cene paketa). Ako naziv ostane prazan, piše „Paket od N tretmana". Evidencija iskorišćenih tretmana iz paketa vodi se u salonu.</p>
     <div id="pk-err" class="err hidden"></div>
     <div id="pk-rows">${(s.packages||[]).map(row).join("")}</div>
     <button type="button" class="btn btn-ghost btn-sm" id="pk-add" style="margin:0 0 14px">+ Dodaj paket</button>
@@ -1658,7 +1680,7 @@ function admCal(){
       ${hrs.map(h=>`<div class="cal-hr" style="top:${(h*60-O)/60*PXH}px"></div>`).join("")}
       ${bks.map(b=>{const t=toMin(b.start);const hpx=Math.max(21,(b.totalDuration/60)*PXH-2);const L=ln[b.id]||{lane:0,lanes:1};
         const pos=L.lanes>1?`left:calc(${(L.lane*100/L.lanes).toFixed(3)}% + 1px);right:auto;width:calc(${(100/L.lanes).toFixed(3)}% - 2px);`:"";
-        return `<div class="cal-bk ${b.source==="manual"?"man":""}" data-calbk="${esc(b.id)}" style="${pos}top:${(t-O)/60*PXH}px;height:${hpx}px;background:${calColor(b.employee)}" title="${esc(b.start+"\u2013"+b.end+" \u00b7 "+b.userName+" \u00b7 "+b.services.map(s=>s.name).join(", ")+" ("+b.employeeName+")")}"><b>${esc(b.start)}</b> ${esc(b.userName)}<br>${esc(b.employeeName)}</div>`}).join("")}
+        return `<div class="cal-bk ${b.source==="manual"?"man":""}" data-calbk="${esc(b.id)}" style="${pos}top:${(t-O)/60*PXH}px;height:${hpx}px;background:${calColor(b.employee)}" title="${esc(b.start+"\u2013"+b.end+" \u00b7 "+b.userName+" \u00b7 "+b.services.map(svcLine).join(", ")+" ("+b.employeeName+")")}"><b>${esc(b.start)}</b> ${esc(b.userName)}<br>${esc(b.employeeName)}</div>`}).join("")}
       ${open?"":`<div style="position:absolute;inset:0;display:grid;place-items:center;font-size:11px;letter-spacing:.14em;color:var(--muted)">NERADNO</div>`}
     </div>`}).join("");
   const headRow=`<div></div>${days.map(d=>{const ds=dstr(d);return `<div class="cal-dayh ${ds===today?"today":""}">${DOWS_S[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}.</div>`}).join("")}`;
@@ -1983,8 +2005,16 @@ function wire(root){
   root.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.add;const s=S.services.find(x=>x.id===id);if(!s)return;
     const i=S.cart.findIndex(c=>c.id===id);
-    if(i>=0){S.cart.splice(i,1)}else{S.cart.push(s);toast("Dodato: "+s.name)}
+    if(i>=0){S.cart.splice(i,1)}else{const it=cartItem(s);S.cart.push(it);toast("Dodato: "+svcLine(it))}
     render();
+  });
+  /* izbor „1 tretman / paket": pamti se po usluzi; ako je usluga već u korpi, stavka i zbir u traci se odmah menjaju */
+  root.querySelectorAll("[data-opt]").forEach(r=>r.onchange=()=>{
+    const id=r.dataset.opt,s=S.services.find(x=>x.id===id);if(!s)return;
+    S.pick[id]=r.value===""?null:+r.value;
+    const i=S.cart.findIndex(c=>c.id===id);if(i>=0)S.cart[i]=cartItem(s);
+    const card=r.closest(".svc");if(card)card.querySelectorAll(".opt").forEach(l=>l.classList.toggle("on",l.contains(r)));
+    renderCartbar();
   });
   root.querySelectorAll("[data-inq]").forEach(b=>b.onclick=()=>{const s=S.services.find(x=>x.id===b.dataset.inq);if(s)inquiryModal(s)});
   root.querySelectorAll("[data-avans]").forEach(b=>b.onclick=()=>{const x=(S.myBookings||[]).find(y=>y.id===b.dataset.avans);if(x)avansModal(x)});

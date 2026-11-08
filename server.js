@@ -351,6 +351,10 @@ function cleanPackages(arr) {
 const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice, cur: r.cur || undefined, aparat: r.aparat ? true : undefined, packages: r.packages ? JSON.parse(r.packages) : undefined });
 const empRow = r => r && ({ id: r.id, name: r.name, cats: JSON.parse(r.cats || "[]"), title: r.title || "", active: r.active === 0 ? false : true, kind: r.kind || undefined });
 const bkRow = r => r && ({ ...r, services: JSON.parse(r.services), reminderSent: !!r.reminderSent, source: r.source || "online", sms24: r.sms24 || 0, smsDay: r.smsDay || 0 });
+/* stavka rezervacije sa paketom nosi pkg {qty,label}; u mejlovima i spiskovima piše „Naziv – Paket od 5 tretmana"
+   (SMS ostaje samo naziv: kraći je, a crta nije u GSM skupu znakova) */
+const pkgName = p => String(p.label || "").trim() || ("Paket od " + p.qty + " tretmana");
+const svcLine = x => x.name + (x.pkg ? " – " + pkgName(x.pkg) : "");
 /* tretman na aparatu radi samo kolona „Aparat"; aparat ne radi ostale tretmane */
 const isDev = e => !!e && e.kind === "aparat";
 const performs = (e, s) => s.aparat ? isDev(e) : !isDev(e) && (Array.isArray(s.emps) ? s.emps.includes(e.id) : (e.cats || []).includes(s.cat));
@@ -551,14 +555,27 @@ app.get("/api/my", auth, (req, res) => {
 });
 
 app.post("/api/bookings", auth, (req, res) => {
-  const { services: ids, employee: wantEmp, date, start } = req.body || {};
-  if (!Array.isArray(ids) || !ids.length || !validDate(date) || !validTime(start))
+  const { services: items, employee: wantEmp, date, start } = req.body || {};
+  if (!Array.isArray(items) || !items.length || !validDate(date) || !validTime(start))
     return res.status(400).json({ error: "Nepotpuni podaci rezervacije." });
   if (!normTel(req.user.telefon))
     return res.status(400).json({ error: "Dodajte broj telefona u nalog - na njega stižu SMS podsetnici za termin.", code: "phone" });
-  const services = ids.map(id => svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(String(id))));
-  if (services.some(s => !s || !s.active || s.cat === "edu" || !s.duration || s.price == null))
-    return res.status(400).json({ error: "Izabrana usluga nije dostupna za online zakazivanje." });
+  /* stavka je id usluge ili {id, pkg:{qty,label,price}} kad je klijent na kartici izabrao paket; paket mora i dalje da
+     postoji uz uslugu sa istom cenom (ako ga je salon u međuvremenu izmenio, klijent bira ponovo). Stavka sa paketom
+     nosi cenu paketa, pa ukupna cena i avans važe za paket; trajanje je jedan dolazak. */
+  const services = [];
+  for (const it of items) {
+    const obj = !!it && typeof it === "object";
+    const s = svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(String(obj ? it.id : it)));
+    if (!s || !s.active || s.cat === "edu" || !s.duration || s.price == null)
+      return res.status(400).json({ error: "Izabrana usluga nije dostupna za online zakazivanje." });
+    const w = obj && it.pkg && typeof it.pkg === "object" ? it.pkg : null;
+    if (!w) { services.push(s); continue; }
+    const num = v => (v == null || v === "" ? null : +v);
+    const p = (s.packages || []).find(p => +p.price === num(w.price) && num(p.qty) === num(w.qty) && String(p.label || "").trim() === String(w.label || "").trim());
+    if (!p) return res.status(409).json({ error: "Paketi za „" + s.name + "\" su u međuvremenu izmenjeni - osvežite stranicu i izaberite ponovo." });
+    services.push({ ...s, price: p.price, pkg: { qty: p.qty == null ? null : p.qty, label: String(p.label || "").trim() } });
+  }
   const dur = services.reduce((a, s) => a + s.duration, 0);
   const priceR = services.reduce((a, s) => a + (s.cur === "EUR" ? 0 : s.price), 0);
   const priceE = services.reduce((a, s) => a + (s.cur === "EUR" ? s.price : 0), 0);
@@ -589,7 +606,7 @@ app.post("/api/bookings", auth, (req, res) => {
   const b = {
     id: crypto.randomUUID(),
     userEmail: req.user.email, userName: req.user.ime + " " + req.user.prezime, userTel: req.user.telefon || "",
-    services: services.map(s => ({ id: s.id, name: s.name, price: s.price, duration: s.duration, cat: s.cat, cur: s.cur || null })),
+    services: services.map(s => ({ id: s.id, name: s.name, price: s.price, duration: s.duration, cat: s.cat, cur: s.cur || null, ...(s.pkg ? { pkg: s.pkg } : {}) })),
     employee: chosen.id, employeeName: chosen.name,
     date, start: toHM(t), end: toHM(t + dur),
     totalPrice: priceR, totalPriceEur: priceE, totalDuration: dur, status: "zakazano", reminderSent: 0,
@@ -597,7 +614,7 @@ app.post("/api/bookings", auth, (req, res) => {
   };
   insBooking(b);
 
-  const list = b.services.map(s => "• " + s.name).join("\n");
+  const list = b.services.map(s => "• " + svcLine(s)).join("\n");
   sendMail(b.userEmail, "Potvrda rezervacije - Beauty & Nutrition",
 `Poštovana/i ${b.userName},
 
@@ -638,7 +655,7 @@ app.post("/api/bookings/:id/cancel", auth, (req, res) => {
   if (b.status === "zakazano") {
     sendMail(rezEmail(), `Otkazana rezervacija: ${b.date} u ${b.start} - ${b.userName}`,
       `Rezervacija je otkazana (${isStaffUser && b.userEmail !== req.user.email ? "od strane salona" : "od strane klijenta"}):\n\n` +
-      `${b.userName} · ${fmtD(b.date)} u ${b.start} · ${b.services.map(s => s.name).join(", ")}`);
+      `${b.userName} · ${fmtD(b.date)} u ${b.start} · ${b.services.map(svcLine).join(", ")}`);
     if (isStaffUser && b.userEmail !== req.user.email)
       sendMail(b.userEmail, "Otkazan termin - Beauty & Nutrition",
         `Poštovana/i ${b.userName},\n\nnažalost, termin ${fmtD(b.date)} u ${b.start} je otkazan. Molimo vas da zakažete novi termin u aplikaciji ili nas pozovete na +381 64 93 55 003.\n\nBeauty & Nutrition`);
@@ -857,7 +874,7 @@ const manualAvans = list => {
   const r = list.reduce((a, b) => a + (b.totalPrice || 0), 0), e = list.reduce((a, b) => a + (b.totalPriceEur || 0), 0);
   return r || e ? "\n" + avansText(r, e) + "\n" : "";
 };
-const visitLines = list => list.map(b => `📅 ${fmtD(b.date)} u ${b.start}\n💆 ${b.services.map(x => x.name).join(" + ")}\n${empLine(b, true)}`).join("\n\n");
+const visitLines = list => list.map(b => `📅 ${fmtD(b.date)} u ${b.start}\n💆 ${b.services.map(svcLine).join(" + ")}\n${empLine(b, true)}`).join("\n\n");
 app.post("/api/admin/manual", auth, staff, (req, res) => {
   const body = req.body || {};
   const c = checkClient(body);
@@ -999,7 +1016,7 @@ function reminderText(b) {
 podsećamo Vas na zakazani termin u salonu Beauty & Nutrition:
 
 📅 ${fmtD(b.date)} u ${b.start}
-💆 ${b.services.map(s => s.name).join(", ")}
+💆 ${b.services.map(svcLine).join(", ")}
 ${empLine(b)}
 ⏱ Trajanje: ${durTxt(b.totalDuration)} · Cena: ${money(b.totalPrice, b.totalPriceEur || 0)}
 📍 Živojina Žujovića 25, Beograd (Zvezdara)
