@@ -366,6 +366,21 @@ const insBooking = b => insBookingStmt.run({ ...b, servicesJson: JSON.stringify(
 /* ---------------- app ---------------- */
 const app = express();
 app.set("trust proxy", 1);
+/* sopstveni domen: kad je SITE_URL podešen (npr. https://beautyandnutrition.app), stara adresa
+   *.onrender.com trajno preusmerava na njega, sa istom putanjom (stari linkovi i QR kodovi i dalje rade).
+   /zdravlje ostaje na staroj adresi zbog provere rada (pinger). */
+const SITE_URL = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
+const SITE_HOST = (() => { try { return SITE_URL ? new URL(SITE_URL).host.toLowerCase() : ""; } catch (e) { return ""; } })();
+if (SITE_URL && !SITE_HOST) console.log("SITE_URL nije ispravna adresa (primer: https://beautyandnutrition.app) - preusmeravanje je isključeno.");
+if (SITE_HOST) {
+  console.log("Adresa sajta: " + SITE_URL + " (onrender.com adresa preusmerava na nju).");
+  app.use((req, res, next) => {
+    const host = String(req.headers.host || "").toLowerCase().split(":")[0];
+    if (host.endsWith(".onrender.com") && host !== SITE_HOST && req.path !== "/zdravlje")  // bez petlje ako je SITE_URL i sam onrender adresa
+      return res.redirect(req.method === "GET" || req.method === "HEAD" ? 301 : 308, "https://" + SITE_HOST + req.originalUrl);
+    next();
+  });
+}
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
@@ -457,7 +472,7 @@ app.post("/api/forgot", (req, res) => {
     const exp = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     db.prepare("UPDATE users SET resetHash=?, resetExp=? WHERE email=?").run(hash, exp, email);
     const proto = req.protocol || "https";   // iza Render proksija: https (trust proxy)
-    const link = proto + "://" + req.get("host") + "/?reset=" + token;
+    const link = (SITE_HOST ? "https://" + SITE_HOST : proto + "://" + req.get("host")) + "/?reset=" + token;
     if (smsOn && normTel(u.telefon)) sendSms(u.telefon, "Beauty & Nutrition: link za novu lozinku (vazi 1 sat): " + link);
     if (mailer) sendMail(email, "Resetovanje lozinke - Beauty & Nutrition",
 `Poštovana/i ${u.ime},
