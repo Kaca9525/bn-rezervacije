@@ -91,6 +91,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .hero-orn{display:block;width:120px;height:20px;color:var(--gold);margin-top:22px;opacity:.8}
 .rule{display:flex;align-items:center;gap:16px;margin:34px 0 16px}
 .rule h2{font-family:var(--ff-disp);font-weight:600;font-size:26px;margin:0;white-space:nowrap}
+@media (max-width:760px){.rule h2{white-space:normal}}  /* dug naslov uz dugme (admin „Masaže (u sklopu tretmana tela)") se lomi u dva reda umesto da izađe iz ekrana */
 .rule::after{content:"";height:1px;background:linear-gradient(90deg,var(--gold),var(--line) 60%,transparent);flex:1;opacity:.7}
 .hidden{display:none!important}
 .note{font-size:12.5px;color:var(--muted)}
@@ -338,6 +339,11 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .adm-svc .nm small{display:block;color:var(--muted);font-weight:400}
 .adm-svc input{width:90px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-variant-numeric:tabular-nums}
 .adm-svc input[type=checkbox]{width:auto}
+/* paketi tretmana: redovi na kartici i unos u prozoru „Paketi" (broj tretmana, cena, naziv, ukloni) */
+.svc-pk{display:flex;flex-direction:column;gap:4px}
+.pk-row{display:grid;grid-template-columns:120px 130px minmax(0,1fr) auto;gap:8px;align-items:center;margin-bottom:8px;min-width:0}
+.pk-row input{width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-size:13.5px}
+@media (max-width:600px){.pk-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}.pk-row .pk-del{grid-row:1/3;grid-column:3}.pk-row .pk-label{grid-column:1/3}}
 .rem-card .mailtxt,.mailtxt{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:13px;font-size:12.5px;white-space:pre-wrap;margin:10px 0}
 .copybtn{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-strong)}
 .statline{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 20px}
@@ -1021,7 +1027,10 @@ const svcMore=s=>(s.desc||"").trim()?`<button class="more" data-more="${esc(s.id
 const svcDesc=s=>(s.desc||"").trim()?`<p class="desc" id="d-${esc(s.id)}">${esc(s.desc)}</p>`:"";
 /* kartica ima uvek ista četiri reda teksta (naziv, trajanje i cena, opis/napomena/„Prikaži više", dugmad),
    pa su u istom redu kartica nazivi, cene i dugmad poravnati (vidi .svc-grid i subgrid u CSS-u) */
-const svcX=(s,note)=>`<div class="svc-x">${svcDesc(s)}${note?`<div class="svc-note">${ICON_ROLL}<span>${esc(note)}</span></div>`:""}${svcMore(s)}</div>`;
+/* paketi tretmana uz uslugu (admin ih unosi dugmetom „Paketi"): svaki paket je red „Paket od 10 tretmana: 25.000 RSD" */
+const pkgLabel=(s,p)=>(String(p.label||"").trim()||("Paket od "+p.qty+" tretmana"))+": "+priceTxt(s,+p.price);
+const svcPkgs=s=>(s.packages||[]).length?`<div class="svc-pk">${s.packages.map(p=>`<div class="svc-note">${ICON_ROLL}<span>${esc(pkgLabel(s,p))}</span></div>`).join("")}</div>`:"";
+const svcX=(s,note)=>`<div class="svc-x">${svcDesc(s)}${svcPkgs(s)}${note?`<div class="svc-note">${ICON_ROLL}<span>${esc(note)}</span></div>`:""}${svcMore(s)}</div>`;
 function svcCard(s){
   const open=openDesc.has(s.id)?" open":"";
   if(s.cat==="edu"){
@@ -1063,7 +1072,7 @@ const byName=(a,b)=>a.name.localeCompare(b.name,"sr");
 const fold=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/đ/g,"dj");
 function searchServices(q){
   const toks=fold(q).split(/\s+/).filter(Boolean);if(!toks.length)return[];
-  return S.services.filter(s=>s.active!==false&&toks.every(t=>(fold(s.name)+" "+fold(s.desc)).includes(t)));
+  return S.services.filter(s=>s.active!==false&&toks.every(t=>(fold(s.name)+" "+fold(s.desc)+" "+fold((s.packages||[]).map(p=>p.label).join(" "))).includes(t)));
 }
 const nTretmana=n=>n+(n%10===1&&n%100!==11?" tretman":" tretmana");
 function catalogBody(){
@@ -1522,7 +1531,7 @@ function admSvc(){
   const groups=["lice","telo","masaze","edu"];
   const titles={lice:"Tretmani lica",telo:"Tretmani tela",masaze:"Masaže (u sklopu tretmana tela)",edu:"Edukacije i obuke (cena na upit)"};
   return `
-  <p class="sub">Izmenite cenu (RSD) ili trajanje (min) direktno u listi, pa „Sačuvaj". Isključena usluga se ne prikazuje korisnicima. „Na aparatu": usluga se zakazuje u koloni Aparat i ne zauzima zaposlene. „+ Dodaj uslugu" dodaje novu uslugu u kategoriju, a kanta je trajno briše.</p>
+  <p class="sub">Izmenite cenu (RSD) ili trajanje (min) direktno u listi, pa „Sačuvaj". Isključena usluga se ne prikazuje korisnicima. „Na aparatu": usluga se zakazuje u koloni Aparat i ne zauzima zaposlene. „Paketi": paketi tretmana sa cenama, prikazuju se na kartici usluge. „+ Dodaj uslugu" dodaje novu uslugu u kategoriju, a kanta je trajno briše.</p>
   ${groups.map(g=>{
     const list=S.services.filter(s=>s.cat===g).sort((a,b)=>a.name.localeCompare(b.name,"sr"));
     return `<div class="rule"><h2>${titles[g]}</h2><button class="btn btn-gold btn-sm" data-svcadd="${g}">+ Dodaj uslugu</button></div><div class="card">
@@ -1532,10 +1541,54 @@ function admSvc(){
         <label class="note">RSD <input type="number" min="0" step="100" id="sp-${esc(s.id)}" value="${esc(s.price)}"></label>
         <label class="note">min <input type="number" min="10" step="5" id="sd-${esc(s.id)}" value="${esc(s.duration)}"></label>`}
         <span class="svc-flags"><label class="note"><input type="checkbox" id="sa-${esc(s.id)}" ${s.active!==false?"checked":""}> aktivna</label>${g==="edu"?"":`<label class="note" title="Zakazuje se u koloni Aparat i ne zauzima zaposlene"><input type="checkbox" id="sap-${esc(s.id)}" ${s.aparat?"checked":""}> na aparatu</label>`}</span>
-        <span style="display:flex;gap:8px;align-items:center"><button class="btn btn-ghost btn-sm" data-svcsave="${esc(s.id)}">Sačuvaj</button><button class="icon-btn" data-svcdel="${esc(s.id)}" title="Obriši uslugu" aria-label="Obriši uslugu ${esc(s.name)}">${ICON_TRASH}</button></span>
+        <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${g==="edu"?"":`<button class="btn btn-ghost btn-sm" data-svcpk="${esc(s.id)}">Paketi${(s.packages||[]).length?" ("+s.packages.length+")":""}</button>`}<button class="btn btn-ghost btn-sm" data-svcsave="${esc(s.id)}">Sačuvaj</button><button class="icon-btn" data-svcdel="${esc(s.id)}" title="Obriši uslugu" aria-label="Obriši uslugu ${esc(s.name)}">${ICON_TRASH}</button></span>
       </div>`).join("")||`<p class="note">Nema usluga u ovoj kategoriji.</p>`}
     </div>`;
   }).join("")}`;
+}
+/* prozor „Paketi": paketi tretmana uz uslugu (broj tretmana, cena, naziv) i napomena ispod cene; čuva se preko /api/admin/service/:id */
+function pkgModal(id){
+  const s=S.services.find(x=>x.id===id);if(!s)return;
+  const cur=s.cur==="EUR"?"€":"RSD";
+  const row=(p={})=>`<div class="pk-row">
+    <input type="number" class="pk-qty" min="1" max="200" step="1" inputmode="numeric" placeholder="broj tretmana" aria-label="Broj tretmana" value="${p.qty||""}">
+    <input type="number" class="pk-price" min="0" step="100" inputmode="numeric" placeholder="cena (${cur})" aria-label="Cena (${cur})" value="${p.price==null?"":esc(p.price)}">
+    <input class="pk-label" maxlength="80" placeholder="naziv (opciono), npr. 5 tretmana + 5 limfnih drenaža" aria-label="Naziv paketa" value="${esc(p.label||"")}">
+    <button type="button" class="icon-btn pk-del" title="Ukloni paket" aria-label="Ukloni paket">${ICON_TRASH}</button>
+  </div>`;
+  showModal(`<h3>Paketi - ${esc(s.name)}</h3>
+    <p class="note" style="margin:0 0 12px">Svaki paket je red na kartici usluge, npr. „Paket od 10 tretmana: 25.000 RSD". Ako naziv ostane prazan, piše „Paket od N tretmana". Uplata i evidencija iskorišćenih tretmana iz paketa vode se u salonu.</p>
+    <div id="pk-err" class="err hidden"></div>
+    <div id="pk-rows">${(s.packages||[]).map(row).join("")}</div>
+    <button type="button" class="btn btn-ghost btn-sm" id="pk-add" style="margin:0 0 14px">+ Dodaj paket</button>
+    <div class="field"><label for="pk-note">Napomena ispod cene (opciono)</label><input id="pk-note" maxlength="120" value="${esc(s.note||"")}" placeholder="npr. Cena zavisi od regije"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-gold btn-sm" id="pk-save">Sačuvaj</button>
+      <button class="btn btn-ghost btn-sm" id="m-close">Odustani</button>
+    </div>`);
+  const rows=$("#pk-rows");
+  const bindDel=()=>rows.querySelectorAll(".pk-del").forEach(b=>b.onclick=()=>b.closest(".pk-row").remove());
+  bindDel();
+  $("#pk-add").onclick=()=>{rows.insertAdjacentHTML("beforeend",row());bindDel();const q=rows.lastElementChild.querySelector(".pk-qty");if(q)q.focus({preventScroll:true})};
+  if(!rows.children.length)rows.insertAdjacentHTML("beforeend",row()),bindDel();
+  $("#pk-save").onclick=async()=>{
+    const err=m=>{const b=$("#pk-err");if(b){b.textContent=m;b.classList.remove("hidden")}};
+    const packages=[];
+    for(const r of rows.querySelectorAll(".pk-row")){
+      const qty=r.querySelector(".pk-qty").value.trim(),price=r.querySelector(".pk-price").value.trim(),label=r.querySelector(".pk-label").value.trim();
+      if(!qty&&!price&&!label)continue;  /* prazan red se preskače */
+      if(price===""||!(+price>=0))return err("Unesite cenu za svaki paket.");
+      if(!qty&&!label)return err("Unesite broj tretmana ili naziv paketa.");
+      if(qty&&!(Number.isInteger(+qty)&&+qty>=1&&+qty<=200))return err("Broj tretmana je ceo broj od 1 do 200.");
+      packages.push({qty:qty?+qty:null,price:+price,label});
+    }
+    const b=$("#pk-save");b.disabled=true;
+    try{
+      const r=await apiPost("/api/admin/service/"+encodeURIComponent(s.id),{packages,note:$("#pk-note").value.trim()});
+      const i=S.services.findIndex(x=>x.id===s.id);if(i>=0)S.services[i]=r.service;
+      closeModal();toast(packages.length?"Paketi su sačuvani.":"Paketi su uklonjeni.");render();
+    }catch(e){err(e.message);b.disabled=false}
+  };
 }
 function svcAddModal(cat){
   const titles={lice:"Tretmani lica",telo:"Tretmani tela",masaze:"Masaže",edu:"Edukacije i obuke"};
@@ -1789,7 +1842,7 @@ function admEmp(){
 function admAkc(){
   const list=S.services.filter(s=>s.cat==="akcije").sort((a,b)=>a.name.localeCompare(b.name,"sr"));
   return `
-  <p class="sub">Napravite paket ili akciju - klijenti je vide u sekciji „Akcije" u cenovniku i zakazuju kao svaku uslugu. Stara cena (opciono) prikazuje popust.</p>
+  <p class="sub">Napravite paket ili akciju - klijenti je vide u sekciji „Akcije" u cenovniku i zakazuju kao svaku uslugu. Stara cena (opciono) prikazuje popust. Dugme „Paketi" uz objavljenu akciju dodaje pakete tretmana sa cenama.</p>
   <div class="card" style="margin-bottom:18px">
     <div class="step-h"><span class="n">+</span><h3>Nova akcija / paket</h3></div>
     <div id="ak-err" class="err hidden"></div>
@@ -1811,7 +1864,7 @@ function admAkc(){
       <label class="note">RSD <input type="number" min="0" step="100" id="sp-${esc(s.id)}" value="${esc(s.price)}"></label>
       <label class="note">min <input type="number" min="10" step="5" id="sd-${esc(s.id)}" value="${esc(s.duration)}"></label>
       <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="sa-${esc(s.id)}" ${s.active!==false?"checked":""}> aktivna</label>
-      <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-svcsave="${esc(s.id)}">Sačuvaj</button><button class="btn btn-danger btn-sm" data-akdel="${esc(s.id)}">Obriši</button></span>
+      <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-svcpk="${esc(s.id)}">Paketi${(s.packages||[]).length?" ("+s.packages.length+")":""}</button><button class="btn btn-ghost btn-sm" data-svcsave="${esc(s.id)}">Sačuvaj</button><button class="btn btn-danger btn-sm" data-akdel="${esc(s.id)}">Obriši</button></span>
     </div>`).join("")}</div>`:`<p class="note">Još nema objavljenih akcija.</p>`}`;
 }
 function wireEyes(root){
@@ -2056,6 +2109,7 @@ function wire(root){
     });
     try{const r=await apiPost("/api/admin/hours",H);S.hours=r.hours;S.eh=null;toast("Radno vreme je sačuvano.");render()}catch(e){toast(e.message)}
   };
+  root.querySelectorAll("[data-svcpk]").forEach(b=>b.onclick=()=>pkgModal(b.dataset.svcpk));
   root.querySelectorAll("[data-svcsave]").forEach(b=>b.onclick=async()=>{
     const id=b.dataset.svcsave;
     const pe=root.querySelector("#sp-"+CSS.escape(id)),de=root.querySelector("#sd-"+CSS.escape(id));

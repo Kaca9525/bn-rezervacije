@@ -90,6 +90,7 @@ try { db.exec("ALTER TABLE bookings ADD COLUMN note TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE bookings ADD COLUMN changed TEXT"); } catch (e) {}         // vreme poslednje izmene termina
 try { db.exec("ALTER TABLE bookings ADD COLUMN sms24 INTEGER DEFAULT 0"); } catch (e) {}  // 0 čeka, 1 poslat, 2 nije potreban, 3 greška
 try { db.exec("ALTER TABLE bookings ADD COLUMN smsDay INTEGER DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE services ADD COLUMN packages TEXT"); } catch (e) {}       // JSON [{qty, price, label}] - paketi tretmana uz uslugu
 /* radno vreme zaposlenih: day = "w0".."w6" (stalni raspored po danu u nedelji) ili "YYYY-MM-DD" (izmena za datum) */
 db.exec(`CREATE TABLE IF NOT EXISTS emp_hours(
   emp TEXT, day TEXT, open TEXT, close TEXT, off INTEGER DEFAULT 0, PRIMARY KEY(emp, day))`);
@@ -194,6 +195,18 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_derma_evo_myo'").get()) {
 }
 const getSetting = k => { const r = db.prepare("SELECT json FROM settings WHERE key=?").get(k); return r ? JSON.parse(r.json) : null; };
 const setSetting = (k, v) => db.prepare("INSERT OR REPLACE INTO settings(key,json) VALUES(?,?)").run(k, JSON.stringify(v));
+/* jednokratno: napomene tipa „Paket od 10 tretmana: 25.000 RSD" postaju paketi koje admin menja dugmetom „Paketi";
+   na kartici se prikazuju isto kao do sada */
+if (!getSetting("mig_packages_v1")) {
+  const re = /^(Paket\b[^:]*): ([\d.]+) RSD$/i;
+  for (const r of db.prepare("SELECT id,note FROM services WHERE note IS NOT NULL AND packages IS NULL").all()) {
+    const m = re.exec(String(r.note).trim()); if (!m) continue;
+    const price = Number(m[2].replace(/\./g, "")); if (!(price >= 0)) continue;
+    const q = /(\d+)\s*tretman/i.exec(m[1]);
+    db.prepare("UPDATE services SET packages=?, note=NULL WHERE id=?").run(JSON.stringify([{ qty: q ? +q[1] : null, price, label: m[1] }]), r.id);
+  }
+  setSetting("mig_packages_v1", 1);
+}
 const rezEmail = () => (getSetting("salon") || {}).rezEmail || "andrijanaobradovic5@gmail.com";
 
 /* ---------------- e-mail (Gmail SMTP) ---------------- */
@@ -319,7 +332,23 @@ function verify(token) {
   return Buffer.from(body, "base64url").toString();
 }
 
-const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice, cur: r.cur || undefined, aparat: r.aparat ? true : undefined });
+/* paketi tretmana uz uslugu: [{qty, price, label}] - qty ceo broj 1-200 ili null, price >= 0 (u valuti usluge),
+   label do 80 znakova (prazan = „Paket od N tretmana"); bar jedno od qty/label; najviše 12 paketa. null = neispravno */
+function cleanPackages(arr) {
+  if (!Array.isArray(arr) || arr.length > 12) return null;
+  const out = [];
+  for (const p of arr) {
+    if (!p || typeof p !== "object") return null;
+    const price = Math.round(Number(p.price)); if (!(price >= 0 && price <= 10000000)) return null;
+    const label = String(p.label || "").trim().slice(0, 80);
+    const qty = p.qty == null || p.qty === "" ? null : Number(p.qty);
+    if (qty !== null && !(Number.isInteger(qty) && qty >= 1 && qty <= 200)) return null;
+    if (qty === null && !label) return null;
+    out.push({ qty, price, label });
+  }
+  return out;
+}
+const svcRow = r => r && ({ id: r.id, cat: r.cat, name: r.name, desc: r.desc, price: r.price, duration: r.duration, active: !!r.active, note: r.note || undefined, emps: r.emps ? JSON.parse(r.emps) : undefined, oldPrice: r.oldPrice == null ? undefined : r.oldPrice, cur: r.cur || undefined, aparat: r.aparat ? true : undefined, packages: r.packages ? JSON.parse(r.packages) : undefined });
 const empRow = r => r && ({ id: r.id, name: r.name, cats: JSON.parse(r.cats || "[]"), title: r.title || "", active: r.active === 0 ? false : true, kind: r.kind || undefined });
 const bkRow = r => r && ({ ...r, services: JSON.parse(r.services), reminderSent: !!r.reminderSent, source: r.source || "online", sms24: r.sms24 || 0, smsDay: r.smsDay || 0 });
 /* tretman na aparatu radi samo kolona „Aparat"; aparat ne radi ostale tretmane */
@@ -635,15 +664,19 @@ app.post("/api/admin/hours", auth, admin, (req, res) => {
 app.post("/api/admin/service/:id", auth, admin, (req, res) => {
   const s = db.prepare("SELECT * FROM services WHERE id=?").get(req.params.id);
   if (!s) return res.status(404).json({ error: "Usluga nije pronađena." });
-  const { price, duration, active, aparat } = req.body || {};
-  if (s.cat !== "edu") {
+  /* menja se samo ono što je poslato: lista u adminu šalje cenu, trajanje, aktivnost i „na aparatu";
+     prozor „Paketi" šalje pakete i napomenu */
+  const { price, duration, active, aparat, packages, note } = req.body || {};
+  const pk = packages === undefined ? undefined : cleanPackages(packages);
+  if (pk === null) return res.status(400).json({ error: "Proverite pakete: svaki ima cenu i broj tretmana ili naziv (najviše 12 paketa)." });
+  if (s.cat !== "edu" && (price !== undefined || duration !== undefined)) {
     if (!(Number(price) >= 0) || !(Number(duration) > 0)) return res.status(400).json({ error: "Proverite cenu i trajanje." });
-    db.prepare("UPDATE services SET price=?,duration=?,active=? WHERE id=?")
-      .run(Math.round(Number(price)), Math.round(Number(duration)), active ? 1 : 0, s.id);
-    if (typeof aparat === "boolean") db.prepare("UPDATE services SET aparat=? WHERE id=?").run(aparat ? 1 : 0, s.id);
-  } else {
-    db.prepare("UPDATE services SET active=? WHERE id=?").run(active ? 1 : 0, s.id);
+    db.prepare("UPDATE services SET price=?,duration=? WHERE id=?").run(Math.round(Number(price)), Math.round(Number(duration)), s.id);
   }
+  if (active !== undefined) db.prepare("UPDATE services SET active=? WHERE id=?").run(active ? 1 : 0, s.id);
+  if (s.cat !== "edu" && typeof aparat === "boolean") db.prepare("UPDATE services SET aparat=? WHERE id=?").run(aparat ? 1 : 0, s.id);
+  if (pk) db.prepare("UPDATE services SET packages=? WHERE id=?").run(pk.length ? JSON.stringify(pk) : null, s.id);
+  if (typeof note === "string") db.prepare("UPDATE services SET note=? WHERE id=?").run(note.trim().slice(0, 120) || null, s.id);
   res.json({ service: svcRow(db.prepare("SELECT * FROM services WHERE id=?").get(s.id)) });
 });
 app.post("/api/admin/employee/:id", auth, admin, (req, res) => {
