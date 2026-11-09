@@ -3,32 +3,32 @@
   "closed": true
  },
  "1": {
-  "open": "09:00",
-  "close": "21:00",
+  "open": "12:00",
+  "close": "20:00",
   "closed": false,
   "appt": true
  },
  "2": {
-  "open": "09:00",
-  "close": "21:00",
+  "open": "12:00",
+  "close": "20:00",
   "closed": false,
   "appt": true
  },
  "3": {
-  "open": "09:00",
-  "close": "21:00",
+  "open": "12:00",
+  "close": "20:00",
   "closed": false,
   "appt": true
  },
  "4": {
-  "open": "09:00",
-  "close": "21:00",
+  "open": "12:00",
+  "close": "20:00",
   "closed": false,
   "appt": true
  },
  "5": {
-  "open": "09:00",
-  "close": "21:00",
+  "open": "12:00",
+  "close": "20:00",
   "closed": false,
   "appt": true
  },

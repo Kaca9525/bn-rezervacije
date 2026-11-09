@@ -732,7 +732,13 @@ app.post("/api/admin/hours", auth, admin, (req, res) => {
     if (!h || (h.closed !== true && !(validTime(h.open) && validTime(h.close) && toMin(h.open) < toMin(h.close))))
       return res.status(400).json({ error: "Neispravno radno vreme za: " + DOWS[+k] });
   }
-  setSetting("hours", H);
+  /* čuvaju se samo poznata polja; appt = pored vremena piše „(radimo na zakazivanje)" */
+  const out = {};
+  for (const k of ["0","1","2","3","4","5","6"]) {
+    const h = H[k];
+    out[k] = h.closed === true ? { closed: true } : { open: h.open, close: h.close, closed: false, ...(h.appt === true ? { appt: true } : {}) };
+  }
+  setSetting("hours", out);
   res.json({ hours: getSetting("hours") });
 });
 app.post("/api/admin/service/:id", auth, admin, (req, res) => {
