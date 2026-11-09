@@ -707,7 +707,7 @@ function eligibleEmployees(){return S.cart.length?S.employees.filter(e=>e.active
 function hoursSummary(){
   if(!S.hours)return[];
   const hm=t=>String(t).replace(/:00$/,"");
-  const key=k=>{const h=S.hours[k];return !h||h.closed?"x":h.appt?"na zakazivanje":(hm(h.open)+"-"+hm(h.close))};
+  const key=k=>{const h=S.hours[k];return !h||h.closed?"x":(hm(h.open)+"-"+hm(h.close))+(h.appt?" (radimo na zakazivanje)":"")};
   const order=["1","2","3","4","5","6","0"];const parts=[];let i=0;
   while(i<order.length){
     let j=i;while(j+1<order.length&&key(order[j+1])===key(order[i]))j++;
@@ -1573,7 +1573,7 @@ function admHrs(){
   const H=S.hours||{};
   const order=["1","2","3","4","5","6","0"];
   return `
-  <p class="sub">Radno vreme važi za ceo salon i određuje koje termine korisnici vide. Sačuvajte nakon izmene.</p>
+  <p class="sub">Radno vreme važi za ceo salon i određuje koje termine korisnici vide. Ako je označeno „na zakazivanje", na sajtu pored vremena piše „(radimo na zakazivanje)". Sačuvajte nakon izmene.</p>
   <div class="card">
     ${order.map(k=>{const h=H[k]||{open:"09:00",close:"21:00",closed:k==="0"};
       return `<div class="hours-row">
@@ -1581,6 +1581,7 @@ function admHrs(){
         <input type="time" id="h-o-${k}" value="${esc(h.open||"09:00")}" ${h.closed?"disabled":""}>
         <input type="time" id="h-c-${k}" value="${esc(h.close||"21:00")}" ${h.closed?"disabled":""}>
         <label class="cl"><input type="checkbox" id="h-x-${k}" ${h.closed?"checked":""}> neradni dan</label>
+        <label class="cl" title="Pored radnog vremena piše „(radimo na zakazivanje)"."><input type="checkbox" id="h-a-${k}" ${h.appt?"checked":""}> na zakazivanje</label>
       </div>`;}).join("")}
     <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-gold" id="hrs-save">Sačuvaj radno vreme</button>
@@ -2236,11 +2237,14 @@ function wire(root){
   root.querySelectorAll("[data-sendnow]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{const r=await apiPost("/api/admin/remind/"+encodeURIComponent(b.dataset.sendnow),{send:true});toast(r.sent?"Podsetnik je poslat ✓":"Slanje nije uspelo - proverite SMTP.");loadAdm()}catch(e){toast(e.message);b.disabled=false}});
   const hs=root.querySelector("#hrs-save");
   if(hs)hs.onclick=async()=>{
-    const H={};["0","1","2","3","4","5","6"].forEach(k=>{
+    const H={};let bad="";["0","1","2","3","4","5","6"].forEach(k=>{
       const x=root.querySelector("#h-x-"+k),o=root.querySelector("#h-o-"+k),c=root.querySelector("#h-c-"+k);
       H[k]=x&&x.checked?{closed:true}:{open:(o&&o.value)||"09:00",close:(c&&c.value)||"21:00",closed:false};
-      if(!H[k].closed&&S.hours&&S.hours[k]&&S.hours[k].appt)H[k].appt=true;
+      const ap=root.querySelector("#h-a-"+k);
+      if(!H[k].closed&&ap&&ap.checked)H[k].appt=true;
+      if(!H[k].closed&&!(H[k].open<H[k].close))bad=bad||DOWS[+k];
     });
+    if(bad)return toast("Proverite vreme za: "+bad+" (početak pre kraja).");
     try{const r=await apiPost("/api/admin/hours",H);S.hours=r.hours;S.eh=null;toast("Radno vreme je sačuvano.");render()}catch(e){toast(e.message)}
   };
   root.querySelectorAll("[data-svcpk]").forEach(b=>b.onclick=()=>pkgModal(b.dataset.svcpk));
