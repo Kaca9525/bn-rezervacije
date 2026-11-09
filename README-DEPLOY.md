@@ -34,7 +34,7 @@ npm start          # aplikacija radi na http://localhost:3000
 
 | Promenljiva     | Obavezno | Opis |
 |-----------------|----------|------|
-| `SECRET`        | DA       | Dugačak nasumičan niz (potpisivanje prijave). Npr. 40+ znakova. |
+| `SECRET`        | preporučeno | Dugačak nasumičan niz (potpisivanje prijave). Kad se jednom postavi, ne menjati - promena odjavljuje sve. Ako ga nema, aplikacija napravi ključ i čuva ga u bazi. |
 | `ADMIN_EMAILS`  | ne       | Admin nalozi, zarezom odvojeni. Podrazumevano: `kaca9525@gmail.com` |
 | `SMTP_USER`     | za mejl  | Gmail adresa sa koje se šalju potvrde/podsetnici, npr. `andrijanaobradovic5@gmail.com` |
 | `SMTP_PASS`     | za mejl  | Gmail **App Password** (uputstvo ispod) |
@@ -45,7 +45,7 @@ npm start          # aplikacija radi na http://localhost:3000
 | `SMS_DAY_HOUR`  | ne       | Od kog sata ide SMS „na dan termina" (podrazumevano `8`) |
 | `SMS_PROVIDER`  | ne       | `log` = probni režim (poruke samo u logu); inače se bira sam po ključu |
 | `PORT`          | ne       | Port servera (hosting ga obično sam zada) |
-| `DATA_DIR`      | ne       | Folder za bazu `salon.db` (korisno uz persistent disk) |
+| `DATA_DIR`      | DA (produkcija) | Folder trajnog diska za bazu `salon.db`, npr. `/data`. Bez njega se pri svakom deploy-u brišu nalozi i rezervacije |
 | `SITE_URL`      | ne       | Sopstveni domen, npr. `https://beautyandnutrition.app`; stara onrender.com adresa tada preusmerava na njega (vidi „Sopstveni domen") |
 
 **Bez SMTP podešavanja aplikacija normalno radi** — samo se mejlovi ne šalju automatski;
@@ -105,10 +105,35 @@ radi normalno, samo se SMS ne šalje. Poruke idu bez kvačica (č→c), da bi st
 > Za pouzdane podsetnike izaberite plaćenu instancu (Starter) ili podesite besplatni „pinger"
 > (npr. UptimeRobot) da otvara `https://VAŠA-ADRESA/zdravlje` na svakih 10 minuta.
 
-> **Važno za podatke:** na Render **Free** planu disk nije trajan — rezervacije se mogu izgubiti
-> pri restartu servisa. Za pravu produkciju izaberite **Starter** plan + **Disk** (mount npr. `/data`
-> i postavite `DATA_DIR=/data`), ili bilo koji VPS/hosting sa Node podrškom. Free plan je savršen
-> za testiranje sa pravim korisnicima pre konačne odluke.
+> **Važno za podatke:** bez trajnog diska Render pri **svakom deploy-u** (i restartu) pravi novu,
+> praznu bazu — brišu se nalozi, prijave i rezervacije. Za pravu produkciju obavezno uradite korake
+> iz odeljka „Trajno čuvanje podataka" ispod.
+
+## Trajno čuvanje podataka (nalozi, prijave, rezervacije)
+
+Zašto se brišu: baza `salon.db` se, dok `DATA_DIR` nije podešen, čuva u folderu same aplikacije.
+Render taj folder pri svakom deploy-u pravi iznova iz GitHub-a, pa baza nestane. Prijava (kolačić)
+je vezana za nalog u bazi i za `SECRET`, pa i ona prestane da važi.
+
+Rešenje (jednom, na Renderu):
+1. **Pre svega:** Admin → **⤓ Rezervna kopija** — sačuvajte fajl (sadrži sve naloge i rezervacije).
+2. Render → servis → **Settings → Instance Type**: izaberite **Starter** (Free plan ne podržava disk).
+3. Render → servis → **Disks → Add Disk**: Name `podaci`, Mount Path `/data`, Size `1 GB` → Save.
+4. Render → **Environment**:
+   - dodajte `DATA_DIR` = `/data`
+   - proverite da postoji `SECRET` (dugačak nasumičan niz). Ako postoji, **ne menjajte ga nikad** —
+     promena `SECRET`-a odjavljuje sve korisnike. Ako ne postoji, aplikacija sama napravi ključ i čuva ga u bazi.
+   - Save → Render ponovo postavlja aplikaciju, ovaj put sa bazom na disku `/data`.
+5. Ako su podaci posle toga prazni: registrujte se ponovo sa admin adresom → Admin → **⤒ Vrati iz kopije**
+   → izaberite fajl iz koraka 1. Nalozi i rezervacije se vraćaju (ništa postojeće se ne briše), a korisnici
+   ostaju prijavljeni ako se `SECRET` nije menjao.
+6. Provera: otvorite `https://VAŠA-ADRESA/zdravlje` — treba da piše `"trajniDisk":true`. Datum `bazaOd`
+   mora ostati isti i posle sledećih deploy-a. U Admin panelu nestaje crveno upozorenje.
+
+Šta je dalje zaštićeno:
+- seed (`seed/`) se učitava **samo u potpuno praznu bazu**, a izmene cenovnika u kodu su jednokratne
+  i nikad ne diraju naloge ni rezervacije
+- aplikacija svakog dana pravi kopiju baze u `/data/kopije` (čuva poslednjih 14 dana)
 
 Ista aplikacija radi i na Railway, Fly.io, Hetzner/DigitalOcean VPS-u ili cPanel hostingu sa Node.js.
 

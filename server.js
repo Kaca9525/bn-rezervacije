@@ -12,7 +12,6 @@ const path = require("path");
 
 const PORT = process.env.PORT || 3000;
 const compression = require("compression");
-const SECRET = process.env.SECRET || "promeni-ovaj-secret-u-produkciji";
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "kaca9525@gmail.com")
   .split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
 const STAFF_EMAILS = (process.env.STAFF_EMAILS || "")
@@ -22,6 +21,9 @@ const SMS_DAY_HOUR = parseInt(process.env.SMS_DAY_HOUR || "8", 10);     // od ko
 const SMS_QUIET_HOUR = 21;                                               // posle 21h se SMS ne šalje
 const MAX_PER_EMP = 3;                                                   // najviše usluga po klijentu kod jedne zaposlene
 const DATA_DIR = process.env.DATA_DIR || __dirname;
+/* trajni disk: baza mora biti VAN foldera aplikacije, jer hosting (Render) pri svakom deploy-u pravi
+   novu kopiju foldera aplikacije - baza u njemu bi se svaki put obrisala (nalozi, rezervacije, prijave) */
+const PERSISTENT = !!process.env.DATA_DIR && path.resolve(process.env.DATA_DIR) !== path.resolve(__dirname);
 
 /* ---------------- baza ---------------- */
 try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
@@ -194,6 +196,41 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_derma_evo_myo'").get()) {
     db.prepare("INSERT INTO settings(key,json) VALUES('mig_derma_evo_myo','true')").run();
   })();
 }
+/* datum kada je ova baza napravljena: ako se menja posle deploy-a, baza nije na trajnom disku */
+db.prepare("INSERT OR IGNORE INTO settings(key,json) VALUES('baza_od',?)").run(JSON.stringify(new Date().toISOString()));
+const BAZA_OD = JSON.parse(db.prepare("SELECT json FROM settings WHERE key='baza_od'").get().json);
+/* ključ za potpis prijave (kolačić): iz SECRET promenljive, a ako je nema - nasumičan ključ napravljen jednom
+   i sačuvan u bazi, pa ostaje isti posle svakog deploy-a (dok je baza na trajnom disku) */
+const SECRET_FROM_ENV = !!process.env.SECRET;
+const SECRET = process.env.SECRET || (() => {
+  const r = db.prepare("SELECT json FROM settings WHERE key='session_secret'").get();
+  if (r) return JSON.parse(r.json);
+  const k = crypto.randomBytes(48).toString("base64url");
+  db.prepare("INSERT INTO settings(key,json) VALUES('session_secret',?)").run(JSON.stringify(k));
+  return k;
+})();
+if (!PERSISTENT) console.warn("UPOZORENJE: baza nije na trajnom disku (DATA_DIR nije podešen). Na Renderu se pri svakom deploy-u brišu nalozi, prijave i rezervacije! Vidi README-DEPLOY.md, „Trajno čuvanje podataka\".");
+if (!SECRET_FROM_ENV) console.warn("Napomena: SECRET nije podešen - koristi se ključ sačuvan u bazi.");
+
+/* automatska dnevna kopija baze (DATA_DIR/kopije, čuva se poslednjih 14) - zaštita ako neka izmena pokvari podatke */
+const BACKUP_DIR = path.join(DATA_DIR, "kopije");
+function dailyBackup() {
+  try {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const d = new Date(), name = "salon-" + d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") + ".db";
+    const files = fs.readdirSync(BACKUP_DIR).filter(f => /^salon-\d{4}-\d{2}-\d{2}\.db$/.test(f)).sort();
+    if (!files.includes(name)) {
+      db.backup(path.join(BACKUP_DIR, name)).then(() => {
+        console.log("Dnevna kopija baze: " + name);
+        for (const f of fs.readdirSync(BACKUP_DIR).filter(f => /^salon-\d{4}-\d{2}-\d{2}\.db$/.test(f)).sort().slice(0, -14))
+          try { fs.unlinkSync(path.join(BACKUP_DIR, f)); } catch (e) {}
+      }).catch(e => console.error("Kopija baze nije uspela:", e.message));
+    }
+  } catch (e) { console.error("Kopija baze nije uspela:", e.message); }
+}
+setTimeout(dailyBackup, 60 * 1000);
+setInterval(dailyBackup, 60 * 60 * 1000);
+
 const getSetting = k => { const r = db.prepare("SELECT json FROM settings WHERE key=?").get(k); return r ? JSON.parse(r.json) : null; };
 const setSetting = (k, v) => db.prepare("INSERT OR REPLACE INTO settings(key,json) VALUES(?,?)").run(k, JSON.stringify(v));
 /* jednokratno: napomene tipa „Paket od 10 tretmana: 25.000 RSD" postaju paketi koje admin menja dugmetom „Paketi";
@@ -415,7 +452,8 @@ if (SITE_HOST) {
     next();
   });
 }
-app.use(express.json());
+const jsonSmall = express.json(), jsonBig = express.json({ limit: "50mb" });
+app.use((req, res, next) => (req.path === "/api/admin/restore" ? jsonBig : jsonSmall)(req, res, next));
 app.use(cookieParser());
 app.use(compression());  // gzip: strana, cenovnik (/api/public) i ostali odgovori idu do 4x manji
 /* keširanje: slike, ikone i fontovi 1 dan (posle toga pregledač proverava da li su promenjeni);
@@ -430,7 +468,8 @@ function me(req) {
   if (!email) return null;
   const u = db.prepare("SELECT email,ime,prezime,telefon,consent FROM users WHERE email=?").get(email);
   if (!u) return null;
-  return { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: ADMIN_EMAILS.includes(email), staff: STAFF_EMAILS.includes(email), needConsent: !u.consent };
+  return { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: ADMIN_EMAILS.includes(email), staff: STAFF_EMAILS.includes(email), needConsent: !u.consent,
+    sys: ADMIN_EMAILS.includes(email) ? { persistent: PERSISTENT, secretFromEnv: SECRET_FROM_ENV, bazaOd: BAZA_OD } : undefined };
 }
 const auth = (req, res, next) => { const u = me(req); if (!u) return res.status(401).json({ error: "Prijavite se." }); req.user = u; next(); };
 const staff = (req, res, next) => { if (!req.user.admin && !req.user.staff) return res.status(403).json({ error: "Samo osoblje salona." }); next(); };
@@ -811,10 +850,40 @@ app.get("/api/admin/backup", auth, admin, (req, res) => {
     users: db.prepare("SELECT * FROM users").all(),
     bookings: db.prepare("SELECT * FROM bookings").all().map(bkRow),
     empHours: db.prepare("SELECT * FROM emp_hours").all(),
+    vouchers: db.prepare("SELECT * FROM vouchers").all(),
   };
   res.setHeader("Content-Disposition", 'attachment; filename="bn-kopija-' + dstr(new Date()) + '.json"');
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.send(JSON.stringify(data, null, 1));
+});
+/* vraćanje iz rezervne kopije (fajl iz „Rezervna kopija"): nalozi, rezervacije, radno vreme zaposlenih i vaučeri
+   se samo DODAJU (ono što već postoji u bazi se ne menja i ne briše); cenovnik, zaposlene i radno vreme salona
+   se vraćaju na stanje iz kopije */
+app.post("/api/admin/restore", auth, admin, (req, res) => {
+  const d = req.body || {};
+  if (!d.exportedAt || !Array.isArray(d.users) || !Array.isArray(d.bookings))
+    return res.status(400).json({ error: "Ovo nije fajl rezervne kopije (bn-kopija-....json)." });
+  const cols = t => new Set(db.prepare("PRAGMA table_info(" + t + ")").all().map(c => c.name));
+  const put = (verb, table, row) => {
+    const c = cols(table), keys = Object.keys(row).filter(k => c.has(k) && row[k] !== undefined);
+    if (!keys.length) return 0;
+    const v = keys.map(k => typeof row[k] === "boolean" ? (row[k] ? 1 : 0) : row[k] !== null && typeof row[k] === "object" ? JSON.stringify(row[k]) : row[k]);
+    return db.prepare(`INSERT OR ${verb} INTO ${table}(${keys.join(",")}) VALUES(${keys.map(() => "?").join(",")})`).run(...v).changes;
+  };
+  const n = { users: 0, bookings: 0, empHours: 0, vouchers: 0, services: 0, employees: 0 };
+  try {
+    db.transaction(() => {
+      for (const r of d.users) if (r && r.email) n.users += put("IGNORE", "users", r);
+      for (const r of d.bookings) if (r && r.id) n.bookings += put("IGNORE", "bookings", r);
+      for (const r of d.empHours || []) if (r && r.emp && r.day) n.empHours += put("IGNORE", "emp_hours", r);
+      for (const r of d.vouchers || []) if (r && r.id) n.vouchers += put("IGNORE", "vouchers", r);
+      for (const r of d.employees || []) if (r && r.id) n.employees += put("REPLACE", "employees", r);
+      for (const r of d.services || []) if (r && r.id) n.services += put("REPLACE", "services", { aparat: false, ...r });
+      const st = d.settings || {};
+      for (const k of ["hours", "salon"]) if (st[k]) setSetting(k, st[k]);
+    })();
+  } catch (e) { console.error(e); return res.status(400).json({ error: "Kopija nije vraćena: " + e.message }); }
+  res.json({ ok: true, added: n });
 });
 app.post("/api/admin/remind/:id", auth, staff, async (req, res) => {
   const b = bkRow(db.prepare("SELECT * FROM bookings WHERE id=?").get(req.params.id));
@@ -1159,5 +1228,5 @@ const tick = () => { runReminders().catch(e => console.error(e)); runSmsReminder
 setInterval(tick, 5 * 60 * 1000);
 setTimeout(tick, 3000);
 
-app.get("/zdravlje", (req, res) => res.json({ ok: true }));
+app.get("/zdravlje", (req, res) => res.json({ ok: true, trajniDisk: PERSISTENT, secret: SECRET_FROM_ENV ? "SECRET" : "baza", bazaOd: BAZA_OD }));
 app.listen(PORT, () => console.log("Beauty & Nutrition rezervacije - http://localhost:" + PORT));

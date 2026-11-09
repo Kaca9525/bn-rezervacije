@@ -1508,7 +1508,8 @@ function tplAdmin(){
   return `
   <span class="eyebrow">Administracija salona</span>
   <h1 class="h-page">Admin panel</h1>
-  <div class="adm-tabs">${tab("rez","Rezervacije"+(nWait?`<span class="tab-badge" title="Zahtevi na čekanju">${nWait}</span>`:""))}${tab("cal","Kalendar")}${tab("rem","Podsetnici")}${tab("vcr","Vaučeri")}${isAdmin()?tab("hrs","Radno vreme")+tab("svc","Usluge")+tab("emp","Zaposlene")+tab("akc","Akcije"):""}${isAdmin()?`<button class="btn btn-ghost btn-sm" data-backup title="Preuzmite sve podatke salona kao fajl">⤓ Rezervna kopija</button>`:""}<button class="btn btn-gold btn-sm" data-manual style="margin-left:auto">+ Ručni unos</button>
+  ${isAdmin()&&S.me&&S.me.sys&&!S.me.sys.persistent?`<div class="err" style="margin:0 0 14px">⚠️ <b>Podaci nisu na trajnom disku.</b> Pri svakom novom postavljanju (deploy) aplikacije brišu se nalozi, prijave i rezervacije. Pre sledećeg deploy-a preuzmite „Rezervnu kopiju", pa na Renderu dodajte Disk i promenljivu DATA_DIR (uputstvo: README-DEPLOY.md, „Trajno čuvanje podataka").</div>`:""}
+  <div class="adm-tabs">${tab("rez","Rezervacije"+(nWait?`<span class="tab-badge" title="Zahtevi na čekanju">${nWait}</span>`:""))}${tab("cal","Kalendar")}${tab("rem","Podsetnici")}${tab("vcr","Vaučeri")}${isAdmin()?tab("hrs","Radno vreme")+tab("svc","Usluge")+tab("emp","Zaposlene")+tab("akc","Akcije"):""}${isAdmin()?`<button class="btn btn-ghost btn-sm" data-backup title="Preuzmite sve podatke salona kao fajl">⤓ Rezervna kopija</button><button class="btn btn-ghost btn-sm" data-restore title="Vratite naloge i rezervacije iz preuzete kopije">⤒ Vrati iz kopije</button><input type="file" id="restore-file" accept=".json,application/json" class="hidden">`:""}<button class="btn btn-gold btn-sm" data-manual style="margin-left:auto">+ Ručni unos</button>
     <button class="btn btn-ghost btn-sm" id="adm-refresh">Osveži</button></div>
   <div id="adm-body">${t==="cal"?admCal():t==="rem"?admRem():t==="vcr"?admVcr():(t==="hrs"&&isAdmin())?admHrs():(t==="svc"&&isAdmin())?admSvc():(t==="emp"&&isAdmin())?admEmp():(t==="akc"&&isAdmin())?admAkc():admRez()}</div>
   ${footer()}`;
@@ -2132,6 +2133,19 @@ function wire(root){
   root.querySelectorAll("[data-admemp]").forEach(b=>b.onclick=()=>{S.admFilter=b.dataset.admemp;render()});
   const bk=root.querySelector("[data-backup]");
   if(bk)bk.onclick=()=>{window.location.href="/api/admin/backup";toast("Kopija se preuzima…")};
+  const rs=root.querySelector("[data-restore]"),rf=root.querySelector("#restore-file");
+  if(rs&&rf){
+    rs.onclick=()=>rf.click();
+    rf.onchange=async()=>{
+      const f=rf.files&&rf.files[0];rf.value="";if(!f)return;
+      if(!confirm("Vratiti podatke iz fajla „"+f.name+"\"?\n\nNalozi, rezervacije, radno vreme zaposlenih i vaučeri iz kopije se DODAJU (ništa postojeće se ne briše). Cenovnik, zaposlene i radno vreme salona se vraćaju na stanje iz kopije."))return;
+      let data;try{data=JSON.parse(await f.text())}catch(e){toast("Fajl nije ispravna rezervna kopija.");return}
+      try{const r=await apiPost("/api/admin/restore",data),a=r.added||{};
+        toast("Vraćeno: "+(a.users||0)+" naloga, "+(a.bookings||0)+" rezervacija.");
+        await refreshPublic();loadAdm();
+      }catch(e){toast(e.message)}
+    };
+  }
   const aks=root.querySelector("#ak-save");
   if(aks)aks.onclick=async()=>{
     const err=m=>{const b=root.querySelector("#ak-err");if(b){b.textContent=m;b.classList.remove("hidden")}};
