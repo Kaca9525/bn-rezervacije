@@ -247,6 +247,37 @@ if (!getSetting("mig_packages_v1")) {
 }
 const rezEmail = () => (getSetting("salon") || {}).rezEmail || "andrijanaobradovic5@gmail.com";
 
+/* ---- klijenti salona (adresar): uvoz, ručni unos, online termini; jedan klijent po broju telefona ---- */
+db.exec(`CREATE TABLE IF NOT EXISTS clients(id TEXT PRIMARY KEY, name TEXT NOT NULL, tel TEXT, telN TEXT, email TEXT, note TEXT, source TEXT, created TEXT)`);
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS clients_teln ON clients(telN) WHERE telN IS NOT NULL");
+const insClient = db.prepare("INSERT OR IGNORE INTO clients(id,name,tel,telN,email,note,source,created) VALUES(?,?,?,?,?,?,?,?)");
+if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_klijenti'").get()) {
+  const seen = new Map();
+  for (const r of db.prepare("SELECT userName,userTel,userEmail,created FROM bookings ORDER BY created").all()) {
+    const t = normTel(r.userTel), nm = String(r.userName || "").trim();
+    if (t && nm) seen.set(t, { name: nm, tel: String(r.userTel).trim(), email: (r.userEmail || "").toLowerCase() || null, created: r.created });
+  }
+  const staffMails = new Set([...ADMIN_EMAILS, ...STAFF_EMAILS]);
+  for (const u of db.prepare("SELECT email,ime,prezime,telefon,created FROM users").all()) {
+    const t = normTel(u.telefon);
+    if (t && !seen.has(t) && !staffMails.has(u.email))
+      seen.set(t, { name: ((u.ime || "") + " " + (u.prezime || "")).trim() || u.email, tel: String(u.telefon).trim(), email: u.email, created: u.created });
+  }
+  db.transaction(() => {
+    for (const [t, c] of seen) insClient.run(crypto.randomUUID(), c.name.slice(0, 120), c.tel.slice(0, 40), t, c.email, null, "termini", c.created || new Date().toISOString());
+    db.prepare("INSERT INTO settings(key,json) VALUES('mig_klijenti','true')").run();
+  })();
+}
+/* posle termina: zapamti klijenta ako ga nema (postojeći podaci se ne prepisuju, samo se dopuni mejl) */
+function rememberClient(name, tel, email, source) {
+  const t = normTel(tel), nm = String(name || "").trim(), mail = String(email || "").trim().toLowerCase() || null;
+  if (!t || !nm) return;
+  const ex = db.prepare("SELECT id,email FROM clients WHERE telN=?").get(t);
+  if (ex) { if (!ex.email && mail) db.prepare("UPDATE clients SET email=? WHERE id=?").run(mail, ex.id); return; }
+  insClient.run(crypto.randomUUID(), nm.slice(0, 120), String(tel).trim().slice(0, 40), t, mail, null, source, new Date().toISOString());
+}
+
+
 /* ---------------- e-mail (Gmail SMTP) ---------------- */
 let mailer = null;
 if (process.env.SMTP_USER && process.env.SMTP_PASS) {
@@ -659,6 +690,7 @@ app.post("/api/bookings", auth, (req, res) => {
     created: new Date().toISOString(), source: "online", note: null,
   };
   insBooking(b);
+  rememberClient(b.userName, b.userTel, b.userEmail, "online");
 
   /* online rezervacija je zahtev: termin je rezervisan (blokira slot) dok ga salon ne potvrdi ili odbije u adminu;
      podaci za uplatu avansa i podsetnici idu tek posle potvrde */
@@ -857,12 +889,13 @@ app.get("/api/admin/backup", auth, admin, (req, res) => {
     bookings: db.prepare("SELECT * FROM bookings").all().map(bkRow),
     empHours: db.prepare("SELECT * FROM emp_hours").all(),
     vouchers: db.prepare("SELECT * FROM vouchers").all(),
+    clients: db.prepare("SELECT * FROM clients").all(),
   };
   res.setHeader("Content-Disposition", 'attachment; filename="bn-kopija-' + dstr(new Date()) + '.json"');
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.send(JSON.stringify(data, null, 1));
 });
-/* vraćanje iz rezervne kopije (fajl iz „Rezervna kopija"): nalozi, rezervacije, radno vreme zaposlenih i vaučeri
+/* vraćanje iz rezervne kopije (fajl iz „Rezervna kopija"): nalozi, rezervacije, radno vreme zaposlenih, vaučeri i klijenti
    se samo DODAJU (ono što već postoji u bazi se ne menja i ne briše); cenovnik, zaposlene i radno vreme salona
    se vraćaju na stanje iz kopije */
 app.post("/api/admin/restore", auth, admin, (req, res) => {
@@ -876,13 +909,14 @@ app.post("/api/admin/restore", auth, admin, (req, res) => {
     const v = keys.map(k => typeof row[k] === "boolean" ? (row[k] ? 1 : 0) : row[k] !== null && typeof row[k] === "object" ? JSON.stringify(row[k]) : row[k]);
     return db.prepare(`INSERT OR ${verb} INTO ${table}(${keys.join(",")}) VALUES(${keys.map(() => "?").join(",")})`).run(...v).changes;
   };
-  const n = { users: 0, bookings: 0, empHours: 0, vouchers: 0, services: 0, employees: 0 };
+  const n = { users: 0, bookings: 0, empHours: 0, vouchers: 0, clients: 0, services: 0, employees: 0 };
   try {
     db.transaction(() => {
       for (const r of d.users) if (r && r.email) n.users += put("IGNORE", "users", r);
       for (const r of d.bookings) if (r && r.id) n.bookings += put("IGNORE", "bookings", r);
       for (const r of d.empHours || []) if (r && r.emp && r.day) n.empHours += put("IGNORE", "emp_hours", r);
       for (const r of d.vouchers || []) if (r && r.id) n.vouchers += put("IGNORE", "vouchers", r);
+      for (const r of d.clients || []) if (r && r.id && r.name) n.clients += put("IGNORE", "clients", r);
       for (const r of d.employees || []) if (r && r.id) n.employees += put("REPLACE", "employees", r);
       for (const r of d.services || []) if (r && r.id) n.services += put("REPLACE", "services", { aparat: false, ...r });
       const st = d.settings || {};
@@ -996,6 +1030,7 @@ app.post("/api/admin/manual", auth, staff, (req, res) => {
     totalDuration: v.dur, status: "zakazano", reminderSent: c.mail ? 0 : 1, created: now, source: "manual", note: v.note || null,
   }));
   db.transaction(() => list.forEach(insBooking))();
+  rememberClient(c.name, c.tel, c.mail, "rucni unos");
   if (c.mail) sendMail(c.mail, "Potvrda termina - Beauty & Nutrition",
 `Poštovana/i ${c.name},
 
@@ -1032,6 +1067,7 @@ app.post("/api/admin/booking/:id", auth, staff, (req, res) => {
     v.services.reduce((a, x) => a + (x.cur === "EUR" ? 0 : x.price), 0), v.services.reduce((a, x) => a + (x.cur === "EUR" ? x.price : 0), 0),
     v.dur, v.note || null, reminderSent, sms("sms24"), sms("smsDay"), moved ? new Date().toISOString() : (b.changed || null), b.id);
   const nb = bkRow(db.prepare("SELECT * FROM bookings WHERE id=?").get(b.id));
+  rememberClient(c.name, c.tel, c.mail, "rucni unos");
   if (changed && c.mail) sendMail(c.mail, "Izmenjen termin - Beauty & Nutrition",
 `Poštovana/i ${c.name},
 
@@ -1146,6 +1182,69 @@ app.post("/api/admin/emp-hours/:emp/date-del", auth, admin, (req, res) => {
   if (!validDate(date)) return res.status(400).json({ error: "Neispravan datum." });
   db.prepare("DELETE FROM emp_hours WHERE emp=? AND day=?").run(req.params.emp, date);
   res.json({ ok: true });
+});
+
+/* ---- klijenti ---- */
+const cliOut = r => ({ id: r.id, name: r.name, tel: r.tel || "", email: r.email || "", note: r.note || "", source: r.source || "", created: r.created });
+function checkCli(body, exceptId) {
+  const name = String(body.name || "").trim().slice(0, 120), tel = String(body.tel || "").trim().slice(0, 40);
+  const email = String(body.email || "").trim().toLowerCase().slice(0, 120), note = String(body.note || "").trim().slice(0, 300);
+  if (!name) return { error: "Unesite ime i prezime." };
+  const t = normTel(tel);
+  if (!t) return { error: "Unesite ispravan broj telefona (npr. 064 123 4567)." };
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "E-mail adresa nije ispravna." };
+  const dup = db.prepare("SELECT name FROM clients WHERE telN=? AND id<>?").get(t, exceptId || "");
+  if (dup) return { status: 409, error: "Klijent sa ovim brojem već postoji: " + dup.name + "." };
+  return { name, tel, telN: t, email: email || null, note: note || null };
+}
+app.get("/api/admin/clients", auth, staff, (req, res) => {
+  const today = dstr(new Date()), stat = new Map();
+  for (const b of db.prepare("SELECT userTel,date FROM bookings WHERE status<>'otkazano'").all()) {
+    const t = normTel(b.userTel); if (!t) continue;
+    const x = stat.get(t) || { visits: 0, last: null, next: null };
+    if (b.date < today) { x.visits++; if (!x.last || b.date > x.last) x.last = b.date; }
+    else if (!x.next || b.date < x.next) x.next = b.date;
+    stat.set(t, x);
+  }
+  const list = db.prepare("SELECT * FROM clients").all().map(r => ({ ...cliOut(r), ...(stat.get(r.telN) || { visits: 0, last: null, next: null }) }))
+    .sort((a, b) => a.name.localeCompare(b.name, "sr"));
+  res.json({ clients: list });
+});
+app.post("/api/admin/clients", auth, staff, (req, res) => {
+  const c = checkCli(req.body || {});
+  if (c.error) return res.status(c.status || 400).json({ error: c.error });
+  const id = crypto.randomUUID();
+  insClient.run(id, c.name, c.tel, c.telN, c.email, c.note, "rucno", new Date().toISOString());
+  res.json({ client: cliOut(db.prepare("SELECT * FROM clients WHERE id=?").get(id)) });
+});
+app.post("/api/admin/client/:id", auth, staff, (req, res) => {
+  const r = db.prepare("SELECT * FROM clients WHERE id=?").get(req.params.id);
+  if (!r) return res.status(404).json({ error: "Klijent nije pronađen." });
+  const c = checkCli(req.body || {}, r.id);
+  if (c.error) return res.status(c.status || 400).json({ error: c.error });
+  db.prepare("UPDATE clients SET name=?,tel=?,telN=?,email=?,note=? WHERE id=?").run(c.name, c.tel, c.telN, c.email, c.note, r.id);
+  res.json({ client: cliOut(db.prepare("SELECT * FROM clients WHERE id=?").get(r.id)) });
+});
+app.post("/api/admin/client-del/:id", auth, admin, (req, res) => {
+  db.prepare("DELETE FROM clients WHERE id=?").run(req.params.id);
+  res.json({ ok: true });
+});
+/* uvoz: do 500 redova po zahtevu; postojeći brojevi se preskaču (ne prepisuju) */
+app.post("/api/admin/clients-import", auth, admin, (req, res) => {
+  const rows = (req.body || {}).rows;
+  if (!Array.isArray(rows) || !rows.length || rows.length > 500) return res.status(400).json({ error: "Pošaljite od 1 do 500 redova." });
+  let added = 0, existing = 0, invalid = 0;
+  const now = new Date().toISOString();
+  db.transaction(() => {
+    for (const x of rows) {
+      const name = String((x && x.name) || "").trim().slice(0, 120), tel = String((x && x.tel) || "").trim().slice(0, 40), t = normTel(tel);
+      if (!name || !t) { invalid++; continue; }
+      const email = String((x && x.email) || "").trim().toLowerCase().slice(0, 120);
+      const r = insClient.run(crypto.randomUUID(), name, tel, t, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null, String((x && x.note) || "").trim().slice(0, 300) || null, "uvoz", now);
+      if (r.changes) added++; else existing++;
+    }
+  })();
+  res.json({ added, existing, invalid });
 });
 
 /* ---- automatski podsetnici dan pre ---- */

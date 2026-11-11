@@ -160,6 +160,10 @@ Prijava važi posebno za svaku adresu, pa se na novoj adresi treba jednom ponovo
 1. Otvorite aplikaciju → **Registracija** sa adresom `kaca9525@gmail.com` → taj nalog je automatski **Admin**
 2. Admin → **Radno vreme**: proverite/izmenite (postavljeno: pon–pet 09–21, sub 10–15, nedelja neradna),
    a u delu **Radno vreme zaposlenih** upišite kada koja zaposlena radi (nedeljni raspored + izuzeci po datumu)
+   - Admin → **Klijenti**: adresar (ime, telefon, e-mail, napomena, broj dolazaka). Puni se sam iz online
+     rezervacija i ručnog unosa; postojeće klijente uvezite iz Excela (nalepite kolone, `.xlsx` ili CSV) ili
+     iz kontakata telefona (`.vcf`), uz pregled pre uvoza. U ručnom unosu termina klijent se predlaže dok kucate
+     ime ili broj (broj se prepoznaje u bilo kom zapisu: 064…, +381 64…, 381…)
 3. Admin → **Usluge**: cene, trajanja i aktivnost menjate u par klikova; oznaka **„na aparatu"** šalje
    tretman u kolonu **Aparat** (npr. presoterapija, EMS, termo ćebe), pa ne zauzima zaposlene, a isti
    aparat ne može da primi dva klijenta u isto vreme; dugme **„Paketi"** uz uslugu (i uz objavljenu akciju) dodaje
