@@ -1639,7 +1639,7 @@ function admHrs(){
 function loadEh(){
   if(S.ehLoading)return;S.ehLoading=true;
   apiGet("/api/admin/emp-hours").then(d=>{S.eh=d}).catch(()=>{S.eh={week:{},dates:{},days:[],eff:{}}})
-    .finally(()=>{S.ehLoading=false;if(S.view==="admin"&&S.admTab==="hrs")render()});
+    .finally(()=>{S.ehLoading=false;if(S.view==="admin"&&(S.admTab==="hrs"||S.admTab==="emp"))render()});
 }
 function admEmpHours(){
   if(!S.eh){loadEh();return `<div class="loading">Učitavanje rasporeda…</div>`}
@@ -2389,7 +2389,9 @@ function admEmp(){
       <span class="pill ${e.active!==false?"pill-ok":"pill-off"}">${isDev(e)?(e.active!==false?"Dostupan":"Isključen"):(e.active!==false?"Dostupna":"Na odmoru")}</span>
       <button class="btn ${e.active!==false?"btn-danger":"btn-gold"} btn-sm" data-emptoggle="${esc(e.id)}">${isDev(e)?(e.active!==false?"Isključi":"Uključi"):(e.active!==false?"Pošalji na odmor":"Vrati u ponudu")}</button>
     </div>`).join("")}
-  </div>`;
+  </div>
+  <div class="rule"><h2>Radno vreme zaposlenih</h2></div>
+  ${admEmpHours()}`;
 }
 function admAkc(){
   const list=S.services.filter(s=>s.cat==="akcije").sort((a,b)=>a.name.localeCompare(b.name,"sr"));
@@ -2619,7 +2621,7 @@ function wire(root){
     const id=b.dataset.emptoggle;const e=S.employees.find(x=>x.id===id);if(!e)return;b.disabled=true;
     try{
       const r=await apiPost("/api/admin/employee/"+encodeURIComponent(id),{active:e.active===false});
-      const i=S.employees.findIndex(x=>x.id===id);if(i>=0)S.employees[i]=r.employee;
+      const i=S.employees.findIndex(x=>x.id===id);if(i>=0)S.employees[i]=r.employee;S.eh=null;
       toast(isDev(e)?(r.employee.active===false?e.name+" je isključen.":e.name+" je ponovo dostupan."):(r.employee.active===false?e.name+" je na odmoru.":e.name+" je ponovo dostupna."));render();
     }catch(er){toast(er.message);b.disabled=false}
   });
