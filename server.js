@@ -297,7 +297,7 @@ function blockedSets() {
   }
   return { tels, mails, has: (email, tel) => tels.has(normTel(tel)) || mails.has(String(email || "").toLowerCase()) };
 }
-const BLOCKED_MSG = "Nažalost, online zakazivanje trenutno nije dostupno za vaš nalog. Za termin nas, molimo, kontaktirajte direktno na +381 64 93 55 003.";
+const BLOCKED_MSG = "Nažalost, online zakazivanje trenutno nije dostupno za vaš nalog.";
 
 /* posle termina: zapamti klijenta ako ga nema (postojeći podaci se ne prepisuju, samo se dopuni mejl) */
 function rememberClient(name, tel, email, source) {
