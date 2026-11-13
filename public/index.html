@@ -504,6 +504,10 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .cli-list{padding:4px 20px}
 .cli-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:6px 16px;align-items:center;padding:12px 0;border-bottom:1px dashed var(--line)}
 .cli-row:last-child{border-bottom:none}
+.cli-nm .pill{margin-left:8px;vertical-align:2px;padding:2px 8px;font-size:9.5px}
+.cli-filter{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.blk-box{background:var(--danger-bg);border-radius:12px;padding:10px 14px;margin:0 0 14px;font-size:13px}
+.blk-box b{color:var(--danger)}
 .cli-nm{font-weight:800;font-size:14.5px;overflow-wrap:anywhere}
 .cli-nm small{display:block;font-weight:600;font-size:12px;color:var(--muted)}
 .cli-ct{font-size:13px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
@@ -878,8 +882,16 @@ async function confirmBooking(){
   if(!S.me){toast("Prijavite se da biste zakazali termin.");S.view="auth";render();return}
   const {dur}=cartTotals();
   if(!S.cart.length||!S.bDate||S.bSlot==null)return;
+  if(S.me.blocked)return blockedModal();
   if(!telOk(S.me.telefon))return phoneModal(confirmBooking);
   noticeModal(sendBooking);
+}
+/* blokiran klijent (npr. posle nedolaska): ljubazna poruka umesto slanja zahteva */
+function blockedModal(){
+  showModal(`<h3>Online zakazivanje nije dostupno</h3>
+  <p style="margin:0 0 12px">Nažalost, online zakazivanje trenutno nije dostupno za vaš nalog.</p>
+  <p style="margin:0 0 16px">Za termin nas, molimo, kontaktirajte direktno - rado ćemo vam pomoći.</p>
+  <div class="m-actions"><a class="btn btn-gold btn-sm" href="tel:+381649355003">Pozovite +381 64 93 55 003</a><button class="btn btn-ghost btn-sm" id="m-close">Zatvori</button></div>`);
 }
 /* Važno obaveštenje: prikazuje se pre slanja zahteva za termin; tek „Prihvatam i šaljem zahtev" šalje zahtev (i automatski mejl) */
 function noticeModal(then){
@@ -905,6 +917,7 @@ async function sendBooking(){
   }catch(e){
     if(btn)btn.disabled=false;
     if(e.data&&e.data.code==="phone")return phoneModal(sendBooking);
+    if(e.data&&e.data.code==="blocked"){if(S.me)S.me.blocked=true;return blockedModal()}
     toast(e.message);
     if(/zauzet|ne radi/i.test(e.message)){S.bSlot=null;renderSlots()}
   }
@@ -1509,6 +1522,7 @@ function bkCard(b,adminView){
         ${stPill(b)}
         <span class="pill pill-cat">${esc(durTxt(b.totalDuration))}</span>
         ${adminView&&b.source==="manual"?`<span class="pill pill-cat">Ručni unos</span>`:""}
+        ${adminView&&b.blocked?`<span class="pill pill-off" title="Klijent ne može da zakazuje online">Blokiran klijent</span>`:""}
       </div>
       ${!adminView&&wait&&!past?`<div class="note" style="margin-top:8px">Salon potvrđuje termin u najkraćem roku; obaveštenje i podaci za uplatu avansa stižu na e-mail.</div>`:""}
       ${adminView&&wait?`<div class="note" style="margin-top:8px">Zahtev poslat ${esc(fmtWhen(b.created))}; termin je zauzet dok se ne odluči.</div>`:""}
@@ -1520,6 +1534,7 @@ function bkCard(b,adminView){
       ${man?`<button class="btn btn-ghost btn-sm" data-bkedit="${esc(b.id)}">Izmeni</button>
       <button class="btn btn-ghost btn-sm" data-bkdel="${esc(b.id)}" title="Briše pogrešno unet termin, bez obaveštenja klijentu">Obriši</button>`:""}
       ${!adminView&&cancellable&&!wait&&hasPrice(b)?`<button class="btn btn-ghost btn-sm" data-avans="${esc(b.id)}">Uplata avansa</button>`:""}
+      ${adminView&&isAdmin()&&(b.userTel||b.userEmail)&&b.status!=="otkazano"?`<button class="btn btn-ghost btn-sm" data-bkblock="${esc(b.id)}" title="${b.blocked?"Klijent ponovo može da zakazuje online":"Npr. posle nedolaska: klijent više ne može da zakazuje online"}">${b.blocked?"Odblokiraj":"Blokiraj"}</button>`:""}
       ${cancellable&&!(adminView&&wait)?`<button class="btn btn-danger btn-sm" data-cancel="${esc(b.id)}">${wait?"Otkaži zahtev":"Otkaži"}</button>`:""}
     </div>
   </div>`;
@@ -1709,7 +1724,7 @@ function cliMeta(c){
 }
 function cliRowHTML(c){
   return `<div class="cli-row">
-    <div class="cli-nm">${esc(c.name)}<small>${esc(cliMeta(c))}</small></div>
+    <div class="cli-nm">${esc(c.name)}${c.blocked?`<span class="pill pill-off" title="${esc("Blokiran "+fmtShort(c.blocked.slice(0,10))+(c.blockNote?" · "+c.blockNote:""))}">Blokiran</span>`:""}<small>${esc(cliMeta(c))}</small></div>
     <div class="cli-ct"><a href="tel:${esc(normTel(c.tel)||c.tel)}">${esc(c.tel)}</a>${c.email?`<small>${esc(c.email)}</small>`:""}${c.note?`<small>${esc(c.note)}</small>`:""}</div>
     <div class="cli-act"><button class="btn btn-gold btn-sm" data-clibook="${esc(c.id)}">Zakaži</button><button class="btn btn-ghost btn-sm" data-cliedit="${esc(c.id)}">Izmeni</button></div>
   </div>`;
@@ -1717,9 +1732,11 @@ function cliRowHTML(c){
 function cliListHTML(){
   const all=S.clients||[],q=(S.cliQ||"").trim();
   if(!all.length)return `<div class="empty"><p style="font-weight:800">Još nema klijenata u adresaru.</p><p class="note">${isAdmin()?"Uvezite ih iz Excela ili kontakata telefona, ili dodajte ručno.":"Dodajte klijenta ručno."} Klijenti koji zakažu online ili ih upišete u kalendar dodaju se sami.</p></div>`;
-  const hits=q?all.filter(c=>cliMatch(c,q)):all,shown=hits.slice(0,S.cliLimit||CLI_PAGE);
-  if(!hits.length)return `<div class="empty">Nema klijenata za „${esc(q)}“.</div>`;
-  return `<p class="cli-sum">${q?pl(hits.length,"klijent","klijenta","klijenata")+" za „"+esc(q)+"“":"U adresaru: "+pl(all.length,"klijent","klijenta","klijenata")}</p>
+  const nBl=all.filter(c=>c.blocked).length;if(!nBl)S.cliBl=false;
+  const flt=nBl?`<div class="cli-filter"><button class="btn btn-sm ${S.cliBl?"btn-danger":"btn-ghost"}" data-clibl>${S.cliBl?"✓ ":""}Blokirani (${nBl})</button></div>`:"";
+  const hits=(q?all.filter(c=>cliMatch(c,q)):all).filter(c=>!S.cliBl||c.blocked),shown=hits.slice(0,S.cliLimit||CLI_PAGE);
+  if(!hits.length)return flt+`<div class="empty">Nema klijenata za „${esc(q)}“.</div>`;
+  return flt+`<p class="cli-sum">${q?pl(hits.length,"klijent","klijenta","klijenata")+" za „"+esc(q)+"“":"U adresaru: "+pl(all.length,"klijent","klijenta","klijenata")}</p>
   <div class="card cli-list">${shown.map(cliRowHTML).join("")}</div>
   ${hits.length>shown.length?`<div style="text-align:center;margin-top:14px"><button class="btn btn-ghost btn-sm" data-climore>Prikaži još (${hits.length-shown.length})</button></div>`:""}`;
 }
@@ -1740,6 +1757,7 @@ function cliModal(c){
   const edit=!!(c&&c.id);
   showModal(`<h3>${edit?"Izmena klijenta":"Novi klijent"}</h3>
   ${edit?`<p class="note" style="margin:-6px 0 14px">${esc(cliMeta(c))}</p>`:""}
+  ${edit&&c.blocked?`<div class="blk-box"><b>Blokiran</b> od ${esc(fmtShort(c.blocked.slice(0,10)))}${c.blockNote?" · "+esc(c.blockNote):""} - ne može da zakazuje online.</div>`:""}
   <div id="c-err" class="err hidden"></div>
   <div class="field"><label for="c-name">Ime i prezime <span class="req">*</span></label><input id="c-name" value="${esc(edit?c.name:"")}" maxlength="120" autocomplete="off"></div>
   <div class="field"><label for="c-tel">Telefon <span class="req">*</span></label><input id="c-tel" type="tel" value="${esc(edit?c.tel:"")}" placeholder="064 123 4567" maxlength="40" autocomplete="off"></div>
@@ -1748,6 +1766,7 @@ function cliModal(c){
   <div class="m-actions">
     <button class="btn btn-gold btn-sm" id="c-save">${edit?"Sačuvaj izmene":"Dodaj klijenta"}</button>
     ${edit?`<button class="btn btn-ghost btn-sm" id="c-book">Zakaži termin</button>`:""}
+    ${edit&&isAdmin()?`<button class="btn btn-ghost btn-sm" id="c-block">${c.blocked?"Odblokiraj":"Blokiraj"}</button>`:""}
     <button class="btn btn-ghost btn-sm" id="m-close">Odustani</button>
     ${edit&&isAdmin()?`<button class="btn btn-danger btn-sm" id="c-del" style="margin-left:auto" title="Briše klijenta iz adresara; termini ostaju u kalendaru">Obriši</button>`:""}
   </div>`);
@@ -1768,12 +1787,41 @@ function cliModal(c){
     }catch(e){err(e.message);btn.disabled=false}
   };
   const bk=$("#c-book");if(bk)bk.onclick=()=>manualModal(null,{name:c.name,tel:c.tel,email:c.email});
+  const bl=$("#c-block");if(bl)bl.onclick=()=>blockModal({client:c});
   const del=$("#c-del");
   if(del)del.onclick=async()=>{
     if(!del.dataset.arm){del.dataset.arm="1";del.textContent="Potvrdi brisanje";setTimeout(()=>{if(del.isConnected){delete del.dataset.arm;del.textContent="Obriši"}},4000);return}
     del.disabled=true;
     try{await apiPost("/api/admin/client-del/"+encodeURIComponent(c.id));S.clients=(S.clients||[]).filter(x=>x.id!==c.id);toast("Klijent je obrisan iz adresara.");closeModal();rerenderAdm()}
     catch(e){err(e.message);del.disabled=false}
+  };
+}
+/* blokiranje klijenta (iz adresara ili iz rezervacije): blokiran klijent ne može da zakazuje online
+   i dobija ljubaznu poruku da pozove salon; salon ga i dalje može upisati ručno. Klijent se ne obaveštava. */
+function blockModal({client,booking}){
+  const name=client?client.name:booking.userName,on=!(client?client.blocked:booking.blocked);
+  showModal(on?`<h3>Blokiranje klijenta</h3>
+    <p class="note" style="margin:0 0 12px"><b>${esc(name)}</b>${booking?" · "+esc([booking.userTel,booking.userEmail].filter(Boolean).join(" · ")):" · "+esc(client.tel)}</p>
+    <div id="bl-err" class="err hidden"></div>
+    <div class="field"><label for="bl-note">Razlog (vidi samo salon, opciono)</label><input id="bl-note" maxlength="300" placeholder="npr. nije došla${booking?" "+esc(fmtShort(booking.date)):""} bez javljanja"></div>
+    <p class="note" style="margin:0 0 14px">Klijent više neće moći da zakaže online - umesto zahteva videće poruku da za termin pozove salon. Ne dobija nikakvo obaveštenje. Već zakazani termini ostaju; vi i dalje možete da je upišete ručno. Blokadu možete ukloniti bilo kada.</p>
+    <div class="m-actions"><button class="btn btn-danger btn-sm" id="bl-go">Blokiraj</button><button class="btn btn-ghost btn-sm" id="m-close">Odustani</button></div>`
+  :`<h3>Uklanjanje blokade</h3>
+    <p class="note" style="margin:0 0 12px"><b>${esc(name)}</b></p>
+    <div id="bl-err" class="err hidden"></div>
+    <p style="margin:0 0 14px">Klijent će ponovo moći da zakazuje online.</p>
+    <div class="m-actions"><button class="btn btn-gold btn-sm" id="bl-go">Odblokiraj</button><button class="btn btn-ghost btn-sm" id="m-close">Odustani</button></div>`);
+  $("#bl-go").onclick=async()=>{
+    const g=$("#bl-go");g.disabled=true;
+    const body={blocked:on,note:on?$("#bl-note").value.trim():""};
+    try{
+      const r=await apiPost(client?"/api/admin/client/"+encodeURIComponent(client.id)+"/block":"/api/admin/booking/"+encodeURIComponent(booking.id)+"/block",body);
+      if(S.clients&&r.client){const x=S.clients.find(y=>y.id===r.client.id);if(x){delete x.blocked;delete x.blockNote;delete x.blockedBy;Object.assign(x,r.client)}}
+      const t=r.client?normTel(r.client.tel):"",m=r.client?String(r.client.email||"").toLowerCase():"";
+      (S.admBookings||[]).forEach(b=>{if((t&&normTel(b.userTel)===t)||(m&&String(b.userEmail||"").toLowerCase()===m)||(booking&&b.id===booking.id))b.blocked=on});
+      S.calBk=null;closeModal();toast(on?name+" je blokiran/a - ne može više da zakazuje online.":"Blokada je uklonjena - "+name+" ponovo može da zakazuje online.");
+      render();if(S.clients)loadCli(true);
+    }catch(e){const b=$("#bl-err");b.textContent=e.message;b.classList.remove("hidden");g.disabled=false}
   };
 }
 function exportClients(){
@@ -2670,6 +2718,7 @@ function wire(root){
     S.calYear=y;S.calWS=dstr(weekStart(y===n.getFullYear()&&m===n.getMonth()?n:new Date(y,m,1)));render()});
   const mb=root.querySelector("[data-manual]");if(mb)mb.onclick=()=>manualModal();
   root.querySelectorAll("[data-bkedit]").forEach(b=>b.onclick=()=>{const x=findBk(b.dataset.bkedit);if(x)manualModal(x)});
+  root.querySelectorAll("[data-bkblock]").forEach(b=>b.onclick=()=>{const x=findBk(b.dataset.bkblock);if(x)blockModal({booking:x})});
   root.querySelectorAll("[data-bkdel]").forEach(b=>b.onclick=()=>{
     if(!b.dataset.arm){b.dataset.arm="1";b.textContent="Potvrdi brisanje";b.classList.add("btn-danger");setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.textContent="Obriši";b.classList.remove("btn-danger")}},4000);return}
     b.disabled=true;deleteBooking(b.dataset.bkdel);
@@ -2713,6 +2762,7 @@ function wire(root){
     const f=cq.closest("form");if(f)f.onsubmit=e=>{e.preventDefault();cq.blur()};
     const c=root.querySelector("#cli-q-clr");if(c)c.onclick=()=>{S.cliQ="";cq.value="";refresh();cq.focus()};
   }
+  root.querySelectorAll("[data-clibl]").forEach(b=>b.onclick=()=>{S.cliBl=!S.cliBl;S.cliLimit=CLI_PAGE;cliRefreshList()});
   root.querySelectorAll("[data-climore]").forEach(b=>b.onclick=()=>{S.cliLimit=(S.cliLimit||CLI_PAGE)+CLI_PAGE*3;cliRefreshList()});
   root.querySelectorAll("[data-clinew]").forEach(b=>b.onclick=()=>cliModal());
   root.querySelectorAll("[data-cliedit]").forEach(b=>b.onclick=()=>{const c=(S.clients||[]).find(x=>x.id===b.dataset.cliedit);if(c)cliModal(c)});

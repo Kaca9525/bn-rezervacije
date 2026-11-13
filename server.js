@@ -279,6 +279,26 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_klijenti'").get()) {
     db.prepare("INSERT INTO settings(key,json) VALUES('mig_klijenti','true')").run();
   })();
 }
+/* blokirani klijenti (npr. posle nedolaska): ne mogu da zakazuju online; salon i dalje može da ih upiše ručno.
+   blocked = vreme blokiranja (NULL = nije blokiran), blockNote = interna napomena (klijent je ne vidi) */
+try { db.exec("ALTER TABLE clients ADD COLUMN blocked TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE clients ADD COLUMN blockNote TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE clients ADD COLUMN blockedBy TEXT"); } catch (e) {}
+/* klijent je blokiran ako se poklapa broj telefona ili e-mail nekog blokiranog klijenta iz adresara */
+function isBlockedClient(email, tel) {
+  const t = normTel(tel), mail = String(email || "").trim().toLowerCase();
+  if (!t && !mail) return false;
+  return !!db.prepare("SELECT 1 FROM clients WHERE blocked IS NOT NULL AND ((telN IS NOT NULL AND telN=?) OR (email IS NOT NULL AND lower(email)=?))").get(t || "\u0000", mail || "\u0000");
+}
+function blockedSets() {
+  const tels = new Set(), mails = new Set();
+  for (const r of db.prepare("SELECT telN,email FROM clients WHERE blocked IS NOT NULL").all()) {
+    if (r.telN) tels.add(r.telN); if (r.email) mails.add(String(r.email).toLowerCase());
+  }
+  return { tels, mails, has: (email, tel) => tels.has(normTel(tel)) || mails.has(String(email || "").toLowerCase()) };
+}
+const BLOCKED_MSG = "Nažalost, online zakazivanje trenutno nije dostupno za vaš nalog. Za termin nas, molimo, kontaktirajte direktno na +381 64 93 55 003.";
+
 /* posle termina: zapamti klijenta ako ga nema (postojeći podaci se ne prepisuju, samo se dopuni mejl) */
 function rememberClient(name, tel, email, source) {
   const t = normTel(tel), nm = String(name || "").trim(), mail = String(email || "").trim().toLowerCase() || null;
@@ -511,6 +531,7 @@ function me(req) {
   const u = db.prepare("SELECT email,ime,prezime,telefon,consent FROM users WHERE email=?").get(email);
   if (!u) return null;
   return { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: isAdminEmail(email), staff: isStaffEmail(email), needConsent: !u.consent,
+    blocked: isBlockedClient(u.email, u.telefon) || undefined,
     sys: ADMIN_EMAILS.includes(email) ? { persistent: PERSISTENT, secretFromEnv: SECRET_FROM_ENV, bazaOd: BAZA_OD } : undefined };
 }
 const auth = (req, res, next) => { const u = me(req); if (!u) return res.status(401).json({ error: "Prijavite se." }); req.user = u; next(); };
@@ -576,7 +597,7 @@ app.post("/api/login", (req, res) => {
   if (!u) return res.status(404).json({ error: "Nalog nije pronađen. Proverite unos ili se registrujte." });
   if (scrypt(pw, u.salt) !== u.hash) return res.status(401).json({ error: "Pogrešna lozinka." });
   res.cookie("bn", sign(u.email), { httpOnly: true, sameSite: "lax", maxAge: 180 * 864e5 });
-  res.json({ me: { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: isAdminEmail(u.email), staff: isStaffEmail(u.email), needConsent: !u.consent } });
+  res.json({ me: { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: isAdminEmail(u.email), staff: isStaffEmail(u.email), needConsent: !u.consent, blocked: isBlockedClient(u.email, u.telefon) || undefined } });
 });
 app.post("/api/logout", (req, res) => { res.clearCookie("bn"); res.json({ ok: true }); });
 
@@ -646,6 +667,8 @@ app.post("/api/bookings", auth, (req, res) => {
   const { services: items, employee: wantEmp, date, start } = req.body || {};
   if (!Array.isArray(items) || !items.length || !validDate(date) || !validTime(start))
     return res.status(400).json({ error: "Nepotpuni podaci rezervacije." });
+  if (isBlockedClient(req.user.email, req.user.telefon))
+    return res.status(403).json({ error: BLOCKED_MSG, code: "blocked" });
   if (!normTel(req.user.telefon))
     return res.status(400).json({ error: "Dodajte broj telefona u nalog - na njega stižu SMS podsetnici za termin.", code: "phone" });
   /* stavka je id usluge ili {id, pkg:{qty,label,price}} kad je klijent na kartici izabrao paket; paket mora i dalje da
@@ -766,7 +789,9 @@ app.post("/api/bookings/:id/cancel", auth, (req, res) => {
 /* ---- admin ---- */
 app.get("/api/admin/bookings", auth, staff, (req, res) => {
   const from = validDate(req.query.from || "") ? req.query.from : dstr(new Date());
-  res.json(db.prepare("SELECT * FROM bookings WHERE date>=? ORDER BY date,start").all(from).map(bkRow));
+  const bl = blockedSets();
+  res.json(db.prepare("SELECT * FROM bookings WHERE date>=? ORDER BY date,start").all(from).map(bkRow)
+    .map(b => bl.has(b.userEmail, b.userTel) ? { ...b, blocked: true } : b));
 });
 app.post("/api/admin/hours", auth, admin, (req, res) => {
   const H = req.body || {};
@@ -1220,7 +1245,15 @@ app.post("/api/admin/emp-hours/:emp/date-del", auth, admin, (req, res) => {
 });
 
 /* ---- klijenti ---- */
-const cliOut = r => ({ id: r.id, name: r.name, tel: r.tel || "", email: r.email || "", note: r.note || "", source: r.source || "", created: r.created });
+const cliOut = r => ({ id: r.id, name: r.name, tel: r.tel || "", email: r.email || "", note: r.note || "", source: r.source || "", created: r.created,
+  ...(r.blocked ? { blocked: r.blocked, blockNote: r.blockNote || "", blockedBy: r.blockedBy || "" } : {}) });
+/* blokiranje / odblokiranje: samo administrator; klijent se ne obaveštava */
+function setBlock(id, on, note, by) {
+  if (on) db.prepare("UPDATE clients SET blocked=?, blockNote=?, blockedBy=? WHERE id=?")
+    .run(new Date().toISOString(), String(note || "").trim().slice(0, 300) || null, by, id);
+  else db.prepare("UPDATE clients SET blocked=NULL, blockNote=NULL, blockedBy=NULL WHERE id=?").run(id);
+  return cliOut(db.prepare("SELECT * FROM clients WHERE id=?").get(id));
+}
 function checkCli(body, exceptId) {
   const name = String(body.name || "").trim().slice(0, 120), tel = String(body.tel || "").trim().slice(0, 40);
   const email = String(body.email || "").trim().toLowerCase().slice(0, 120), note = String(body.note || "").trim().slice(0, 300);
@@ -1259,6 +1292,25 @@ app.post("/api/admin/client/:id", auth, staff, (req, res) => {
   if (c.error) return res.status(c.status || 400).json({ error: c.error });
   db.prepare("UPDATE clients SET name=?,tel=?,telN=?,email=?,note=? WHERE id=?").run(c.name, c.tel, c.telN, c.email, c.note, r.id);
   res.json({ client: cliOut(db.prepare("SELECT * FROM clients WHERE id=?").get(r.id)) });
+});
+app.post("/api/admin/client/:id/block", auth, admin, (req, res) => {
+  const r = db.prepare("SELECT id FROM clients WHERE id=?").get(req.params.id);
+  if (!r) return res.status(404).json({ error: "Klijent nije pronađen." });
+  const b = req.body || {};
+  res.json({ client: setBlock(r.id, b.blocked !== false, b.note, req.user.email) });
+});
+/* iz rezervacije („nije došla"): klijent se nađe po broju telefona (ili se upiše u adresar) i blokira */
+app.post("/api/admin/booking/:id/block", auth, admin, (req, res) => {
+  const bk = db.prepare("SELECT * FROM bookings WHERE id=?").get(req.params.id);
+  if (!bk) return res.status(404).json({ error: "Rezervacija nije pronađena." });
+  const b = req.body || {}, on = b.blocked !== false;
+  const t = normTel(bk.userTel), mail = String(bk.userEmail || "").trim().toLowerCase();
+  if (t) rememberClient(bk.userName, bk.userTel, mail, bk.source === "manual" ? "rucni unos" : "online");
+  let rows = db.prepare("SELECT id FROM clients WHERE (telN IS NOT NULL AND telN=?) OR (email IS NOT NULL AND lower(email)=?)").all(t || "\u0000", mail || "\u0000");
+  if (!rows.length) return res.status(400).json({ error: "Uz ovaj termin nema ispravnog broja telefona ni e-maila - klijenta nije moguće blokirati." });
+  let client = null;
+  for (const r of rows) client = setBlock(r.id, on, b.note, req.user.email);
+  res.json({ client });
 });
 app.post("/api/admin/client-del/:id", auth, admin, (req, res) => {
   db.prepare("DELETE FROM clients WHERE id=?").run(req.params.id);
