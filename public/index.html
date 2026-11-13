@@ -2390,8 +2390,33 @@ function admEmp(){
       <button class="btn ${e.active!==false?"btn-danger":"btn-gold"} btn-sm" data-emptoggle="${esc(e.id)}">${isDev(e)?(e.active!==false?"Isključi":"Uključi"):(e.active!==false?"Pošalji na odmor":"Vrati u ponudu")}</button>
     </div>`).join("")}
   </div>
+  <div class="rule"><h2>Pristup osoblja</h2></div>
+  ${admStaff()}
   <div class="rule"><h2>Radno vreme zaposlenih</h2></div>
   ${admEmpHours()}`;
+}
+/* osoblje: unos, izmena, pomeranje i potvrda termina klijenata, adresar klijenata, vaučeri i podsetnici
+   (bez cenovnika, radnog vremena, zaposlenih i rezervne kopije - to ostaje samo administratoru) */
+function loadStaff(){
+  if(S.stLoading)return;S.stLoading=true;
+  apiGet("/api/admin/staff").then(d=>{S.staffAcc=d}).catch(()=>{S.staffAcc={admins:[],env:[],list:[]}})
+    .finally(()=>{S.stLoading=false;if(S.view==="admin"&&S.admTab==="emp")rerenderAdm()});
+}
+function admStaff(){
+  const d=S.staffAcc;if(!d){loadStaff();return`<div class="card"><p class="note">Učitavanje…</p></div>`}
+  const row=(nm,sub,pill,btn)=>`<div class="adm-svc" style="grid-template-columns:1fr auto auto"><div class="nm">${nm}<small>${sub}</small></div><span class="pill pill-ok">${pill}</span>${btn||"<span></span>"}</div>`;
+  return `
+  <p class="sub">Upišite e-mail osobe koja sme da <b>unosi termine klijenata, menja ih i pomera</b> (potvrda zahteva, ručni unos, kalendar, klijenti, podsetnici, vaučeri). Cenovnik, radno vreme i zaposlene ostaju samo administratoru. Osoba se prijavljuje svojim nalogom sa tom adresom (ako ga nema, registruje se) i odmah dobija karticu „Admin".</p>
+  <div class="card">
+    ${d.admins.map(e=>row(esc(e),"Administrator - pun pristup","Admin")).join("")}
+    ${d.env.filter(e=>!d.admins.includes(e)).map(e=>row(esc(e),"Podešeno na serveru (STAFF_EMAILS)","Osoblje")).join("")}
+    ${d.list.map(x=>row(esc(x.ime||x.email),x.ime?esc(x.email):(x.registered?"":"još nema nalog - pristup dobija čim se registruje ovom adresom"),"Osoblje",`<button class="btn btn-danger btn-sm" data-staffdel="${esc(x.email)}">Ukloni</button>`)).join("")}
+    <div id="st-err" class="err hidden" style="margin-top:12px"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px">
+      <div class="field" style="flex:1 1 220px;margin:0"><label for="st-email">E-mail osobe</label><input id="st-email" type="email" autocomplete="off" placeholder="npr. ime.prezime@gmail.com"></div>
+      <button class="btn btn-gold" id="st-add">Dodaj pristup</button>
+    </div>
+  </div>`;
 }
 function admAkc(){
   const list=S.services.filter(s=>s.cat==="akcije").sort((a,b)=>a.name.localeCompare(b.name,"sr"));
@@ -2615,6 +2640,19 @@ function wire(root){
     if(!b.dataset.arm){b.dataset.arm="1";b.classList.add("arm");b.title="Klikni ponovo za brisanje";toast("Kliknite ponovo na kantu da potvrdite brisanje.");setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.classList.remove("arm");b.title="Obriši uslugu"}},4000);return}
     b.disabled=true;
     try{await apiPost("/api/admin/service-del/"+encodeURIComponent(id));S.services=S.services.filter(s=>s.id!==id);S.cart=S.cart.filter(s=>s.id!==id);toast("Usluga je obrisana.");render()}
+    catch(e){toast(e.message);b.disabled=false}
+  });
+  const stAdd=root.querySelector("#st-add");
+  if(stAdd)stAdd.onclick=async()=>{
+    const inp=$("#st-email"),er=$("#st-err"),email=inp.value.trim();er.classList.add("hidden");
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){er.textContent="Unesite ispravnu e-mail adresu.";er.classList.remove("hidden");inp.focus();return}
+    stAdd.disabled=true;
+    try{S.staffAcc=await apiPost("/api/admin/staff",{email});toast("Pristup dodat: "+email);rerenderAdm()}
+    catch(e){er.textContent=e.message;er.classList.remove("hidden");stAdd.disabled=false}
+  };
+  root.querySelectorAll("[data-staffdel]").forEach(b=>b.onclick=async()=>{
+    b.disabled=true;
+    try{S.staffAcc=await apiPost("/api/admin/staff",{email:b.dataset.staffdel,remove:true});toast("Pristup uklonjen.");rerenderAdm()}
     catch(e){toast(e.message);b.disabled=false}
   });
   root.querySelectorAll("[data-emptoggle]").forEach(b=>b.onclick=async()=>{

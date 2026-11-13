@@ -233,6 +233,17 @@ setInterval(dailyBackup, 60 * 60 * 1000);
 
 const getSetting = k => { const r = db.prepare("SELECT json FROM settings WHERE key=?").get(k); return r ? JSON.parse(r.json) : null; };
 const setSetting = (k, v) => db.prepare("INSERT OR REPLACE INTO settings(key,json) VALUES(?,?)").run(k, JSON.stringify(v));
+/* osoblje (unos, izmena i pomeranje termina, klijenti): STAFF_EMAILS iz okruženja + adrese koje admin doda u aplikaciji
+   (Admin → Zaposlene → „Pristup osoblja"); čuva se u bazi, pa važi odmah i ostaje posle deploy-a */
+const staffDbEmails = () => { const v = getSetting("staffEmails"); return Array.isArray(v) ? v : []; };
+const isAdminEmail = e => ADMIN_EMAILS.includes(String(e || "").toLowerCase());
+/* jednokratno: Milica Kojić (mica.kojic01@gmail.com) dobija pristup osoblja - admin je može ukloniti u aplikaciji */
+if (!getSetting("mig_staff_mica")) {
+  const cur = Array.isArray(getSetting("staffEmails")) ? getSetting("staffEmails") : [];
+  if (!cur.includes("mica.kojic01@gmail.com")) setSetting("staffEmails", [...cur, "mica.kojic01@gmail.com"]);
+  setSetting("mig_staff_mica", true);
+}
+const isStaffEmail = e => { const m = String(e || "").toLowerCase(); return STAFF_EMAILS.includes(m) || staffDbEmails().includes(m); };
 /* jednokratno: napomene tipa „Paket od 10 tretmana: 25.000 RSD" postaju paketi koje admin menja dugmetom „Paketi";
    na kartici se prikazuju isto kao do sada */
 if (!getSetting("mig_packages_v1")) {
@@ -257,7 +268,7 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key='mig_klijenti'").get()) {
     const t = normTel(r.userTel), nm = String(r.userName || "").trim();
     if (t && nm) seen.set(t, { name: nm, tel: String(r.userTel).trim(), email: (r.userEmail || "").toLowerCase() || null, created: r.created });
   }
-  const staffMails = new Set([...ADMIN_EMAILS, ...STAFF_EMAILS]);
+  const staffMails = new Set([...ADMIN_EMAILS, ...STAFF_EMAILS, ...staffDbEmails()]);
   for (const u of db.prepare("SELECT email,ime,prezime,telefon,created FROM users").all()) {
     const t = normTel(u.telefon);
     if (t && !seen.has(t) && !staffMails.has(u.email))
@@ -499,7 +510,7 @@ function me(req) {
   if (!email) return null;
   const u = db.prepare("SELECT email,ime,prezime,telefon,consent FROM users WHERE email=?").get(email);
   if (!u) return null;
-  return { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: ADMIN_EMAILS.includes(email), staff: STAFF_EMAILS.includes(email), needConsent: !u.consent,
+  return { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: isAdminEmail(email), staff: isStaffEmail(email), needConsent: !u.consent,
     sys: ADMIN_EMAILS.includes(email) ? { persistent: PERSISTENT, secretFromEnv: SECRET_FROM_ENV, bazaOd: BAZA_OD } : undefined };
 }
 const auth = (req, res, next) => { const u = me(req); if (!u) return res.status(401).json({ error: "Prijavite se." }); req.user = u; next(); };
@@ -553,7 +564,7 @@ app.post("/api/register", async (req, res) => {
   db.prepare("INSERT INTO users(email,ime,prezime,telefon,salt,hash,created,consent) VALUES(?,?,?,?,?,?,?,?)")
     .run(email, ime, prezime, telefon, salt, scrypt(String(pw), salt), new Date().toISOString(), new Date().toISOString());
   res.cookie("bn", sign(email), { httpOnly: true, sameSite: "lax", maxAge: 180 * 864e5 });
-  res.json({ me: { email, ime, prezime, telefon, admin: ADMIN_EMAILS.includes(email), staff: STAFF_EMAILS.includes(email) } });
+  res.json({ me: { email, ime, prezime, telefon, admin: isAdminEmail(email), staff: isStaffEmail(email) } });
 });
 app.post("/api/login", (req, res) => {
   const ident = String((req.body || {}).ident || "").trim();
@@ -565,7 +576,7 @@ app.post("/api/login", (req, res) => {
   if (!u) return res.status(404).json({ error: "Nalog nije pronađen. Proverite unos ili se registrujte." });
   if (scrypt(pw, u.salt) !== u.hash) return res.status(401).json({ error: "Pogrešna lozinka." });
   res.cookie("bn", sign(u.email), { httpOnly: true, sameSite: "lax", maxAge: 180 * 864e5 });
-  res.json({ me: { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: ADMIN_EMAILS.includes(u.email), staff: STAFF_EMAILS.includes(u.email), needConsent: !u.consent } });
+  res.json({ me: { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: isAdminEmail(u.email), staff: isStaffEmail(u.email), needConsent: !u.consent } });
 });
 app.post("/api/logout", (req, res) => { res.clearCookie("bn"); res.json({ ok: true }); });
 
@@ -610,7 +621,7 @@ app.post("/api/reset", (req, res) => {
   db.prepare("UPDATE users SET salt=?, hash=?, resetHash=NULL, resetExp=NULL WHERE email=?")
     .run(salt, scrypt(pw, salt), u.email);
   res.cookie("bn", sign(u.email), { httpOnly: true, sameSite: "lax", maxAge: 180 * 864e5 });
-  res.json({ me: { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: ADMIN_EMAILS.includes(u.email), staff: STAFF_EMAILS.includes(u.email) } });
+  res.json({ me: { email: u.email, ime: u.ime, prezime: u.prezime, telefon: u.telefon, admin: isAdminEmail(u.email), staff: isStaffEmail(u.email) } });
 });
 app.get("/api/me", (req, res) => res.json({ me: me(req) }));
 /* dopuna broja telefona (stari nalozi bez broja) */
@@ -797,6 +808,28 @@ app.post("/api/admin/employee/:id", auth, admin, (req, res) => {
   db.prepare("UPDATE employees SET active=? WHERE id=?").run(req.body && req.body.active ? 1 : 0, e.id);
   res.json({ employee: empRow(db.prepare("SELECT * FROM employees WHERE id=?").get(e.id)) });
 });
+/* pristup osoblja: admin upisuje e-mail osobe koja sme da unosi i menja termine klijenata */
+const staffList = () => ({
+  admins: ADMIN_EMAILS,
+  env: STAFF_EMAILS,
+  list: staffDbEmails().map(email => {
+    const u = db.prepare("SELECT ime,prezime FROM users WHERE email=?").get(email);
+    return { email, ime: u ? ((u.ime || "") + " " + (u.prezime || "")).trim() : null, registered: !!u };
+  }),
+});
+app.get("/api/admin/staff", auth, admin, (req, res) => res.json(staffList()));
+app.post("/api/admin/staff", auth, admin, (req, res) => {
+  const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+  const remove = !!(req.body && req.body.remove);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 120) return res.status(400).json({ error: "Unesite ispravnu e-mail adresu." });
+  const cur = staffDbEmails();
+  if (remove) setSetting("staffEmails", cur.filter(e => e !== email));
+  else {
+    if (ADMIN_EMAILS.includes(email)) return res.status(400).json({ error: "Ova adresa je već administrator." });
+    if (!cur.includes(email)) setSetting("staffEmails", [...cur, email]);
+  }
+  res.json(staffList());
+});
 const SVC_CATS = ["lice", "telo", "masaze", "akcije", "edu"];
 app.post("/api/admin/service-new", auth, admin, (req, res) => {
   const { name, desc, price, oldPrice, duration, emps } = req.body || {};
@@ -882,7 +915,7 @@ app.post("/api/admin/vouchers/:id", auth, staff, (req, res) => {
 app.get("/api/admin/backup", auth, admin, (req, res) => {
   const data = {
     exportedAt: new Date().toISOString(),
-    settings: { hours: getSetting("hours"), salon: getSetting("salon") },
+    settings: { hours: getSetting("hours"), salon: getSetting("salon"), staffEmails: staffDbEmails() },
     employees: db.prepare("SELECT * FROM employees").all().map(empRow),
     services: db.prepare("SELECT * FROM services").all().map(svcRow),
     users: db.prepare("SELECT * FROM users").all(),
@@ -921,6 +954,8 @@ app.post("/api/admin/restore", auth, admin, (req, res) => {
       for (const r of d.services || []) if (r && r.id) n.services += put("REPLACE", "services", { aparat: false, ...r });
       const st = d.settings || {};
       for (const k of ["hours", "salon"]) if (st[k]) setSetting(k, st[k]);
+      /* pristup osoblja se samo dopunjuje adresama iz kopije */
+      if (Array.isArray(st.staffEmails)) setSetting("staffEmails", [...new Set([...staffDbEmails(), ...st.staffEmails.map(e => String(e).toLowerCase())])]);
     })();
   } catch (e) { console.error(e); return res.status(400).json({ error: "Kopija nije vraćena: " + e.message }); }
   res.json({ ok: true, added: n });
