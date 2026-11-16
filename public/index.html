@@ -626,10 +626,20 @@ function copyText(t){ (navigator.clipboard&&navigator.clipboard.writeText?naviga
 
 async function api(path,opts){
   const r=await fetch(path,Object.assign({headers:{"Content-Type":"application/json"},credentials:"same-origin"},opts||{}));
+  noteVer(r.headers.get("X-App-Ver"));
   let j=null;try{j=await r.json()}catch(e){}
   if(!r.ok){const e=new Error((j&&j.error)||("Greška ("+r.status+")"));e.data=j||{};e.status=r.status;throw e}
   return j;
 }
+/* nova verzija aplikacije posle deploy-a: strana koja je dugo ostala otvorena (Safari tab, ikonica na početnom ekranu)
+   sama se osveži čim se vrati u prvi plan, ako nije otvoren nijedan prozor (da se ne izgubi upisan termin) */
+let APP_VER=null,APP_STALE=false;
+function noteVer(v){if(!v)return;if(!APP_VER)APP_VER=v;else if(v!==APP_VER)APP_STALE=true}
+function reloadIfStale(){if(APP_STALE&&!document.querySelector("#modal-root .modal"))location.reload()}
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState!=="visible")return;
+  fetch("/api/ver",{cache:"no-store",credentials:"same-origin"}).then(r=>r.json()).then(d=>{noteVer(d&&d.v);reloadIfStale()}).catch(()=>{});
+});
 const apiGet=p=>api(p);
 const apiPost=(p,b)=>api(p,{method:"POST",body:JSON.stringify(b||{})});
 

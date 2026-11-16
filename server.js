@@ -498,6 +498,11 @@ const jsonSmall = express.json(), jsonBig = express.json({ limit: "50mb" });
 app.use((req, res, next) => (req.path === "/api/admin/restore" ? jsonBig : jsonSmall)(req, res, next));
 app.use(cookieParser());
 app.use(compression());  // gzip: strana, cenovnik (/api/public) i ostali odgovori idu do 4x manji
+/* verzija aplikacije (otisak index.html): svaki /api odgovor je nosi u zaglavlju X-App-Ver, pa telefon na kome je
+   ostala otvorena stara strana (npr. Safari tab ili ikonica na početnom ekranu) sam učita novu verziju posle deploy-a */
+const APP_VER = (() => { try { return crypto.createHash("sha1").update(fs.readFileSync(path.join(__dirname, "public", "index.html"))).digest("hex").slice(0, 12); } catch (e) { return String(Date.now()); } })();
+app.use("/api", (req, res, next) => { res.setHeader("X-App-Ver", APP_VER); next(); });
+app.get("/api/ver", (req, res) => { res.setHeader("Cache-Control", "no-store"); res.json({ v: APP_VER }); });
 /* keširanje: slike, ikone i fontovi 1 dan (posle toga pregledač proverava da li su promenjeni);
    HTML, JS i JSON se proveravaju pri svakom otvaranju, pa se nova verzija sajta vidi odmah posle postavljanja */
 app.use(express.static(path.join(__dirname, "public"), {
