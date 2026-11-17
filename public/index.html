@@ -383,6 +383,9 @@ input,select,textarea{font:inherit;color:var(--ink)}
   padding:18px;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
 .modal{background:var(--surface);border-radius:20px;max-width:580px;width:100%;max-height:min(84vh,780px);max-height:min(calc(100dvh - 36px),780px);overflow:auto;padding:26px;border:1px solid var(--line);box-shadow:var(--shadow-lg)}
 .modal h3{font-family:var(--ff-disp);font-size:26px;font-weight:600;margin:0 0 12px}
+/* X za zatvaranje - ostaje u gornjem desnom uglu i kad se prozor skroluje */
+.modal-x{position:sticky;top:-10px;float:right;z-index:3;width:38px;height:38px;margin:-14px -14px 4px 10px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:24px;line-height:1;display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:0;-webkit-tap-highlight-color:transparent}
+.modal-x:hover{border-color:var(--gold);color:var(--gold-strong)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));background:var(--band);color:var(--band-gold);padding:12px 24px;border-radius:999px;font-weight:700;font-size:13.5px;z-index:80;box-shadow:var(--shadow-lg);max-width:90vw;text-align:center;border:1px solid rgba(227,199,132,.35)}
 .loading{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13.5px;padding:30px 0}
 .loading::before{content:"";width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:sp 1s linear infinite}
@@ -469,7 +472,8 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .mblock-h{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px}
 .mblock-h b{font-family:var(--ff-disp);font-size:19px;font-weight:600}
 .m3{display:grid;grid-template-columns:1.2fr 1fr .8fr;gap:0 10px}
-.m3 .field{margin-bottom:10px}
+.m3 .field{margin-bottom:10px;min-width:0}
+.m3 input[type=date],.m3 input[type=time]{min-width:0;max-width:100%;display:block}
 .msvcs{display:grid;gap:10px}
 .mrow{border:1px dashed var(--line);border-radius:12px;padding:10px}
 .mrow-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
@@ -851,7 +855,7 @@ function calModal(svcId){
   const dur=list.reduce((a,x)=>a+(+x.duration||0),0);
   const draw=()=>{
     const m=$("#modal-root .modal");if(!m)return;
-    m.innerHTML=`<h3>${esc(s.name)}</h3>
+    m.innerHTML=`${MODAL_X}<h3>${esc(s.name)}</h3>
       <p class="note" style="margin:-4px 0 14px">${list.length>1?"Zajedno sa uslugama iz korpe · ":""}trajanje ${durTxt(dur)}. Izaberite dan, pa slobodan termin.</p>
       ${calMonthHTML(st.off,st.date,"cmday")}
       <div id="cm-slots" style="margin-top:14px"></div>
@@ -859,7 +863,7 @@ function calModal(svcId){
         <button class="btn btn-gold btn-sm" id="cm-go" ${st.date&&st.slot!=null?"":"disabled"}>${st.date&&st.slot!=null?"Nastavi · "+esc(st.date.split("-").reverse().slice(0,2).join(".")+". u "+toHM(st.slot)):"Nastavi"}</button>
         <button class="btn btn-ghost btn-sm" id="m-close">Zatvori</button>
       </div>`;
-    m.querySelector("#m-close").onclick=closeModal;
+    m.querySelector("#m-close").onclick=closeModal;m.querySelector("[data-mx]").onclick=closeModal;
     m.querySelectorAll("[data-cmday-off]").forEach(b=>b.onclick=()=>{if(b.disabled)return;st.off=+b.dataset.cmdayOff;draw()});
     m.querySelectorAll("[data-cmday-sel]").forEach(s=>s.onchange=()=>{st.off=+s.value;draw();const x=m.querySelector("[data-cmday-sel]");if(x)x.focus({preventScroll:true})});
     m.querySelectorAll("[data-cmday]").forEach(b=>b.onclick=()=>{if(b.disabled)return;st.date=b.dataset.cmday;st.slot=null;draw()});
@@ -1374,11 +1378,14 @@ function resetModal(token){
     }catch(e){err(e.message);btn.disabled=false}
   };
 }
+const MODAL_X=`<button type="button" class="modal-x" data-mx aria-label="Zatvori" title="Zatvori">×</button>`;
 function showModal(html,cls){
   const r=$("#modal-root");
-  r.innerHTML=`<div class="modal-bg" id="m-bg"><div class="modal ${cls||""}" role="dialog" aria-modal="true">${html}</div></div>`;
+  const x=/\bm-photo\b/.test(cls||"")?"":MODAL_X;
+  r.innerHTML=`<div class="modal-bg" id="m-bg"><div class="modal ${cls||""}" role="dialog" aria-modal="true">${x}${html}</div></div>`;
+  r.querySelectorAll("[data-mx]").forEach(b=>b.onclick=closeModal);
   $("#m-bg").addEventListener("click",e=>{if(e.target.id==="m-bg")closeModal()});
-  const x=$("#m-close");if(x)x.onclick=closeModal;
+  const mc=$("#m-close");if(mc)mc.onclick=closeModal;
   wireEyes(r);
   r.querySelectorAll("[data-copymail]").forEach(b=>b.onclick=()=>copyText(b.dataset.copymail));
 }
