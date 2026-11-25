@@ -398,7 +398,7 @@ const durTxt = m => m >= 60 ? (Math.floor(m / 60) + "h" + (m % 60 ? " " + (m % 6
 const RSD = n => new Intl.NumberFormat("sr-RS").format(n) + " RSD";
 const money = (r, e) => [e ? new Intl.NumberFormat("sr-RS").format(e) + " €" : null, r ? RSD(r) : null].filter(Boolean).join(" + ") || RSD(0);
 /* avans 30% je obavezan za sve usluge, tretmane i edukacije - uplata na tekući račun (podaci idu i u aplikaciju, /api/public) */
-const AVANS = { pct: 30, racun: "160-6000001958308-27", primalac: "Andrijana Obradović", svrha: "Avans" };
+const AVANS = { pct: 30, racun: "160-6000000014828-88", primalac: "Andrijana Obradović", svrha: "Avans" };
 const avansAmt = (r, e) => ({ r: Math.round((+r || 0) * AVANS.pct / 100), e: Math.round((+e || 0) * AVANS.pct) / 100 });
 /* blok za mejl potvrde; bez iznosa ako cena nije poznata */
 function avansText(r, e) {
