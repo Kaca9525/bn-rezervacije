@@ -1455,7 +1455,7 @@ async function renderSlots(){
   }catch(e){area.innerHTML=`<p class="note">Termine trenutno nije moguće učitati. Pokušajte ponovo.</p>`}
 }
 /* avans 30% je obavezan za sve usluge, tretmane i edukacije; podaci za uplatu dolaze sa servera (/api/public), ovo je rezerva */
-const AVANS0={pct:30,racun:"160-6000001958308-27",primalac:"Andrijana Obradović",svrha:"Avans"};
+const AVANS0={pct:30,racun:"160-6000000014828-88",primalac:"Andrijana Obradović",svrha:"Avans"};
 const avansCfg=()=>S.avans||AVANS0;
 const avansAmt=(r,e)=>{const p=avansCfg().pct;return {r:Math.round((+r||0)*p/100),e:Math.round((+e||0)*p)/100}};
 /* kratka napomena u pregledu pre potvrde rezervacije */
